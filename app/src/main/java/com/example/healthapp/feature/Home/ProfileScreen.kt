@@ -1,4 +1,4 @@
-package com.example.healthapp
+package com.example.healthapp.feature.Home
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -26,19 +26,24 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
-
-
+import com.example.healthapp.ui.theme.AestheticColors
+import com.example.healthapp.ui.theme.DarkAesthetic
+import com.example.healthapp.ui.theme.LightAesthetic
 
 @Composable
 fun ProfileScreen(
     modifier: Modifier = Modifier,
-    onLogoutClick: () -> Unit = {}
+    onLogoutClick: () -> Unit = {},
+    isDarkTheme: Boolean // Nhận trạng thái theme
 ) {
     val isPreview = LocalInspectionMode.current
     var isVisible by remember { mutableStateOf(isPreview) }
+
+    // 1. CHỌN MÀU DỰA TRÊN THEME
+    val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
 
     LaunchedEffect(Unit) {
         if (!isPreview) isVisible = true
@@ -59,20 +64,20 @@ fun ProfileScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0F172A))
+            .background(colors.background) // Dùng màu động
     ) {
-        // 1. Consistent Background Orbs
+        // 2. Background Orbs (Đồng bộ với Settings)
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFF6366F1).copy(0.15f), Color.Transparent),
+                    colors = listOf(colors.gradientOrb1.copy(0.15f), Color.Transparent),
                     center = Offset(floatAnim % size.width, size.height * 0.8f)
                 ),
                 radius = 700f
             )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFFD946EF).copy(0.1f), Color.Transparent),
+                    colors = listOf(colors.gradientOrb2.copy(0.15f), Color.Transparent),
                     center = Offset(size.width - (floatAnim % size.width), size.height * 0.2f)
                 ),
                 radius = 600f
@@ -86,7 +91,7 @@ fun ProfileScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             contentPadding = PaddingValues(bottom = 32.dp)
         ) {
-            // 2. Profile Header
+            // Profile Header
             item {
                 AnimatedVisibility(
                     visible = isVisible,
@@ -103,19 +108,19 @@ fun ProfileScreen(
                                 .background(
                                     Brush.linearGradient(
                                         listOf(
-                                            Color(0xFF6366F1),
-                                            Color(0xFFD946EF)
+                                            colors.gradientOrb1, // Gradient động theo theme
+                                            colors.gradientOrb2
                                         )
                                     )
                                 )
-                                .border(4.dp, Color.White.copy(0.1f), CircleShape)
+                                .border(4.dp, colors.glassBorder, CircleShape)
                                 .shadow(20.dp, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 Icons.Default.Person,
                                 contentDescription = null,
-                                tint = Color.White,
+                                tint = Color.White, // Icon trong vòng tròn luôn màu trắng
                                 modifier = Modifier.size(60.dp)
                             )
                         }
@@ -127,38 +132,38 @@ fun ProfileScreen(
                             style = TextStyle(
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                shadow = Shadow(Color.Black.copy(0.5f), blurRadius = 8f)
+                                color = colors.textPrimary, // Chữ đậm màu theo theme
+                                shadow = if (isDarkTheme) Shadow(Color.Black.copy(0.5f), blurRadius = 8f) else null
                             )
                         )
                         Text(
                             text = "alex.johnson@example.com",
-                            color = Color.White.copy(0.6f),
+                            color = colors.textSecondary, // Chữ nhạt màu theo theme
                             fontSize = 14.sp
                         )
                     }
                 }
             }
 
-            // 3. Settings Items
+            // 3. Settings Items Container (Hiệu ứng kính)
             item {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp)
                         .clip(RoundedCornerShape(32.dp))
-                        .background(Color.White.copy(0.06f))
-                        .border(1.dp, Color.White.copy(0.1f), RoundedCornerShape(32.dp))
+                        .background(colors.glassContainer) // Kính mờ
+                        .border(1.dp, colors.glassBorder, RoundedCornerShape(32.dp)) // Viền mỏng
                         .padding(vertical = 8.dp)
                 ) {
-                    ProfileMenuItem(Icons.Default.PersonOutline, "Personal Info", isVisible, 1)
-                    ProfileMenuItem(Icons.Default.History, "Health History", isVisible, 2)
-                    ProfileMenuItem(Icons.Default.Shield, "Privacy & Security", isVisible, 3)
-                    ProfileMenuItem(Icons.Default.HelpOutline, "Support", isVisible, 4)
+                    ProfileMenuItem(Icons.Default.PersonOutline, "Personal Info", isVisible, 1, colors)
+                    ProfileMenuItem(Icons.Default.History, "Health History", isVisible, 2, colors)
+                    ProfileMenuItem(Icons.Default.Shield, "Privacy & Security", isVisible, 3, colors)
+                    ProfileMenuItem(Icons.Default.HelpOutline, "Support", isVisible, 4, colors)
                 }
             }
 
-            // 4. Logout Button
+            // Logout Button
             item {
                 Spacer(modifier = Modifier.height(32.dp))
                 AnimatedVisibility(
@@ -175,7 +180,7 @@ fun ProfileScreen(
                             containerColor = Color.Transparent
                         ),
                         shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, Color(0xFFEF4444).copy(0.5f))
+                        border = BorderStroke(1.dp, Color(0xFFEF4444).copy(0.7f)) // Màu đỏ giữ nguyên
                     ) {
                         Text("Log Out", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold)
                     }
@@ -190,7 +195,8 @@ fun ProfileMenuItem(
     icon: ImageVector,
     title: String,
     visible: Boolean,
-    index: Int
+    index: Int,
+    colors: AestheticColors // Truyền colors vào để dùng
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -202,16 +208,29 @@ fun ProfileMenuItem(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(icon, null, tint = Color(0xFF6366F1), modifier = Modifier.size(24.dp))
+            // Icon dùng màu Accent (Indigo/Blue)
+            Icon(icon, null, tint = colors.accent, modifier = Modifier.size(24.dp))
+
             Spacer(modifier = Modifier.width(16.dp))
-            Text(title, color = Color.White, modifier = Modifier.weight(1f))
-            Icon(Icons.Default.ChevronRight, null, tint = Color.White.copy(0.3f))
+
+            // Text dùng màu chính
+            Text(title, color = colors.textPrimary, modifier = Modifier.weight(1f))
+
+            // Mũi tên dùng màu phụ
+            Icon(Icons.Default.ChevronRight, null, tint = colors.textSecondary.copy(alpha = 0.5f))
         }
     }
 }
 
-@Preview
+// Preview cho cả 2 chế độ
+@Preview(name = "Dark Profile")
 @Composable
-fun ProfileScreenPreview() {
-    ProfileScreen()
+fun ProfileScreenDarkPreview() {
+    ProfileScreen(isDarkTheme = true)
+}
+
+@Preview(name = "Light Profile")
+@Composable
+fun ProfileScreenLightPreview() {
+    ProfileScreen(isDarkTheme = false)
 }

@@ -11,13 +11,26 @@ import com.example.healthapp.ui.theme.HealthAppTheme
 import androidx.activity.compose.BackHandler
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.healthapp.core.ViewModel.MainViewModel
+import com.example.healthapp.feature.Auth.ForgotPasswordScreen
+import com.example.healthapp.feature.Auth.LoginScreen
+import com.example.healthapp.feature.Auth.SignUpScreen
+import com.example.healthapp.feature.Home.HealthDashboardScreen
+import com.example.healthapp.feature.Home.NotificationsScreen
+import com.example.healthapp.feature.Home.ProfileScreen
+import com.example.healthapp.feature.Home.SettingsScreen
+import dagger.hilt.android.AndroidEntryPoint
 
+
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,6 +38,8 @@ class MainActivity : ComponentActivity() {
 
 
         setContent {
+            val mainViewModel: MainViewModel = hiltViewModel()
+            val isDark by mainViewModel.isDarkMode.collectAsState()
             HealthAppTheme {
 
                 val systemUiController = rememberSystemUiController()
@@ -89,22 +104,29 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(innerPadding),
                             onProfileClick = { currentScreen = "profile" },
                             onNotificationsClick = { currentScreen = "notifications" },
-                            onSettingsClick = { currentScreen = "settings" }
+                            onSettingsClick = { currentScreen = "settings" },
+                            isDark
                         )
 
                         "profile" -> ProfileScreen(
                             modifier = Modifier.padding(innerPadding),
-                            onLogoutClick = { currentScreen = "login" }
+                            onLogoutClick = { currentScreen = "login" },
+                            isDark
                         )
 
                         "notifications" -> NotificationsScreen(
                             modifier = Modifier.padding(innerPadding),
-                            onBackClick = { currentScreen = "dashboard" }
+                            onBackClick = { currentScreen = "dashboard" },
+                            isDark
                         )
 
                         "settings" -> SettingsScreen(
                             modifier = Modifier.padding(innerPadding),
-                            onBackClick = { currentScreen = "dashboard" }
+                            onBackClick = { currentScreen = "dashboard" },
+                            onThemeChanged = { isDarkMode ->
+                                mainViewModel.toggleTheme(isDarkMode)
+                            },
+                            isDark
                         )
                     }
                 }

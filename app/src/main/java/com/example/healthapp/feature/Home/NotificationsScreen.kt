@@ -1,5 +1,4 @@
-package com.example.healthapp
-
+package com.example.healthapp.feature.Home
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -14,10 +13,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.NightsStay
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,10 +31,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
-
+import com.example.healthapp.ui.theme.AestheticColors
+import com.example.healthapp.ui.theme.DarkAesthetic
+import com.example.healthapp.ui.theme.LightAesthetic
 
 data class NotificationItem(
     val id: Int,
@@ -49,10 +50,14 @@ data class NotificationItem(
 @Composable
 fun NotificationsScreen(
     modifier: Modifier = Modifier,
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    isDarkTheme: Boolean // Thêm tham số này
 ) {
     val isPreview = LocalInspectionMode.current
     var isVisible by remember { mutableStateOf(isPreview) }
+
+    // 1. CHỌN MÀU THEO THEME
+    val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
 
     LaunchedEffect(Unit) {
         if (!isPreview) isVisible = true
@@ -66,7 +71,7 @@ fun NotificationsScreen(
                 "You've reached your 10,000 steps goal for today. Keep it up!",
                 "10m ago",
                 Icons.Default.LocalFireDepartment,
-                Color(0xFF10B981)
+                Color(0xFF10B981) // Green
             ),
             NotificationItem(
                 2,
@@ -74,7 +79,7 @@ fun NotificationsScreen(
                 "Your heart rate was slightly higher during your morning rest.",
                 "1h ago",
                 Icons.Default.Favorite,
-                Color(0xFFEF4444)
+                Color(0xFFEF4444) // Red
             ),
             NotificationItem(
                 3,
@@ -82,7 +87,7 @@ fun NotificationsScreen(
                 "You had 2 hours of deep sleep last night. That's a 15% increase!",
                 "3h ago",
                 Icons.Default.NightsStay,
-                Color(0xFF8B5CF6)
+                Color(0xFF8B5CF6) // Purple
             ),
             NotificationItem(
                 4,
@@ -90,7 +95,7 @@ fun NotificationsScreen(
                 "Time to drink some water! You're 500ml away from your goal.",
                 "5h ago",
                 Icons.Default.Info,
-                Color(0xFF3B82F6)
+                Color(0xFF3B82F6) // Blue
             ),
             NotificationItem(
                 5,
@@ -98,7 +103,7 @@ fun NotificationsScreen(
                 "You've been sitting for over an hour. Time for a quick stretch!",
                 "Yesterday",
                 Icons.Default.Timer,
-                Color(0xFFF59E0B)
+                Color(0xFFF59E0B) // Orange
             ),
             NotificationItem(
                 6,
@@ -106,7 +111,7 @@ fun NotificationsScreen(
                 "Your weekly health report is ready to view.",
                 "Yesterday",
                 Icons.Default.Notifications,
-                Color(0xFF6366F1)
+                Color(0xFF6366F1) // Indigo
             )
         )
     }
@@ -125,20 +130,20 @@ fun NotificationsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0F172A))
+            .background(colors.background) // Màu nền động
     ) {
-        // 1. Consistent Dynamic Background
+        // 2. Background Animation
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFFD946EF).copy(0.12f), Color.Transparent),
+                    colors = listOf(colors.gradientOrb1.copy(0.12f), Color.Transparent),
                     center = Offset(floatAnim % size.width, size.height * 0.2f)
                 ),
                 radius = 700f
             )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFF6366F1).copy(0.15f), Color.Transparent),
+                    colors = listOf(colors.gradientOrb2.copy(0.15f), Color.Transparent),
                     center = Offset(size.width - (floatAnim % size.width), size.height * 0.8f)
                 ),
                 radius = 600f
@@ -148,7 +153,11 @@ fun NotificationsScreen(
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                OptiTopBar(title = "Notifications", onBackClick = onBackClick)
+                OptiTopBar(
+                    title = "Notifications",
+                    onBackClick = onBackClick,
+                    colors = colors // Truyền màu vào TopBar
+                )
             }
         ) { paddingValues ->
             LazyColumn(
@@ -162,7 +171,8 @@ fun NotificationsScreen(
                     NotificationCard(
                         notification = notification,
                         visible = isVisible,
-                        index = index
+                        index = index,
+                        colors = colors // Truyền màu vào Card
                     )
                 }
             }
@@ -171,7 +181,11 @@ fun NotificationsScreen(
 }
 
 @Composable
-fun OptiTopBar(title: String, onBackClick: () -> Unit) {
+fun OptiTopBar(
+    title: String,
+    onBackClick: () -> Unit,
+    colors: AestheticColors
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -180,15 +194,18 @@ fun OptiTopBar(title: String, onBackClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBackClick) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+            // Icon back đổi màu theo theme
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
         }
         Text(
             text = title,
             style = TextStyle(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
-                shadow = Shadow(Color.Black.copy(0.3f), blurRadius = 4f)
+                color = colors.textPrimary, // Chữ tiêu đề đổi màu
+                shadow = if (colors.background == DarkAesthetic.background)
+                    Shadow(Color.Black.copy(0.3f), blurRadius = 4f)
+                else null
             ),
             modifier = Modifier.padding(start = 8.dp)
         )
@@ -199,38 +216,37 @@ fun OptiTopBar(title: String, onBackClick: () -> Unit) {
 fun NotificationCard(
     notification: NotificationItem,
     visible: Boolean,
-    index: Int
+    index: Int,
+    colors: AestheticColors
 ) {
     AnimatedVisibility(
         visible = visible,
         enter = fadeIn(tween(600, index * 100)) + slideInHorizontally(
-            tween(
-                600,
-                index * 100
-            )
+            tween(600, index * 100)
         ) { it / 4 }
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(24.dp))
-                .background(Color.White.copy(0.07f))
-                .border(1.dp, Color.White.copy(0.1f), RoundedCornerShape(24.dp))
+                .background(colors.glassContainer) // Kính mờ động
+                .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
                 .padding(16.dp),
-
             verticalAlignment = Alignment.Top
         ) {
+            // Icon Container
             Box(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(notification.color.copy(alpha = 0.15f)),
+                    // Nền icon: Nếu ở Light mode thì cho đậm hơn 1 chút để dễ nhìn
+                    .background(notification.color.copy(alpha = if (colors == LightAesthetic) 0.1f else 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = notification.icon,
                     contentDescription = null,
-                    tint = notification.color,
+                    tint = notification.color, // Giữ màu gốc của notification
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -245,20 +261,20 @@ fun NotificationCard(
                 ) {
                     Text(
                         text = notification.title,
-                        color = Color.White,
+                        color = colors.textPrimary, // Tiêu đề đậm
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp
                     )
                     Text(
                         text = notification.time,
-                        color = Color.White.copy(0.4f),
+                        color = colors.textSecondary.copy(alpha = 0.7f), // Thời gian nhạt
                         fontSize = 12.sp
                     )
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = notification.description,
-                    color = Color.White.copy(0.7f),
+                    color = colors.textSecondary, // Nội dung nhạt vừa phải
                     fontSize = 14.sp,
                     lineHeight = 20.sp
                 )
@@ -267,8 +283,14 @@ fun NotificationCard(
     }
 }
 
-@Preview
+@Preview(name = "Dark Notifications")
 @Composable
-fun NotificationsPreview() {
-    NotificationsScreen()
+fun NotificationsDarkPreview() {
+    NotificationsScreen(isDarkTheme = true)
+}
+
+@Preview(name = "Light Notifications")
+@Composable
+fun NotificationsLightPreview() {
+    NotificationsScreen(isDarkTheme = false)
 }

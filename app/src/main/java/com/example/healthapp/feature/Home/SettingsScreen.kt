@@ -1,5 +1,4 @@
-package com.example.healthapp
-
+package com.example.healthapp.feature.Home
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -24,29 +23,34 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
+import com.example.healthapp.ui.theme.AestheticColors
+import com.example.healthapp.ui.theme.DarkAesthetic
+import com.example.healthapp.ui.theme.LightAesthetic
 
-
+//
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
-    onBackClick: () -> Unit = {}
+    onBackClick: () -> Unit = {},
+    onThemeChanged: (Boolean) -> Unit,
+    isDarkTheme: Boolean
 ) {
     val isPreview = LocalInspectionMode.current
     var isVisible by remember { mutableStateOf(isPreview) }
 
     // State for demo purposes
     var notificationsEnabled by remember { mutableStateOf(true) }
-    var darkModeEnabled by remember { mutableStateOf(true) }
     var biometricEnabled by remember { mutableStateOf(false) }
+
+    val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
 
     LaunchedEffect(Unit) {
         if (!isPreview) isVisible = true
     }
 
-    // Dynamic background animation matching other screens
     val infiniteTransition = rememberInfiniteTransition(label = "background")
     val floatAnim by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -61,20 +65,20 @@ fun SettingsScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF0F172A))
+            .background(colors.background) // Sử dụng màu động
     ) {
-        // 1. Consistent Background Design
+        // Background Animation (Giữ nguyên logic, thay màu)
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFF6366F1).copy(0.12f), Color.Transparent),
+                    colors = listOf(colors.gradientOrb1.copy(0.15f), Color.Transparent),
                     center = Offset(size.width * 0.2f, floatAnim % size.height)
                 ),
                 radius = 600f
             )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0xFFD946EF).copy(0.15f), Color.Transparent),
+                    colors = listOf(colors.gradientOrb2.copy(0.15f), Color.Transparent),
                     center = Offset(size.width - (floatAnim % size.width), size.height * 0.5f)
                 ),
                 radius = 700f
@@ -84,7 +88,7 @@ fun SettingsScreen(
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
-                SettingsTopBar(onBackClick)
+                SettingsTopBar(onBackClick, colors)
             }
         ) { paddingValues ->
             LazyColumn(
@@ -94,55 +98,61 @@ fun SettingsScreen(
                 contentPadding = PaddingValues(24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // 2. Preferences Group
+                // Preferences Group
                 item {
-                    SettingsSection(title = "App Preferences", visible = isVisible, delay = 100) {
+                    SettingsSection(title = "App Preferences", visible = isVisible, delay = 100, colors = colors) {
                         ToggleSettingItem(
                             icon = Icons.Default.NotificationsActive,
                             title = "Push Notifications",
                             checked = notificationsEnabled,
-                            onCheckedChange = { notificationsEnabled = it }
+                            onCheckedChange = { notificationsEnabled = it },
+                            colors = colors
                         )
-                        Divider(color = Color.White.copy(0.05f), thickness = 1.dp)
+                        Divider(color = colors.glassBorder, thickness = 1.dp)
                         ToggleSettingItem(
-                            icon = Icons.Default.DarkMode,
-                            title = "Dark Mode",
-                            checked = darkModeEnabled,
-                            onCheckedChange = { darkModeEnabled = it }
+                            icon =  if (!isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
+                            title =  if (!isDarkTheme) "Light Mode" else "Dark Mode",
+                            checked = isDarkTheme,
+                            onCheckedChange = { onThemeChanged(it) },
+                            colors = colors
                         )
                     }
                 }
 
-                // 3. Security Group
+                // Security Group
                 item {
-                    SettingsSection(title = "Security", visible = isVisible, delay = 300) {
+                    SettingsSection(title = "Security", visible = isVisible, delay = 300, colors = colors) {
                         ToggleSettingItem(
                             icon = Icons.Default.Fingerprint,
                             title = "Biometric Lock",
                             checked = biometricEnabled,
-                            onCheckedChange = { biometricEnabled = it }
+                            onCheckedChange = { biometricEnabled = it },
+                            colors = colors
                         )
-                        Divider(color = Color.White.copy(0.05f), thickness = 1.dp)
+                        Divider(color = colors.glassBorder, thickness = 1.dp)
                         ActionSettingItem(
                             icon = Icons.Default.VpnKey,
-                            title = "Change Password"
+                            title = "Change Password",
+                            colors = colors
                         )
                     }
                 }
 
-                // 4. Data & Localization
+                // Data & Localization
                 item {
-                    SettingsSection(title = "Localization", visible = isVisible, delay = 500) {
+                    SettingsSection(title = "Localization", visible = isVisible, delay = 500, colors = colors) {
                         ActionSettingItem(
                             icon = Icons.Default.Language,
                             title = "Language",
-                            value = "English (US)"
+                            value = "English (US)",
+                            colors = colors
                         )
-                        Divider(color = Color.White.copy(0.05f), thickness = 1.dp)
+                        Divider(color = colors.glassBorder, thickness = 1.dp)
                         ActionSettingItem(
                             icon = Icons.Default.Straighten,
                             title = "Units of Measure",
-                            value = "Metric"
+                            value = "Metric",
+                            colors = colors
                         )
                     }
                 }
@@ -152,7 +162,7 @@ fun SettingsScreen(
 }
 
 @Composable
-fun SettingsTopBar(onBackClick: () -> Unit) {
+fun SettingsTopBar(onBackClick: () -> Unit, colors: AestheticColors) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -161,15 +171,18 @@ fun SettingsTopBar(onBackClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(onClick = onBackClick) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
+            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
         }
         Text(
             text = "Settings",
             style = TextStyle(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
-                shadow = Shadow(Color.Black.copy(0.3f), blurRadius = 4f)
+                color = colors.textPrimary,
+                // Giảm bóng đổ ở Light mode để trông sạch hơn
+                shadow = if (colors.background == DarkAesthetic.background)
+                    Shadow(Color.Black.copy(0.3f), blurRadius = 4f)
+                else null
             ),
             modifier = Modifier.padding(start = 8.dp)
         )
@@ -181,6 +194,7 @@ fun SettingsSection(
     title: String,
     visible: Boolean,
     delay: Int,
+    colors: AestheticColors,
     content: @Composable ColumnScope.() -> Unit
 ) {
     AnimatedVisibility(
@@ -190,7 +204,7 @@ fun SettingsSection(
         Column {
             Text(
                 text = title,
-                color = Color(0xFF6366F1),
+                color = colors.accent,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(start = 12.dp, bottom = 8.dp)
@@ -199,8 +213,8 @@ fun SettingsSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White.copy(0.06f))
-                    .border(1.dp, Color.White.copy(0.1f), RoundedCornerShape(24.dp))
+                    .background(colors.glassContainer)
+                    .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
             ) {
                 content()
             }
@@ -213,7 +227,8 @@ fun ToggleSettingItem(
     icon: ImageVector,
     title: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    colors: AestheticColors
 ) {
     Row(
         modifier = Modifier
@@ -223,18 +238,18 @@ fun ToggleSettingItem(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = Color.White.copy(0.7f), modifier = Modifier.size(22.dp))
+            Icon(icon, null, tint = colors.iconTint, modifier = Modifier.size(22.dp))
             Spacer(modifier = Modifier.width(16.dp))
-            Text(title, color = Color.White, fontSize = 16.sp)
+            Text(title, color = colors.textPrimary, fontSize = 16.sp)
         }
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = Color(0xFF6366F1),
-                uncheckedThumbColor = Color.White.copy(0.5f),
-                uncheckedTrackColor = Color.White.copy(0.1f),
+                checkedTrackColor = colors.accent,
+                uncheckedThumbColor = if (colors == LightAesthetic) Color.Gray else Color.White.copy(0.5f),
+                uncheckedTrackColor = if (colors == LightAesthetic) Color.LightGray else Color.White.copy(0.1f),
                 uncheckedBorderColor = Color.Transparent
             )
         )
@@ -245,7 +260,8 @@ fun ToggleSettingItem(
 fun ActionSettingItem(
     icon: ImageVector,
     title: String,
-    value: String? = null
+    value: String? = null,
+    colors: AestheticColors
 ) {
     Row(
         modifier = Modifier
@@ -255,28 +271,41 @@ fun ActionSettingItem(
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = Color.White.copy(0.7f), modifier = Modifier.size(22.dp))
+            Icon(icon, null, tint = colors.iconTint, modifier = Modifier.size(22.dp))
             Spacer(modifier = Modifier.width(16.dp))
-            Text(title, color = Color.White, fontSize = 16.sp)
+            Text(title, color = colors.textPrimary, fontSize = 16.sp)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (value != null) {
-                Text(value, color = Color.White.copy(0.4f), fontSize = 14.sp)
+                Text(value, color = colors.textSecondary, fontSize = 14.sp)
                 Spacer(modifier = Modifier.width(8.dp))
             }
             Icon(
                 Icons.Default.ChevronRight,
                 null,
-                tint = Color.White.copy(0.3f),
+                tint = colors.textSecondary,
                 modifier = Modifier.size(20.dp)
             )
         }
     }
 }
 
-@Preview
+@Preview(name = "Dark Mode")
 @Composable
-fun SettingsScreenPreview() {
-    SettingsScreen()
+fun SettingsScreenDarkPreview() {
+    SettingsScreen(
+        onBackClick = {},
+        onThemeChanged = {},
+        isDarkTheme = true
+    )
 }
 
+@Preview(name = "Light Mode")
+@Composable
+fun SettingsScreenLightPreview() {
+    SettingsScreen(
+        onBackClick = {},
+        onThemeChanged = {},
+        isDarkTheme = false
+    )
+}
