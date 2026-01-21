@@ -33,6 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.healthapp.core.ViewModel.MainViewModel
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
@@ -43,11 +44,14 @@ fun HealthDashboardScreen(
     onProfileClick: () -> Unit = {},
     onNotificationsClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
-    isDarkTheme: Boolean // Thêm tham số này
+    isDarkTheme: Boolean,
+    mainViewModel: MainViewModel
 ) {
     val isPreview = LocalInspectionMode.current
     var isContentVisible by remember { mutableStateOf(isPreview) }
 
+    val steps by mainViewModel.realtimeSteps.collectAsState()
+    val heartRate by mainViewModel.realtimeHeartRate.collectAsState()
     // 1. CHỌN MÀU THEO THEME
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
 
@@ -145,8 +149,8 @@ fun HealthDashboardScreen(
                     ) {
                         HealthStatCard(
                             modifier = Modifier.weight(1f),
-                            title = "Heart Rate",
-                            value = "72",
+                            title = "Nhịp Tim",
+                            value = heartRate.toString(),
                             unit = "BPM",
                             icon = Icons.Default.Favorite,
                             accentColor = Color(0xFFEF4444), // Đỏ (Heart) giữ nguyên
@@ -156,7 +160,7 @@ fun HealthDashboardScreen(
                         )
                         HealthStatCard(
                             modifier = Modifier.weight(1f),
-                            title = "Sleep",
+                            title = "Ngủ",
                             value = "7.5",
                             unit = "Hrs",
                             icon = Icons.Default.NightsStay,
@@ -172,8 +176,8 @@ fun HealthDashboardScreen(
                 item {
                     HealthStatCard(
                         modifier = Modifier.fillMaxWidth(),
-                        title = "Steps Taken",
-                        value = "12,480",
+                        title = "Bước Đếm",
+                        value = steps.toString(),
                         unit = "steps today",
                         icon = Icons.Default.DirectionsRun,
                         accentColor = Color(0xFF10B981), // Xanh lá (Steps) giữ nguyên
@@ -347,15 +351,15 @@ fun HealthStatCard(
         }
     }
 }
-
-@Preview(name = "Dark Dashboard")
-@Composable
-fun HealthDashboardDarkPreview() {
-    HealthDashboardScreen(isDarkTheme = true)
-}
-
-@Preview(name = "Light Dashboard")
-@Composable
-fun HealthDashboardLightPreview() {
-    HealthDashboardScreen(isDarkTheme = false)
-}
+//
+//@Preview(name = "Dark Dashboard")
+//@Composable
+//fun HealthDashboardDarkPreview() {
+//    HealthDashboardScreen(isDarkTheme = true)
+//}
+//
+//@Preview(name = "Light Dashboard")
+//@Composable
+//fun HealthDashboardLightPreview() {
+//    HealthDashboardScreen(isDarkTheme = false)
+//}

@@ -1,17 +1,44 @@
-package com.example.healthapp.feature.auth
+package com.example.healthapp.feature.home
 
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Email
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Input
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,30 +50,15 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-
-
 
 @Composable
-fun LoginScreen(
-    modifier: Modifier = Modifier,
-    onSignUpClick: () -> Unit,
-    onForgotPasswordClick: () -> Unit,
-    onLogin: (String, String) -> Unit,
-
-)
-{
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var isPasswordVisible by remember { mutableStateOf(false) }
-
-    // Controlled visibility state for entrance animations
+fun NameScreen(modifier: Modifier = Modifier
+,onStartClick: (String) -> Unit
+) {
+    var name by remember { mutableStateOf("") }
     var isContentVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -100,7 +112,7 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center
         ) {
 
-            // 2. Animated Logo
+
             AnimatedVisibility(
                 visible = isContentVisible,
                 enter = fadeIn(tween(800)) + scaleIn(initialScale = 0.8f)
@@ -144,7 +156,7 @@ fun LoginScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "Chào mừng trở lại",
+                        text = "Tên Bạn Là Gì?",
                         style = TextStyle(
                             fontSize = 32.sp,
                             fontWeight = FontWeight.Black,
@@ -157,7 +169,7 @@ fun LoginScreen(
                         )
                     )
                     Text(
-                        text = "Đăng nhập tài khoản",
+                        text = "Rất vui được gặp $name!",
                         color = Color.White.copy(0.7f),
                         fontSize = 16.sp,
                         modifier = Modifier.padding(top = 8.dp)
@@ -184,12 +196,11 @@ fun LoginScreen(
                         ) // Subtle border for definition
                         .padding(24.dp)
                 ) {
-                    // Email Field
                     OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        label = { Text("Địa Chỉ Email", color = Color.White.copy(0.6f)) },
-                        leadingIcon = { Icon(Icons.Default.Email, null, tint = Color(0xFF6366F1)) },
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Nhập Tên Của Bạn", color = Color.White.copy(0.6f)) },
+                        leadingIcon = { Icon(Icons.Default.Input, null, tint = Color(0xFF6366F1)) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         singleLine = true,
@@ -205,51 +216,8 @@ fun LoginScreen(
 
                     Spacer(modifier = Modifier.height(20.dp))
 
-                    // Password Field
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text("Mật Khẩu", color = Color.White.copy(0.6f)) },
-                        leadingIcon = { Icon(Icons.Default.Lock, null, tint = Color(0xFF6366F1)) },
-                        trailingIcon = {
-                            IconButton(onClick = { isPasswordVisible = !isPasswordVisible }) {
-                                Icon(
-                                    imageVector = if (isPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                    contentDescription = null,
-                                    tint = Color.White.copy(0.6f)
-                                )
-                            }
-                        },
-                        visualTransformation = if (isPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White,
-                            focusedBorderColor = Color(0xFF6366F1),
-                            unfocusedBorderColor = Color.White.copy(0.2f),
-                            focusedLabelColor = Color(0xFF6366F1),
-                            unfocusedLabelColor = Color.White.copy(0.6f)
-                        )
-                    )
-
-                    TextButton(
-                        onClick = onForgotPasswordClick,
-                        modifier = Modifier.align(Alignment.End)
-                    ) {
-                        Text("Quên Mật Khẩu?", color = Color(0xFFD946EF), fontSize = 14.sp)
-                    }
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // 5. Sign In Button
                     Button(
-                        onClick = {
-                            // Call the MainActivity login callback
-                            onLogin(email.trim(), password)
-
-                        },
+                        onClick = {onStartClick(name)},
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp)
@@ -269,7 +237,7 @@ fun LoginScreen(
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                "Đăng Nhập",
+                                "Tiếp Tục",
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp,
                                 color = Color.White
@@ -280,35 +248,13 @@ fun LoginScreen(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-
-            // 6. Footer
-            AnimatedVisibility(
-                visible = isContentVisible,
-                enter = fadeIn(tween(800, 500))
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Chưa có tài khoản?", color = Color.White.copy(0.7f))
-                    TextButton(onClick = onSignUpClick) {
-                        Text("Đăng Ký", color = Color.White, fontWeight = FontWeight.ExtraBold)
-                    }
-                }
-            }
-
-        }
-
-
         }
     }
+}
 
 
-
-@Preview(showBackground = true)
+@Preview
 @Composable
-fun LoginScreenPreview() {
-    LoginScreen(
-        onSignUpClick = {},
-        onForgotPasswordClick = {},
-        onLogin = { email, password -> /* do nothing for preview */ },
-
-    )
+fun NameScreenPreview() {
+    NameScreen(){}
 }

@@ -9,6 +9,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.ui.Modifier
 import com.example.healthapp.ui.theme.HealthAppTheme
 import androidx.activity.compose.BackHandler
+import androidx.compose.runtime.LaunchedEffect
 import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -29,16 +30,23 @@ import com.example.healthapp.feature.home.NotificationsScreen
 import com.example.healthapp.feature.home.ProfileScreen
 import com.example.healthapp.feature.home.SettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
+import android.Manifest
+import com.example.healthapp.feature.home.NameScreen
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.rememberPermissionState
 
-
+@OptIn(ExperimentalPermissionsApi::class)
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-
-
         setContent {
+            val permissionState = rememberPermissionState(Manifest.permission.ACTIVITY_RECOGNITION)
+
+            LaunchedEffect(Unit) {
+                permissionState.launchPermissionRequest()
+            }
             val mainViewModel: MainViewModel = hiltViewModel()
             val isDark by mainViewModel.isDarkMode.collectAsState()
             val isLoggedIn by mainViewModel.isLoggedIn.collectAsState()
@@ -65,7 +73,7 @@ class MainActivity : ComponentActivity() {
                         "signup", "forgot" -> currentScreen = "login"
                         "profile", "notifications", "settings" -> currentScreen = "dashboard"
                         "dashboard" -> currentScreen = "login"
-                        "login" -> finish()
+                        //"login" -> finish()
                     }
                 }
 
@@ -76,41 +84,43 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(innerPadding),
                             onStartClick = { currentScreen = "login" }
                         )
-                        // ... Bên trong Scaffold -> when (currentScreen) ...
 
                         "login" -> LoginScreen(
                             modifier = Modifier.padding(innerPadding),
                             onSignUpClick = { currentScreen = "signup" },
                             onForgotPasswordClick = { currentScreen = "forgot" },
+
+
                             onLogin = { email, password ->
-                                mainViewModel.loginUser(email, password) { isSuccess ->
-                                    if (isSuccess) {
+                                mainViewModel.loginUser(
+                                    email = email,
+                                    pass = password,
+                                    onSuccess = {
+                                        Toast.makeText(this@MainActivity, "Đăng nhập thành công!", Toast.LENGTH_SHORT).show()
                                         currentScreen = "dashboard"
-                                    } else {
-                                        Toast.makeText(
-                                            this@MainActivity,
-                                            "Email hoặc mật khẩu không đúng",
-                                            Toast.LENGTH_SHORT
-                                        ).show()
+                                    },
+                                    onError = { message ->
+                                        Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
                                     }
-                                }
+                                )
                             },
-                            isLoggingIn = (isLoggedIn == true)
-                            , onChangeLogin = { isLoggedIn ->
-                                mainViewModel.setIsLoggedIn(isLoggedIn)
-                                currentScreen = "intro"
-                            }
                         )
 
                         "signup" -> SignUpScreen(
                             modifier = Modifier.padding(innerPadding),
                             onLoginClick = { currentScreen = "login" },
                             onSignUp = { email, password ->
-                                mainViewModel.registerUser(email, password)
-
-                                Toast.makeText(this@MainActivity, "Đăng ký thành công! Hãy đăng nhập.", Toast.LENGTH_SHORT).show()
-
-                                currentScreen = "login"
+                                mainViewModel.registerUser(
+                                    email = email,
+                                    pass = password,
+                                    onSuccess = {
+                                        Toast.makeText(this@MainActivity, "Đăng ký thành công!", Toast.LENGTH_SHORT).show()
+                                        currentScreen = "name" // Vào thẳng dashboard
+                                    },
+                                    onError = { message ->
+                                        Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                                    }
+                                )
                             }
                         )
 
@@ -118,13 +128,21 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(innerPadding),
                             onBackToLoginClick = { currentScreen = "login" }
                         )
+                        "name" -> NameScreen(
+                            modifier = Modifier.padding(innerPadding),
+                            onStartClick = {name->
+                                mainViewModel.addName(name)
+                                currentScreen = "dashboard"
+                            }
+                        )
 
                         "dashboard" -> HealthDashboardScreen(
                             modifier = Modifier.padding(innerPadding),
                             onProfileClick = { currentScreen = "profile" },
                             onNotificationsClick = { currentScreen = "notifications" },
                             onSettingsClick = { currentScreen = "settings" },
-                            isDark
+                            isDark,
+                            mainViewModel
                         )
 
                         "profile" -> ProfileScreen(

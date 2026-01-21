@@ -2,11 +2,24 @@ package com.example.healthapp.core.model.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "daily_health")
+@Entity(
+    tableName = "daily_health",
+    primaryKeys = ["date", "userId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = UserEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["userId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
 data class DailyHealthEntity(
-    @PrimaryKey val date: String, // Format: YYYY-MM-DD
+    val date: String, // Format: YYYY-MM-DD
+    val userId: Int,
     @ColumnInfo(name = "steps") val steps: Int = 0,
     @ColumnInfo(name = "heart_rate_avg") val heartRateAvg: Int = 0,
     @ColumnInfo(name = "calories_burned") val caloriesBurned: Float = 0f,

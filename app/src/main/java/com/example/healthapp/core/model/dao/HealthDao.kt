@@ -12,43 +12,56 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface HealthDao {
     // --- USER PROFILE ---
-    @Query("SELECT * FROM users")
-    fun getUser(): Flow<UserEntity?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveUser(user: UserEntity)
 
-    // Cập nhật mục tiêu bước chân riêng biệt
+    // 2. Hàm lấy user mặc định (cho Dashboard/Profile)
+    @Query("SELECT * FROM users LIMIT 1")
+    fun getUser(): Flow<UserEntity?>
+
+    // 3. (MỚI) Hàm lấy user theo Email -> Dùng cho LOGIN
+    // Giúp kiểm tra xem email và pass có đúng không
+    @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
+    suspend fun getUserByEmail(email: String): UserEntity?
+
+    // 4. (MỚI) Hàm đổi mật khẩu -> Dùng cho Settings
+    @Query("UPDATE users SET password = :newPassword WHERE id = 1")
+    suspend fun updatePassword(newPassword: String)
+
+    // 5. Cập nhật mục tiêu bước chân
     @Query("UPDATE users SET target_steps = :newTarget WHERE id = 1")
     suspend fun updateTargetSteps(newTarget: Int)
 
-    // Cập nhật chiều cao/cân nặng (khi user chỉnh sửa profile)
+    @Query("UPDATE users SET name = :newName WHERE id = 1")
+    suspend fun updateName(newName: String)
+
+    // 6. Cập nhật chỉ số cơ thể
     @Query("UPDATE users SET height = :height, weight = :weight WHERE id = 1")
     suspend fun updateBodyMetrics(height: Float, weight: Float)
 
-    // --- DAILY HEALTH DATA ---
-    @Query("SELECT * FROM daily_health WHERE date = :date")
-    fun getDailyHealth(date: String): Flow<DailyHealthEntity?>
+    // --- DAILY HEALTH DATA (Giữ nguyên) ---
+    @Query("SELECT * FROM daily_health WHERE date = :date AND userId = :userId")
+    fun getDailyHealth(date: String, userId: Int): Flow<DailyHealthEntity?>
 
     @Query("SELECT * FROM daily_health ORDER BY date DESC LIMIT 7")
-    fun getLast7DaysHealth(): Flow<List<DailyHealthEntity>> // Dùng cho biểu đồ tuần
+    fun getLast7DaysHealth(): Flow<List<DailyHealthEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateDailyHealth(data: DailyHealthEntity)
 
-    // Nếu chưa có record ngày hôm nay, bạn cần insert trước rồi mới gọi hàm này
     @Query("UPDATE daily_health SET steps = steps + :stepsToAdd, calories_burned = calories_burned + :calories WHERE date = :date")
     suspend fun incrementSteps(date: String, stepsToAdd: Int, calories: Float)
 
     @Query("UPDATE daily_health SET heart_rate_avg = :bpm WHERE date = :date")
     suspend fun updateHeartRate(date: String, bpm: Int)
 
-    // --- NOTIFICATIONS ---
+    // --- NOTIFICATIONS (Giữ nguyên) ---
     @Query("SELECT * FROM notifications ORDER BY timestamp DESC")
     fun getAllNotifications(): Flow<List<NotificationEntity>>
 
     @Query("SELECT COUNT(*) FROM notifications WHERE is_read = 0")
-    fun getUnreadCount(): Flow<Int> // Hiển thị chấm đỏ trên chuông
+    fun getUnreadCount(): Flow<Int>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNotification(notification: NotificationEntity)

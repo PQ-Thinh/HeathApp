@@ -15,7 +15,7 @@ android {
 
     defaultConfig {
         applicationId = "com.example.healthapp"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -83,4 +83,6 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
 
     implementation("androidx.health.connect:connect-client:1.2.0-alpha02")
+
+    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
 }
