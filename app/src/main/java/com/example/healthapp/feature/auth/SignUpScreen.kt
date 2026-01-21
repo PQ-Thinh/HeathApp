@@ -1,4 +1,4 @@
-package com.example.healthapp.feature.Auth
+package com.example.healthapp.feature.auth
 
 
 import androidx.compose.animation.*
@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -32,9 +33,9 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
-
-
-
+import androidx.room.Room
+import androidx.room.Room.databaseBuilder
+import com.example.healthapp.core.model.AppDb
 
 
 @Composable
@@ -50,6 +51,15 @@ fun SignUpScreen(
 
     val isPreview = LocalInspectionMode.current
     var isContentVisible by remember { mutableStateOf(isPreview) }
+
+    val context = LocalContext.current
+    val db = databaseBuilder(
+        context,
+        AppDb::class.java,"app_db"
+    ).allowMainThreadQueries().build()
+    var listUser by remember {
+        mutableStateOf(db.healthDao().getUser())
+    }
 
     LaunchedEffect(Unit) {
         if (!isPreview) {
@@ -74,7 +84,7 @@ fun SignUpScreen(
             .fillMaxSize()
             .background(Color(0xFF0F172A))
     ) {
-        // 1. Matching Dynamic Background Orbs
+
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawCircle(
                 brush = Brush.radialGradient(

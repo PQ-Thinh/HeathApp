@@ -1,4 +1,4 @@
-package com.example.healthapp.feature.Auth
+package com.example.healthapp.feature.auth
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*

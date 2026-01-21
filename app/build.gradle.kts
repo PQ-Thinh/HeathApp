@@ -81,4 +81,6 @@ dependencies {
 
     // add datastore preferences dependency
     implementation(libs.androidx.datastore.preferences)
+
+    implementation("androidx.health.connect:connect-client:1.2.0-alpha02")
 }

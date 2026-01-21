@@ -1,4 +1,4 @@
-package com.example.healthapp.feature.Home
+package com.example.healthapp.feature.home
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -36,7 +36,9 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
     onThemeChanged: (Boolean) -> Unit,
-    isDarkTheme: Boolean
+    isDarkTheme: Boolean,
+    onChangePassword: () -> Unit = {}
+
 ) {
     val isPreview = LocalInspectionMode.current
     var isVisible by remember { mutableStateOf(isPreview) }
@@ -132,8 +134,9 @@ fun SettingsScreen(
                         Divider(color = colors.glassBorder, thickness = 1.dp)
                         ActionSettingItem(
                             icon = Icons.Default.VpnKey,
-                            title = "Change Password",
-                            colors = colors
+                            title = "Đổi Mật Khẩu",
+                            colors = colors,
+                            onChangePassword = onChangePassword
                         )
                     }
                 }
@@ -174,7 +177,7 @@ fun SettingsTopBar(onBackClick: () -> Unit, colors: AestheticColors) {
             Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
         }
         Text(
-            text = "Settings",
+            text = "Cài Đặt",
             style = TextStyle(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
@@ -261,7 +264,9 @@ fun ActionSettingItem(
     icon: ImageVector,
     title: String,
     value: String? = null,
-    colors: AestheticColors
+    colors: AestheticColors,
+    onChangePassword: () -> Unit = {}
+
 ) {
     Row(
         modifier = Modifier

@@ -1,4 +1,4 @@
-package com.example.healthapp.feature.Auth
+package com.example.healthapp.feature.auth
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -38,7 +38,9 @@ fun LoginScreen(
     modifier: Modifier = Modifier,
     onSignUpClick: () -> Unit,
     onForgotPasswordClick: () -> Unit,
-    onLogin: (String, String) -> Unit
+    onLogin: (String, String) -> Unit,
+    onChangeLogin: (Boolean) -> Unit,
+    isLoggingIn: Boolean
 )
 {
     var email by remember { mutableStateOf("") }
@@ -247,6 +249,7 @@ fun LoginScreen(
                         onClick = {
                             // Call the MainActivity login callback
                             onLogin(email.trim(), password)
+                            onChangeLogin(true)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -306,6 +309,8 @@ fun LoginScreenPreview() {
     LoginScreen(
         onSignUpClick = {},
         onForgotPasswordClick = {},
-        onLogin = { email, password -> /* do nothing for preview */ }
+        onLogin = { email, password -> /* do nothing for preview */ },
+        onChangeLogin = {},
+        isLoggingIn = false
     )
 }

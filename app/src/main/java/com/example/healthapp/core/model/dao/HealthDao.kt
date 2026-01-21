@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface HealthDao {
     // --- USER PROFILE ---
-    @Query("SELECT * FROM users LIMIT 1")
+    @Query("SELECT * FROM users")
     fun getUser(): Flow<UserEntity?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -36,7 +36,6 @@ interface HealthDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateDailyHealth(data: DailyHealthEntity)
 
-    // Hàm cập nhật bước chân nguyên tử (Atomic Update) - Rất quan trọng cho Sensor
     // Nếu chưa có record ngày hôm nay, bạn cần insert trước rồi mới gọi hàm này
     @Query("UPDATE daily_health SET steps = steps + :stepsToAdd, calories_burned = calories_burned + :calories WHERE date = :date")
     suspend fun incrementSteps(date: String, stepsToAdd: Int, calories: Float)

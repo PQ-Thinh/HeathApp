@@ -1,4 +1,4 @@
-package com.example.healthapp.feature.Home
+package com.example.healthapp.feature.home
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
