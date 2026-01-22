@@ -136,19 +136,28 @@ class MainViewModel @Inject constructor(
             healthDao.updateName(name)
         }
     }
-
-    fun syncData() {
+    fun addHeight(height: Int) {
         viewModelScope.launch {
-            // Lấy User hiện tại (đang đăng nhập)
-            // Giả sử bạn có hàm lấy current user hoặc ID user lưu trong DataStore
-            val currentUser = healthDao.getUserByEmail("email_dang_nhap@gmail.com")
-
-            currentUser?.let { user ->
-                //  Đồng bộ dữ liệu cho User này
-                repository.syncHealthData(user.id)
-            }
+            healthDao.updateHeight(height)
         }
     }
+    fun addWeight(weight: Float) {
+        viewModelScope.launch {
+            healthDao.updateWeight(weight)
+        }
+    }
+        fun syncData() {
+            viewModelScope.launch {
+                // Lấy User hiện tại (đang đăng nhập)
+                // Giả sử bạn có hàm lấy current user hoặc ID user lưu trong DataStore
+                val currentUser = healthDao.getUserByEmail("email_dang_nhap@gmail.com")
+
+                currentUser?.let { user ->
+                    //  Đồng bộ dữ liệu cho User này
+                    repository.syncHealthData(user.id)
+                }
+            }
+        }
 
 
-}
+    }

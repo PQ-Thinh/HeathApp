@@ -1,16 +1,13 @@
 package com.example.healthapp.feature.home
 
-import androidx.compose.animation.AnimatedVisibility
+
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -18,15 +15,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -35,8 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -46,28 +40,20 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.healthapp.R
-
 
 @Composable
-fun HeightPickerScreen(
+fun WeightScreen(
     modifier: Modifier = Modifier,
-    minCm: Int = 120,
-    maxCm: Int = 220,
-    initialCm: Int = 2,
-    onStartClick: (Int) -> Unit
+    onStartClick: (Float) -> Unit,
+    minKg: Float = 40f,
+    maxKg: Float = 150f,
+    initialKg: Float = 60f
 ) {
-    // Infinite animation for background floating effect
     val infiniteTransition = rememberInfiniteTransition(label = "background")
     val floatAnim by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -78,17 +64,7 @@ fun HeightPickerScreen(
         ),
         label = "float"
     )
-    var currentHeightCm by remember { mutableIntStateOf(initialCm.coerceIn(minCm, maxCm)) }
-
-    // Map cm -> image height dp (tuyến tính)
-    fun cmToImageHeightDp(cm: Int): Dp {
-        val minDp = 160.dp
-        val maxDp = 580.dp
-        val ratio = (cm - minCm).toFloat() / (maxCm - minCm).toFloat()
-        return minDp + (maxDp - minDp) * ratio
-    }
-
-
+    var currentWeightKg by remember { mutableFloatStateOf(initialKg.coerceIn(minKg, maxKg)) }
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -114,75 +90,44 @@ fun HeightPickerScreen(
                 radius = 800f
             )
         }
-        Row(
+        Box(
             modifier = modifier
                 .fillMaxSize()
-                .padding(16.dp)
+
         ) {
-            // Left: Person + label
             Column(
                 modifier = Modifier
-                    .weight(1f)
-                    .fillMaxHeight(),
+                    .fillMaxSize()
+                    .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
 
+                Spacer(modifier = Modifier.height(24.dp))
 
+                // Giá trị hiện tại
                 Text(
-                    text = "Chiều Cao Của Bạn?",
-                    style = TextStyle(
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Black,
-                        color = Color.White,
-                        shadow = Shadow(
-                            color = Color.Black.copy(0.5f),
-                            blurRadius = 10f,
-                            offset = Offset(2f, 2f)
-                        )
-                    )
+                    text = "${String.format("%.1f", currentWeightKg)} kg",
+                    color = Color.White,
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(20.dp))
-                // Label trên đầu
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.White.copy(0.12f))
-                        .border(1.dp, Color.White.copy(0.2f), RoundedCornerShape(12.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = "${currentHeightCm} cm",
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(0.8f)
-                        .height(cmToImageHeightDp(currentHeightCm))
-                        .clip(RoundedCornerShape(24.dp))
-                        .background(Color.White.copy(0.06f))
-                        .border(1.dp, Color.White.copy(0.12f), RoundedCornerShape(24.dp)),
-                    contentAlignment = Alignment.BottomCenter
-                ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.man),
-                        contentDescription = null,
-                        contentScale = ContentScale.FillHeight,
-                        modifier = Modifier
-                            .fillMaxWidth(0.7f)
-                            .fillMaxHeight()
-                    )
-                }
-                Spacer(modifier = Modifier.height(16.dp))
+                // Thanh cuộn chọn cân nặng
+                RulerWeightPicker(
+                    minKg = minKg,
+                    maxKg = maxKg,
+                    current = currentWeightKg,
+                    onWeightChange = { currentWeightKg = it }
+                )
 
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // Nút hành động
                 Button(
-                    onClick = { onStartClick(currentHeightCm) },
+                    onClick = { onStartClick(currentWeightKg) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
@@ -210,31 +155,21 @@ fun HeightPickerScreen(
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Right: Y-axis ruler (thước cm)
-            RulerYAxis(
-                minCm = minCm,
-                maxCm = maxCm,
-                current = currentHeightCm,
-                onHeightChange = { currentHeightCm = it }
-            )
         }
     }
 }
 
 @Composable
-private fun RulerYAxis(
-    minCm: Int,
-    maxCm: Int,
-    current: Int,
-    onHeightChange: (Int) -> Unit,
+private fun RulerWeightPicker(
+    minKg: Float,
+    maxKg: Float,
+    current: Float,
+    onWeightChange: (Float) -> Unit,
 ) {
-    val unitHeight = 16.dp
-    val unitPx = with(LocalDensity.current) { unitHeight.toPx() }
-    val totalItems = maxCm - minCm + 1
-    val initialIndex = (current - minCm).coerceIn(0, totalItems - 1)
+    val unitWidth = 32.dp
+    val unitPx = with(LocalDensity.current) { unitWidth.toPx() }
+    val totalItems = ((maxKg - minKg) * 10).toInt() + 1
+    val initialIndex = ((current - minKg) * 10).toInt().coerceIn(0, totalItems - 1)
 
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialIndex)
     val flingBehavior = rememberSnapFlingBehavior(listState)
@@ -249,76 +184,74 @@ private fun RulerYAxis(
                 kotlin.math.abs(itemCenter - viewportCenter)
             }
             closest?.let { item ->
-                val cm = (minCm + item.index).coerceIn(minCm, maxCm)
-                if (cm != current) onHeightChange(cm)
+                val idx = item.index // mỗi index = 0.1 kg
+                val newKg = (minKg + idx / 10f).coerceIn(minKg, maxKg)
+                if (newKg != current) onWeightChange(newKg)
             }
         }
     }
 
     Box(
         modifier = Modifier
-            .width(96.dp)
-            .fillMaxHeight()
+            .height(200.dp)
+            .width(400.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White.copy(0.06f))
             .border(1.dp, Color.White.copy(0.12f), RoundedCornerShape(16.dp))
-            .padding(vertical = 12.dp)
+            .padding(horizontal = 12.dp)
     ) {
-        // Vạch chỉ báo trung tâm
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .width(6.dp)
-                .height(24.dp)
-                .clip(RoundedCornerShape(3.dp))
-                .background(Color(0xFF22C55E))
-        )
-
-        // Tính padding để vạch nằm giữa viewport
-        val sidePadding = 200.dp - 12.dp // nửa chiều cao Box trừ padding
-
-        LazyColumn(
+        // padding để tâm viewport trùng với vạch chỉ báo
+        val sidePadding = 200.dp - 12.dp // nửa width Box trừ padding
+        LazyRow(
             state = listState,
             flingBehavior = flingBehavior,
-            contentPadding = PaddingValues(vertical = sidePadding),
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(start = 16.dp, end = 8.dp),
-            horizontalAlignment = Alignment.Start
+            contentPadding = PaddingValues(horizontal = sidePadding),
+            modifier = Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             items(totalItems) { i ->
-                val cm = minCm + i
-                val isMajor = cm % 10 == 0
-                val tickWidth = if (isMajor) 56.dp else 36.dp
-                val tickColor = if (isMajor) Color.White else Color.White.copy(0.7f)
+                val kg = minKg + i / 10f
+                val isMajor = kg % 1f == 0f
+                val tickHeight = if (isMajor) 56.dp else 36.dp
+                val tickColor = if (isMajor) Color.White else Color.White.copy(0.5f)
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.height(unitHeight)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(unitWidth)
                 ) {
                     Box(
                         modifier = Modifier
-                            .height(2.dp)
-                            .width(tickWidth)
+                            .width(2.dp)
+                            .height(tickHeight)
                             .background(tickColor)
                     )
                     if (isMajor) {
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "$cm cm",
+                            text = String.format("%.1f", kg),
                             color = Color.White,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium
+                            fontSize = 14.sp
                         )
                     }
                 }
             }
         }
+
+        // Vạch chỉ báo trung tâm
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .width(6.dp)
+                .height(24.dp)
+                .clip(RoundedCornerShape(3.dp))
+                .background(Color(0xFF22C55E))
+        )
     }
 }
 
+
 @Preview
 @Composable
-fun HeightPickerScreenPreview() {
-    HeightPickerScreen(){}
+fun WeightScreenPreview() {
+    WeightScreen(onStartClick = {})
 }

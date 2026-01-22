@@ -37,8 +37,11 @@ interface HealthDao {
     suspend fun updateName(newName: String)
 
     // 6. Cập nhật chỉ số cơ thể
-    @Query("UPDATE users SET height = :height, weight = :weight WHERE id = 1")
-    suspend fun updateBodyMetrics(height: Float, weight: Float)
+    @Query("UPDATE users SET height = :height WHERE id = 1")
+    suspend fun updateHeight(height: Int)
+
+    @Query("UPDATE users SET  weight = :weight WHERE id = 1")
+    suspend fun updateWeight( weight: Float)
 
     // --- DAILY HEALTH DATA (Giữ nguyên) ---
     @Query("SELECT * FROM daily_health WHERE date = :date AND userId = :userId")

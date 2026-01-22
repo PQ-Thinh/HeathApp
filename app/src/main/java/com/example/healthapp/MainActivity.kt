@@ -31,7 +31,9 @@ import com.example.healthapp.feature.home.ProfileScreen
 import com.example.healthapp.feature.home.SettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
 import android.Manifest
+import com.example.healthapp.feature.home.HeightPickerScreen
 import com.example.healthapp.feature.home.NameScreen
+import com.example.healthapp.feature.home.WeightScreen
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberPermissionState
 
@@ -73,6 +75,9 @@ class MainActivity : ComponentActivity() {
                         "signup", "forgot" -> currentScreen = "login"
                         "profile", "notifications", "settings" -> currentScreen = "dashboard"
                         "dashboard" -> currentScreen = "login"
+                        "height" -> currentScreen = "name"
+                        "weight" -> currentScreen = "height"
+                        "intro" -> finish()
                         //"login" -> finish()
                     }
                 }
@@ -132,10 +137,24 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(innerPadding),
                             onStartClick = {name->
                                 mainViewModel.addName(name)
-                                currentScreen = "dashboard"
+                                currentScreen = "height"
                             }
                         )
+                        "height" -> HeightPickerScreen(
+                            modifier = Modifier.padding(innerPadding),
+                            onStartClick = {height->
+                                mainViewModel.addHeight(height)
+                                currentScreen = "weight"
+                            }
+                        )
+                        "weight" -> WeightScreen(
+                            modifier = Modifier.padding(innerPadding),
+                            onStartClick = {
+                                weight -> mainViewModel.addWeight(weight)
+                                currentScreen = "dashboard"
 
+                            }
+                        )
                         "dashboard" -> HealthDashboardScreen(
                             modifier = Modifier.padding(innerPadding),
                             onProfileClick = { currentScreen = "profile" },
