@@ -16,50 +16,58 @@ interface HealthDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun saveUser(user: UserEntity)
 
-    // 2. Hàm lấy user mặc định (cho Dashboard/Profile)
+    // Lấy user mặc định (Cẩn thận: Hàm này chỉ nên dùng khi chắc chắn chỉ có 1 user)
+    // Tốt nhất nên dùng getUserByEmail hoặc getUserById
     @Query("SELECT * FROM users LIMIT 1")
     fun getUser(): Flow<UserEntity?>
 
-    // 3. (MỚI) Hàm lấy user theo Email -> Dùng cho LOGIN
-    // Giúp kiểm tra xem email và pass có đúng không
     @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
     suspend fun getUserByEmail(email: String): UserEntity?
 
-    // 4. (MỚI) Hàm đổi mật khẩu -> Dùng cho Settings
-    @Query("UPDATE users SET password = :newPassword WHERE id = 1")
-    suspend fun updatePassword(newPassword: String)
+    // --- CÁC HÀM UPDATE (Đã sửa: Thêm userId) ---
 
-    // 5. Cập nhật mục tiêu bước chân
-    @Query("UPDATE users SET target_steps = :newTarget WHERE id = 1")
-    suspend fun updateTargetSteps(newTarget: Int)
+    @Query("UPDATE users SET password = :newPassword WHERE id = :userId")
+    suspend fun updatePassword(userId: Int, newPassword: String)
 
-    @Query("UPDATE users SET name = :newName WHERE id = 1")
-    suspend fun updateName(newName: String)
+    @Query("UPDATE users SET target_steps = :newTarget WHERE id = :userId")
+    suspend fun updateTargetSteps(userId: Int, newTarget: Int)
 
-    // 6. Cập nhật chỉ số cơ thể
-    @Query("UPDATE users SET height = :height WHERE id = 1")
-    suspend fun updateHeight(height: Int)
+    @Query("UPDATE users SET name = :newName WHERE id = :userId")
+    suspend fun updateName(userId: Int?, newName: String)
 
-    @Query("UPDATE users SET  weight = :weight WHERE id = 1")
-    suspend fun updateWeight( weight: Float)
+    // Lưu ý: Height/Weight trong Entity thường là Float, nên để Float cho đồng bộ
+    @Query("UPDATE users SET height = :height WHERE id = :userId")
+    suspend fun updateHeight(userId: Int?, height: Float)
 
-    // --- DAILY HEALTH DATA (Giữ nguyên) ---
+    @Query("UPDATE users SET weight = :weight WHERE id = :userId")
+    suspend fun updateWeight(userId: Int?, weight: Float)
+
+
+    // --- DAILY HEALTH DATA ---
+
     @Query("SELECT * FROM daily_health WHERE date = :date AND userId = :userId")
     fun getDailyHealth(date: String, userId: Int): Flow<DailyHealthEntity?>
 
-    @Query("SELECT * FROM daily_health ORDER BY date DESC LIMIT 7")
-    fun getLast7DaysHealth(): Flow<List<DailyHealthEntity>>
+    // Sửa lỗi: Chỉ lấy 7 ngày CỦA USER ĐÓ (thêm WHERE userId)
+    @Query("SELECT * FROM daily_health WHERE userId = :userId ORDER BY date DESC LIMIT 7")
+    fun getLast7DaysHealth(userId: Int): Flow<List<DailyHealthEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertOrUpdateDailyHealth(data: DailyHealthEntity)
 
-    @Query("UPDATE daily_health SET steps = steps + :stepsToAdd, calories_burned = calories_burned + :calories WHERE date = :date")
-    suspend fun incrementSteps(date: String, stepsToAdd: Int, calories: Float)
+    @Query("UPDATE daily_health SET steps = :steps, calories_burned = :calories WHERE date = :date AND userId = :userId")
+    suspend fun updateSteps(date: String, userId: Int, steps: Int, calories: Float)
 
-    @Query("UPDATE daily_health SET heart_rate_avg = :bpm WHERE date = :date")
-    suspend fun updateHeartRate(date: String, bpm: Int)
+    // Sửa lỗi: Thêm userId để cộng dồn đúng người
+    @Query("UPDATE daily_health SET steps = steps + :stepsToAdd, calories_burned = calories_burned + :calories WHERE date = :date AND userId = :userId")
+    suspend fun incrementSteps(date: String, userId: Int, stepsToAdd: Int, calories: Float)
 
-    // --- NOTIFICATIONS (Giữ nguyên) ---
+    // Sửa lỗi: Thêm userId
+    @Query("UPDATE daily_health SET heart_rate_avg = :bpm WHERE date = :date AND userId = :userId")
+    suspend fun updateHeartRate(date: String, userId: Int, bpm: Int)
+
+
+    // --- NOTIFICATIONS (Giữ nguyên hoặc thêm userId nếu muốn tách thông báo riêng) ---
     @Query("SELECT * FROM notifications ORDER BY timestamp DESC")
     fun getAllNotifications(): Flow<List<NotificationEntity>>
 
