@@ -64,7 +64,7 @@ fun HeightPickerScreen(
     modifier: Modifier = Modifier,
     minCm: Int = 120,
     maxCm: Int = 220,
-    initialCm: Int = 2,
+    initialCm: Int = 170,
     onStartClick: (Int) -> Unit
 ) {
     // Infinite animation for background floating effect
@@ -231,8 +231,8 @@ private fun RulerYAxis(
     current: Int,
     onHeightChange: (Int) -> Unit,
 ) {
-    val unitHeight = 16.dp
-    val unitPx = with(LocalDensity.current) { unitHeight.toPx() }
+    val unitHeight = 16.dp // 1cm
+    //val unitPx = with(LocalDensity.current) { unitHeight.toPx() }
     val totalItems = maxCm - minCm + 1
     val initialIndex = (current - minCm).coerceIn(0, totalItems - 1)
 
@@ -288,7 +288,7 @@ private fun RulerYAxis(
         ) {
             items(totalItems) { i ->
                 val cm = minCm + i
-                val isMajor = cm % 10 == 0
+                val isMajor = cm % 10 == 0//10cm
                 val tickWidth = if (isMajor) 56.dp else 36.dp
                 val tickColor = if (isMajor) Color.White else Color.White.copy(0.7f)
 

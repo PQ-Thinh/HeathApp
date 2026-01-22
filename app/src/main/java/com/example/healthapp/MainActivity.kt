@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
                         "login"->currentScreen= "intro"
                         "signup", "forgot" -> currentScreen = "login"
                         "profile", "notifications", "settings" -> currentScreen = "dashboard"
-                        "dashboard" -> currentScreen = "login"
+                        //"dashboard" -> currentScreen = "login"
                         "height" -> currentScreen = "name"
                         "weight" -> currentScreen = "height"
                         "intro" -> finish()
