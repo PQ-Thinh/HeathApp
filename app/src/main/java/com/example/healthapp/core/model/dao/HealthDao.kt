@@ -20,9 +20,15 @@ interface HealthDao {
     // Tốt nhất nên dùng getUserByEmail hoặc getUserById
     @Query("SELECT * FROM users LIMIT 1")
     fun getUser(): Flow<UserEntity?>
+    // Hàm này trả về Flow (Live Data), khác với hàm suspend (chỉ trả về 1 lần)
+    @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
+    fun getUserFlowByEmail(email: String): Flow<UserEntity?>
 
     @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
     suspend fun getUserByEmail(email: String): UserEntity?
+
+    @Query("SELECT * FROM users WHERE id = :userId")
+    suspend fun getUserById(userId: Int): UserEntity?
 
     // --- CÁC HÀM UPDATE (Đã sửa: Thêm userId) ---
 
@@ -35,6 +41,9 @@ interface HealthDao {
     @Query("UPDATE users SET name = :newName WHERE id = :userId")
     suspend fun updateName(userId: Int?, newName: String)
 
+    @Query("UPDATE users SET bmi = :newBMI WHERE id = :userId")
+    suspend fun updateBMI(userId: Int, newBMI: Float)
+
     // Lưu ý: Height/Weight trong Entity thường là Float, nên để Float cho đồng bộ
     @Query("UPDATE users SET height = :height WHERE id = :userId")
     suspend fun updateHeight(userId: Int?, height: Float)
@@ -46,7 +55,7 @@ interface HealthDao {
     // --- DAILY HEALTH DATA ---
 
     @Query("SELECT * FROM daily_health WHERE date = :date AND userId = :userId")
-    fun getDailyHealth(date: String, userId: Int): Flow<DailyHealthEntity?>
+    fun getDailyHealth(date: String, userId: Int?): Flow<DailyHealthEntity?>
 
     // Sửa lỗi: Chỉ lấy 7 ngày CỦA USER ĐÓ (thêm WHERE userId)
     @Query("SELECT * FROM daily_health WHERE userId = :userId ORDER BY date DESC LIMIT 7")
@@ -56,7 +65,7 @@ interface HealthDao {
     suspend fun insertOrUpdateDailyHealth(data: DailyHealthEntity)
 
     @Query("UPDATE daily_health SET steps = :steps, calories_burned = :calories WHERE date = :date AND userId = :userId")
-    suspend fun updateSteps(date: String, userId: Int, steps: Int, calories: Float)
+    suspend fun updateSteps(date: String, userId: Int?, steps: Int, calories: Float)
 
     // Sửa lỗi: Thêm userId để cộng dồn đúng người
     @Query("UPDATE daily_health SET steps = steps + :stepsToAdd, calories_burned = calories_burned + :calories WHERE date = :date AND userId = :userId")

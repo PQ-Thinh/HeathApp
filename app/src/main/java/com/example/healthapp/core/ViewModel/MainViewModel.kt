@@ -1,5 +1,6 @@
 package com.example.healthapp.core.ViewModel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,9 +21,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
+import kotlin.math.roundToInt
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -54,7 +58,7 @@ class MainViewModel @Inject constructor(
 
     // Biến nội bộ
     private var startOfDaySteps = 0
-    private var currentUserId: Int? = 1 // Default ID
+    private var currentUserId: Int? = null // Default ID
 
     init {
         // 1. Load dữ liệu User và Mốc bước chân trước khi đo
@@ -68,6 +72,7 @@ class MainViewModel @Inject constructor(
             if (email != null) {
                 val user = healthDao.getUserByEmail(email)
                 currentUserId = user?.id ?: 1
+                Log.d("MainViewModel", "User ID: $currentUserId")
             }
 
             // Lấy Mốc bước chân đã lưu từ DataStore
@@ -109,12 +114,12 @@ class MainViewModel @Inject constructor(
                     saveDayOffset(0)
                 }
 
-                // 2. Tính số bước thực tế trong ngày
+                // Tính số bước thực tế trong ngày
                 // Công thức: Tổng hiện tại - Mốc đầu ngày
                 var todaySteps = totalStepsSinceBoot - startOfDaySteps
                 if (todaySteps < 0) todaySteps = 0 // Tránh số âm
 
-                // 3. Cập nhật UI
+                // Cập nhật UI
                 _realtimeSteps.value = todaySteps
                 _realtimeCalories.value = todaySteps * 0.04f
 
@@ -154,12 +159,15 @@ class MainViewModel @Inject constructor(
         viewModelScope.launch { dataStore.edit { it[THEME_KEY] = isDark } }
     }
 
-    fun setIsLoggedIn(isLoggedIn: Boolean, email: String? = null) {
+    suspend fun setIsLoggedIn(isLoggedIn: Boolean, email: String? = null) {
+        dataStore.edit {
+            it[IS_LOGGED_IN_KEY] = isLoggedIn
+            if (email != null) it[CURRENT_USER_EMAIL_KEY] = email
+        }
+    }
+    fun updateLoginStatus(isLoggedIn: Boolean) {
         viewModelScope.launch {
-            dataStore.edit {
-                it[IS_LOGGED_IN_KEY] = isLoggedIn
-                if (email != null) it[CURRENT_USER_EMAIL_KEY] = email
-            }
+            setIsLoggedIn(isLoggedIn)
         }
     }
 
@@ -172,23 +180,44 @@ class MainViewModel @Inject constructor(
             }
 
             val newUser = UserEntity(
-                name = "New User", // Tên tạm
+                name = "New User",
                 email = email,
                 password = pass,
-                age = null,
+                targetSteps = 10000,
+                gender = "Male",
+                bmi = 0f,
                 height = null,
                 weight = null,
-                gender = "Male"
+                age = null
+
             )
             healthDao.saveUser(newUser)
 
-            // Lưu trạng thái đăng nhập và email
-            setIsLoggedIn(true, email)
-            currentUserId = healthDao.getUserByEmail(email)?.id ?: 1
-            onSuccess()
+            // 3. Lấy lại User vừa tạo để có ID chính xác (vì ID tự tăng)
+            val createdUser = healthDao.getUserByEmail(email)
+
+            if (createdUser != null) {
+                currentUserId = createdUser.id
+
+                setIsLoggedIn(true, email)
+
+                // Reset biến đếm bước chân về 0 cho user mới
+                startOfDaySteps = 0
+                _realtimeSteps.value = 0
+                _realtimeCalories.value = 0f
+
+                // Xóa mốc cũ trong DataStore để tránh nó trừ đi số bước của user cũ
+                saveDayOffset(0)
+
+                // Gọi lại initializeData để thiết lập lại từ đầu
+                initializeData()
+
+                onSuccess()
+            } else {
+                onError("Lỗi tạo tài khoản")
+            }
         }
     }
-
     fun loginUser(email: String, pass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             val user = healthDao.getUserByEmail(email)
@@ -209,23 +238,66 @@ class MainViewModel @Inject constructor(
 
     fun addName(name: String) {
         viewModelScope.launch {
-
-            healthDao.updateName(currentUserId, name)
+            currentUserId?.let { id ->
+                healthDao.updateName(id, name)
+                Log.d("MainViewModel", "Đã cập nhật tên cho User ID: $id")
+            } ?: run {
+                Log.e("MainViewModel", "Lỗi: Chưa xác định được User ID!")
+            }
         }
     }
+    private fun calculateAndSaveBMI() {
+        viewModelScope.launch {
+            currentUserId?.let { id ->
 
+                val user = healthDao.getUserById(id)
+
+                if (user != null && user.height != null && user.weight != null && user.height > 0) {
+
+
+                    val heightInMeter = user.height / 100f
+                    val bmiValue = user.weight / (heightInMeter * heightInMeter)
+
+                    val bmiRounded = (bmiValue * 10).roundToInt() / 10f
+
+                    healthDao.updateBMI(id, bmiRounded)
+
+                    Log.d("BMI", "Đã cập nhật BMI mới: $bmiRounded")
+                }
+            }
+        }
+    }
     fun addHeight(height: Int) {
         viewModelScope.launch {
-            healthDao.updateHeight(currentUserId, height.toFloat())
+            currentUserId?.let { id ->
+                healthDao.updateHeight(id, height.toFloat())
+                calculateAndSaveBMI()
+            }
         }
     }
 
     fun addWeight(weight: Float) {
         viewModelScope.launch {
-            healthDao.updateWeight(currentUserId, weight)
+            currentUserId?.let { id ->
+                healthDao.updateWeight(id, weight)
+                calculateAndSaveBMI()
+            }
         }
     }
-
+    val currentUserInfo: StateFlow<UserEntity?> = dataStore.data
+        .map { prefs -> prefs[CURRENT_USER_EMAIL_KEY] }
+        .flatMapLatest { email ->
+            if (email != null) {
+                healthDao.getUserFlowByEmail(email)
+            } else {
+                flowOf(null)
+            }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
     fun syncData() {
         viewModelScope.launch {
             // Đồng bộ dữ liệu cho User hiện tại

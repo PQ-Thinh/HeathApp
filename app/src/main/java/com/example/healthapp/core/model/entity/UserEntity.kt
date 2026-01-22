@@ -14,5 +14,6 @@ data class UserEntity(
     @ColumnInfo(name = "gender") val gender: String,
     @ColumnInfo(name = "height") val height: Float?, // cm
     @ColumnInfo(name = "weight") val weight: Float?, // kg
+    @ColumnInfo(name = "bmi") val bmi: Float?,
     @ColumnInfo(name = "target_steps") val targetSteps: Int = 10000
 )

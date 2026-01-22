@@ -170,10 +170,11 @@ class MainActivity : ComponentActivity() {
                             //onLogoutClick = {  },
                             isDarkTheme = isDark,
                             onChangeLogin = { isLoggedIn ->
-                                mainViewModel.setIsLoggedIn(isLoggedIn)
+                                mainViewModel.updateLoginStatus(isLoggedIn = isLoggedIn)
                                 currentScreen = "intro"
                             },
-                            isLoggingIn = isLoggedIn
+                            isLoggingIn = isLoggedIn,
+                            mainViewModel = mainViewModel
                         )
 
                         "notifications" -> NotificationsScreen(

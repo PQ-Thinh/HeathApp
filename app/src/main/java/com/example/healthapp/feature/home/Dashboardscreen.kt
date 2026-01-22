@@ -8,11 +8,13 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
@@ -30,7 +32,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.healthapp.core.ViewModel.MainViewModel
@@ -52,9 +53,10 @@ fun HealthDashboardScreen(
 
     val steps by mainViewModel.realtimeSteps.collectAsState()
     val heartRate by mainViewModel.realtimeHeartRate.collectAsState()
-    // 1. CHỌN MÀU THEO THEME
+
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
 
+    val user by mainViewModel.currentUserInfo.collectAsState()
     LaunchedEffect(Unit) {
         if (!isPreview) isContentVisible = true
     }
@@ -124,7 +126,7 @@ fun HealthDashboardScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Hello, Alex!",
+                                text = "Hello, ${user?.name?:"It'me"}!",
                                 style = TextStyle(
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.Black,
@@ -133,7 +135,7 @@ fun HealthDashboardScreen(
                                 )
                             )
                             Text(
-                                text = "Here is your health summary for today.",
+                                text = "Đây là bản tóm tắt sức khỏe của bạn hôm nay.",
                                 color = colors.textSecondary,
                                 fontSize = 16.sp
                             )
@@ -147,7 +149,7 @@ fun HealthDashboardScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        HealthStatCard(
+                       HealthStatCard(
                             modifier = Modifier.weight(1f),
                             title = "Nhịp Tim",
                             value = heartRate.toString(),
@@ -169,9 +171,23 @@ fun HealthDashboardScreen(
                             visible = isContentVisible,
                             delay = 300
                         )
+
+
                     }
                 }
-
+                item {
+                    HealthStatCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        title = "BMI",
+                        value = "${user?.bmi?:"non update"}",
+                        unit = "Kg/m²",
+                        icon = Icons.Default.MonitorWeight,
+                        accentColor = Color(0xFF8B5CF6), // Tím (Sleep) giữ nguyên
+                        colors = colors,
+                        visible = isContentVisible,
+                        delay = 300
+                    )
+                }
                 // 5. Large Activity Card
                 item {
                     HealthStatCard(
@@ -351,6 +367,7 @@ fun HealthStatCard(
         }
     }
 }
+
 //
 //@Preview(name = "Dark Dashboard")
 //@Composable

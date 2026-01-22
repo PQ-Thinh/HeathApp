@@ -40,7 +40,9 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -102,6 +104,19 @@ fun WeightScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
+                Text(
+                    text = "Cân Nặng Của Bạn?",
+                    style = TextStyle(
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        shadow = Shadow(
+                            color = Color.Black.copy(0.5f),
+                            blurRadius = 10f,
+                            offset = Offset(2f, 2f)
+                        )
+                    )
+                )
 
                 Spacer(modifier = Modifier.height(24.dp))
 

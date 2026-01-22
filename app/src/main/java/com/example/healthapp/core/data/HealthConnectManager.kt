@@ -1,6 +1,7 @@
 package com.example.healthapp.core.data
 
 import android.content.Context
+
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.HeartRateRecord
@@ -8,6 +9,9 @@ import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.LocalDateTime
+import androidx.health.connect.client.records.metadata.Metadata
+import androidx.health.connect.client.response.InsertRecordsResponse
+import java.time.ZoneOffset
 
 class HealthConnectManager(private val context: Context) {
 
@@ -40,6 +44,25 @@ class HealthConnectManager(private val context: Context) {
             response.records.sumOf { it.count.toInt() }
         } catch (e: Exception) {
             0 // Trả về 0 nếu lỗi hoặc chưa cấp quyền
+        }
+    }
+    suspend fun writeSteps(startTime: LocalDateTime, endTime: LocalDateTime, steps: Int): Boolean {
+        if(steps <= 0) return true
+        return try {
+            val stepsRecord = StepsRecord(
+                startTime = startTime.toInstant(ZoneOffset.UTC),
+                endTime = endTime.toInstant(ZoneOffset.UTC),
+                startZoneOffset = ZoneOffset.UTC,
+                endZoneOffset = ZoneOffset.UTC,
+                count = steps.toLong(),
+                metadata = Metadata.manualEntry()
+            )
+
+            healthConnectClient.insertRecords(listOf(stepsRecord))
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
         }
     }
 

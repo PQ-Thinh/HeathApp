@@ -154,6 +154,7 @@ fun NameScreen(modifier: Modifier = Modifier
                 visible = isContentVisible,
                 enter = fadeIn(tween(800, 150)) + slideInVertically { -20 }
             ) {
+
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "Tên Bạn Là Gì?",

@@ -32,6 +32,8 @@ import androidx.compose.ui.unit.sp
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
+import com.example.healthapp.core.ViewModel.MainViewModel
+
 
 @Composable
 fun ProfileScreen(
@@ -40,8 +42,12 @@ fun ProfileScreen(
     onBackClick: () -> Unit = {},
     isDarkTheme: Boolean,
     isLoggingIn: Boolean,
-    onChangeLogin: (Boolean) -> Unit = {}
+    onChangeLogin: (Boolean) -> Unit = {},
+    mainViewModel: MainViewModel
 ) {
+
+    val user by mainViewModel.currentUserInfo.collectAsState()
+
     val isPreview = LocalInspectionMode.current
     var isVisible by remember { mutableStateOf(isPreview) }
 
@@ -136,7 +142,7 @@ fun ProfileScreen(
                             Spacer(modifier = Modifier.height(20.dp))
 
                             Text(
-                                text = "Alex Johnson",
+                                text = "${user?.name ?: "It'me"}",
                                 style = TextStyle(
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.Bold,
@@ -148,7 +154,7 @@ fun ProfileScreen(
                                 )
                             )
                             Text(
-                                text = "alex.johnson@example.com",
+                                text = "${user?.email ?: "Unknown"}",
                                 color = colors.textSecondary, // Chữ nhạt màu theo theme
                                 fontSize = 14.sp
                             )
@@ -290,15 +296,15 @@ fun ProfileMenuItem(
     }
 }
 
-// Preview cho cả 2 chế độ
-@Preview(name = "Dark Profile")
-@Composable
-fun ProfileScreenDarkPreview() {
-    ProfileScreen(isDarkTheme = true, isLoggingIn = false)
-}
-
-@Preview(name = "Light Profile")
-@Composable
-fun ProfileScreenLightPreview() {
-    ProfileScreen(isDarkTheme = false,isLoggingIn = false)
-}
+//// Preview cho cả 2 chế độ
+//@Preview(name = "Dark Profile")
+//@Composable
+//fun ProfileScreenDarkPreview() {
+//    ProfileScreen(isDarkTheme = true, isLoggingIn = false)
+//}
+//
+//@Preview(name = "Light Profile")
+//@Composable
+//fun ProfileScreenLightPreview() {
+//    ProfileScreen(isDarkTheme = false,isLoggingIn = false)
+//}

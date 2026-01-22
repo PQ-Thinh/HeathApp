@@ -61,7 +61,7 @@ class HealthRepository @Inject constructor(
             // Tạo mới ngày hôm nay
             val newData = DailyHealthEntity(
                 date = today,
-                userId = userId,
+                userId = userId?:1,
                 steps = steps,
                 caloriesBurned = calories
             )
