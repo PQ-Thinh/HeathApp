@@ -4,6 +4,8 @@ import com.example.healthapp.core.data.HealthConnectManager
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDate
+import kotlinx.coroutines.flow.firstOrNull
 import java.time.LocalDateTime
 import javax.inject.Inject
 
@@ -41,5 +43,41 @@ class HealthRepository @Inject constructor(
             )
             healthDao.insertOrUpdateDailyHealth(entity)
         }
+    }
+    // 1. Hàm lấy số bước đã lưu trong Room của ngày hôm nay
+    suspend fun getSavedStepsToday(userId: Int): Int {
+        val today = LocalDate.now().toString()
+        val data = healthDao.getDailyHealth(today, userId).firstOrNull()
+        return data?.steps ?: 0
+    }
+
+    // 2. Hàm Lưu dữ liệu (Gọi liên tục khi đi bộ để update Room)
+    suspend fun updateLocalSteps(userId: Int?, steps: Int, calories: Float) {
+        val today = LocalDate.now().toString()
+        // Kiểm tra xem đã có record hôm nay chưa
+        val currentData = healthDao.getDailyHealth(today, userId).firstOrNull()
+
+        if (currentData == null) {
+            // Tạo mới ngày hôm nay
+            val newData = DailyHealthEntity(
+                date = today,
+                userId = userId,
+                steps = steps,
+                caloriesBurned = calories
+            )
+            healthDao.insertOrUpdateDailyHealth(newData)
+        } else {
+            // Cập nhật số bước (Ghi đè số mới nhất)
+            healthDao.updateSteps(today, userId, steps, calories)
+        }
+    }
+
+    // 3. Hàm "Chốt sổ" cuối ngày: Đẩy lên Health Connect
+    suspend fun syncToHealthConnect(steps: Int) {
+        val now = LocalDateTime.now()
+        val startOfDay = now.toLocalDate().atStartOfDay()
+
+        // Ghi vào Health Connect (Google server)
+        healthConnectManager.writeSteps(startOfDay, now, steps)
     }
 }

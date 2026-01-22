@@ -19,7 +19,7 @@ class HealthSensorManager @Inject constructor(
 
     val stepFlow: Flow<Int> = callbackFlow {
         // Ưu tiên 1: Tìm cảm biến đếm bước chuyên dụng (Hardware Step Counter)
-        //val stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
+        val stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
 
         // Ưu tiên 2: Nếu không có, dùng cảm biến Gia tốc (Accelerometer)
         val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
@@ -43,12 +43,12 @@ class HealthSensorManager @Inject constructor(
 
             override fun onSensorChanged(event: SensorEvent?) {
                 event?.let {
-//                    if (it.sensor.type == Sensor.TYPE_STEP_COUNTER) {
-//                        //có sẵn cảm biến đếm
-//                        val totalSteps = it.values[0].toInt()
-//                        trySend(totalSteps)
-//                        Log.d("HealthSensor", "Nhận dữ liệu từ Cảm biến gốc: $totalSteps")
-//                         } else
+                    if (it.sensor.type == Sensor.TYPE_STEP_COUNTER) {
+                        //có sẵn cảm biến đếm
+                        val totalSteps = it.values[0].toInt()
+                        trySend(totalSteps)
+                        Log.d("HealthSensor", "Nhận dữ liệu từ Cảm biến gốc: $totalSteps")
+                    } else
                     if (it.sensor.type == Sensor.TYPE_ACCELEROMETER) {
                         val xRaw = it.values[0]
                         val yRaw = it.values[1]
@@ -92,13 +92,13 @@ class HealthSensorManager @Inject constructor(
 
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
-//        if (stepSensor != null) {
-//            // TRƯỜNG HỢP 1: Máy có cảm biến thật
-//            Log.d("HealthSensor", "Máy CÓ hỗ trợ Step Counter! Đang đăng ký listener...")
-//            val registered = sensorManager.registerListener(listener, stepSensor, SensorManager.SENSOR_DELAY_UI)
-//            Log.d("HealthSensor", "Kết quả đăng ký Step Counter: $registered")
-//
-//        } else
+        if (stepSensor != null) {
+            // TRƯỜNG HỢP 1: Máy có cảm biến thật
+            Log.d("HealthSensor", "Máy CÓ hỗ trợ Step Counter! Đang đăng ký listener...")
+            val registered = sensorManager.registerListener(listener, stepSensor, SensorManager.SENSOR_DELAY_UI)
+            Log.d("HealthSensor", "Kết quả đăng ký Step Counter: $registered")
+
+        } else
             if (accelerometer != null) {
             // TRƯỜNG HỢP 2: Máy không có, dùng gia tốc kế
             Log.d("HealthSensor", "Máy KHÔNG có Step Counter -> Dùng Accelerometer thay thế.")
