@@ -14,6 +14,8 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.healthapp.core.data.HealthSensorManager
+import com.example.healthapp.core.data.HeartRateBucket
+import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
@@ -58,6 +60,11 @@ class MainViewModel @Inject constructor(
     private val _realtimeHeartRate = MutableStateFlow(0)
     val realtimeHeartRate: StateFlow<Int> = _realtimeHeartRate.asStateFlow()
 
+    private val _chartData = MutableStateFlow<List<HeartRateBucket>>(emptyList())
+    val chartData = _chartData.asStateFlow()
+
+    private val _selectedTimeRange = MutableStateFlow(ChartTimeRange.WEEK)
+    val selectedTimeRange = _selectedTimeRange.asStateFlow()
     // Biến nội bộ
     private var startOfDaySteps = 0
     private var currentUserId: Int? = null // Default ID
@@ -313,16 +320,6 @@ class MainViewModel @Inject constructor(
         _realtimeHeartRate.value = bpm
     }
 
-    // Nếu muốn lưu vào Database khi đo xong (ví dụ có nút "Lưu kết quả")
-    fun saveHeartRateRecord(bpm: Int) {
-        viewModelScope.launch {
-            currentUserId?.let { id ->
-                val today = LocalDate.now().toString()
-                healthDao.updateHeartRate(today, id, bpm)
-            }
-        }
-    }
-
 
     //Biểu đồ
     // 1. Luồng dữ liệu cho NGÀY HÔM NAY (Tự động cập nhật khi DB thay đổi)
@@ -348,5 +345,26 @@ class MainViewModel @Inject constructor(
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    // 1. Hàm gọi khi người dùng đo xong nhịp tim
+    fun saveHeartRateRecord(bpm: Int) {
+        viewModelScope.launch {
+            currentUserId?.let { id ->
+                repository.saveHeartRate(id, bpm) // Lưu vào HC -> Sync Room
+                loadChartData() // Refresh biểu đồ
+            }
+        }
+    }
 
+    // 2. Hàm load dữ liệu biểu đồ
+    fun setTimeRange(range: ChartTimeRange) {
+        _selectedTimeRange.value = range
+        loadChartData()
+    }
+
+    private fun loadChartData() {
+        viewModelScope.launch {
+            val data = repository.getHeartRateChartData(_selectedTimeRange.value)
+            _chartData.value = data
+        }
+    }
 }

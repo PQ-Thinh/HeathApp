@@ -1,6 +1,7 @@
 package com.example.healthapp.core.data
 
 import android.content.Context
+import android.util.Log
 
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
@@ -12,6 +13,10 @@ import java.time.LocalDateTime
 import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.response.InsertRecordsResponse
 import java.time.ZoneOffset
+import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
+import java.time.Duration
+import java.time.ZoneId
+import java.time.Period
 
 class HealthConnectManager(private val context: Context) {
 
@@ -65,6 +70,61 @@ class HealthConnectManager(private val context: Context) {
             false
         }
     }
+    suspend fun writeHeartRate(bpm: Int, time: LocalDateTime): Boolean {
+        return try {
+            val record = HeartRateRecord(
+                startTime = time.toInstant(ZoneOffset.UTC),
+                endTime = time.plusSeconds(1).toInstant(ZoneOffset.UTC), // Record tức thời
+                startZoneOffset = ZoneOffset.UTC,
+                endZoneOffset = ZoneOffset.UTC,
+                samples = listOf(
+                    HeartRateRecord.Sample(
+                        time = time.toInstant(ZoneOffset.UTC),
+                        beatsPerMinute = bpm.toLong()
+                    )
+                ),
+                metadata = Metadata.manualEntry() // Đánh dấu là app tự đo
+            )
+            healthConnectClient.insertRecords(listOf(record))
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
+    suspend fun readHeartRateAggregation(
+        startTime: LocalDateTime,
+        endTime: LocalDateTime,
+        period: Period // Hoặc Duration nếu muốn chia nhỏ hơn 1 ngày
+    ): List<HeartRateBucket> {
+        try {
+            val request = AggregateGroupByPeriodRequest(
+                metrics = setOf(
+                    HeartRateRecord.BPM_AVG,
+                    HeartRateRecord.BPM_MAX,
+                    HeartRateRecord.BPM_MIN
+                ),
+                timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
+                timeRangeSlicer = period // Tự động cắt lát dữ liệu theo ngày/tuần
+            )
+
+            val response = healthConnectClient.aggregateGroupByPeriod(request)
+
+            return response.map { bucket ->
+                HeartRateBucket(
+                    startTime = bucket.startTime,
+                    // Nếu không có dữ liệu thì trả về 0
+                    min = bucket.result[HeartRateRecord.BPM_MIN] ?: 0,
+                    max = bucket.result[HeartRateRecord.BPM_MAX] ?: 0,
+                    avg = bucket.result[HeartRateRecord.BPM_AVG] ?: 0
+
+                )
+            }.filter { it.avg > 0 } // Lọc bỏ những khoảng thời gian không có dữ liệu
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return emptyList()
+        }
+    }
 
     //Đọc nhịp tim trung bình
     suspend fun readHeartRate(startTime: LocalDateTime, endTime: LocalDateTime): Int {
@@ -85,3 +145,9 @@ class HealthConnectManager(private val context: Context) {
         }
     }
 }
+data class HeartRateBucket(
+    val startTime: LocalDateTime,
+    val min: Long,
+    val max: Long,
+    val avg: Long
+)

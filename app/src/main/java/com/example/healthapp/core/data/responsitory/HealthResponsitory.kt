@@ -1,12 +1,14 @@
 package com.example.healthapp.core.data.responsitory
 
 import com.example.healthapp.core.data.HealthConnectManager
+import com.example.healthapp.core.data.HeartRateBucket
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 import kotlinx.coroutines.flow.firstOrNull
 import java.time.LocalDateTime
+import java.time.Period
 import javax.inject.Inject
 
 class HealthRepository @Inject constructor(
@@ -80,4 +82,33 @@ class HealthRepository @Inject constructor(
         // Ghi vào Health Connect (Google server)
         healthConnectManager.writeSteps(startOfDay, now, steps)
     }
+    suspend fun saveHeartRate(userId: Int, bpm: Int) {
+        val now = LocalDateTime.now()
+
+        // Bước 1: Ghi vào Health Connect (Source of Truth)
+        val success = healthConnectManager.writeHeartRate(bpm, now)
+
+        if (success) {
+            // Bước 2: Chỉ lưu giá trị mới nhất vào Room để hiển thị ở Dashboard (Realtime)
+            healthDao.updateHeartRate(now.toLocalDate().toString(), userId, bpm)
+        }
+    }
+
+    // 2. Lấy dữ liệu biểu đồ (Trực tiếp từ Health Connect)
+    suspend fun getHeartRateChartData(range: ChartTimeRange): List<HeartRateBucket> {
+        val end = LocalDateTime.now()
+        val start = when (range) {
+            ChartTimeRange.DAY -> end.minusDays(1)
+            ChartTimeRange.WEEK -> end.minusDays(7)
+            ChartTimeRange.MONTH -> end.minusDays(30)
+        }
+
+        // Với biểu đồ ngày -> Chia theo giờ? Hiện tại AggregateGroupByPeriod hỗ trợ tốt nhất là theo Ngày (Period)
+        // Nếu muốn chia theo Giờ, logic sẽ hơi khác một chút (dùng Duration).
+        // Ở đây ta demo theo ngày (Period.ofDays(1))
+
+        val period = Period.ofDays(1)
+        return healthConnectManager.readHeartRateAggregation(start, end, period)
+    }
 }
+enum class ChartTimeRange { DAY, WEEK, MONTH }

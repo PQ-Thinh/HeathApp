@@ -34,7 +34,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.healthapp.core.viewmodel.MainViewModel
-import com.example.healthapp.feature.chart.HeartRateChart
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
@@ -47,7 +46,7 @@ fun HealthDashboardScreen(
     onNotificationsClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     isDarkTheme: Boolean,
-    onHeartRateClick: () -> Unit = {},
+    onHeartDetailClick: () -> Unit = {},
     mainViewModel: MainViewModel
 ) {
     val isPreview = LocalInspectionMode.current
@@ -157,7 +156,7 @@ fun HealthDashboardScreen(
                     ) {
                        HealthStatCard(
                             modifier = Modifier.weight(1f)
-                                .clickable { onHeartRateClick() }
+                                .clickable { onHeartDetailClick() }
                                 ,
                             title = "Nhịp Tim",
                             value = displayBpm.toString(),
@@ -213,24 +212,24 @@ fun HealthDashboardScreen(
                 }
 
                 // 6. Static Chart Placeholder
-                item {
-                    AnimatedVisibility(
-                        visible = isContentVisible,
-                        enter = fadeIn(tween(800, 500)) + slideInVertically { 40 }
-                    ) {
-
-                            // Gọi Composable Chart vừa tạo
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(24.dp))
-                                    .background(colors.glassContainer)
-                                    .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
-                            ) {
-                                HeartRateChart(data = weeklyHealth)
-                            }
-                    }
-                }
+//                item {
+//                    AnimatedVisibility(
+//                        visible = isContentVisible,
+//                        enter = fadeIn(tween(800, 500)) + slideInVertically { 40 }
+//                    ) {
+//
+//                            // Gọi Composable Chart vừa tạo
+//                            Box(
+//                                modifier = Modifier
+//                                    .fillMaxWidth()
+//                                    .clip(RoundedCornerShape(24.dp))
+//                                    .background(colors.glassContainer)
+//                                    .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
+//                            ) {
+//                                HeartRateChart(data = weeklyHealth)
+//                            }
+//                    }
+//                }
             }
         }
     }

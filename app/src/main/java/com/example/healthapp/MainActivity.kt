@@ -14,7 +14,6 @@ import com.google.accompanist.systemuicontroller.rememberSystemUiController
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -31,7 +30,8 @@ import com.example.healthapp.feature.home.ProfileScreen
 import com.example.healthapp.feature.home.SettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
 import android.Manifest
-import com.example.healthapp.feature.detail.HeartRateScreen
+import com.example.healthapp.feature.componets.HeartRateScreen
+import com.example.healthapp.feature.detail.HeartDetailScreen
 import com.example.healthapp.feature.home.HeightPickerScreen
 import com.example.healthapp.feature.home.NameScreen
 import com.example.healthapp.feature.home.WeightScreen
@@ -68,7 +68,6 @@ class MainActivity : ComponentActivity() {
                 var currentScreen by remember {
                     mutableStateOf(if (!isLoggedIn) "dashboard" else "intro")
                 }
-                val demoUsers = remember { mutableStateListOf<Pair<String, String>>() }
 
                 BackHandler {
                     when (currentScreen) {
@@ -162,14 +161,21 @@ class MainActivity : ComponentActivity() {
                             onNotificationsClick = { currentScreen = "notifications" },
                             onSettingsClick = { currentScreen = "settings" },
                             isDark,
-                            onHeartRateClick = { currentScreen = "heart_rate" },
+                           onHeartDetailClick = { currentScreen = "heart_detail" },
                                     mainViewModel
+                        )
+                        "heart_detail"-> HeartDetailScreen(
+                            modifier = Modifier.padding(innerPadding),
+                            onHeartRateClick = { currentScreen = "heart_rate" },
+                            isDark,
+                            onBackClick = { currentScreen = "dashboard" },
+                            mainViewModel
                         )
 
                         "heart_rate" -> HeartRateScreen(
                             onBackClick = { heartRate ->
                                 mainViewModel.saveHeartRateRecord(heartRate)
-                                currentScreen = "dashboard" },
+                                currentScreen = "heart_detail" },
                             mainViewModel = mainViewModel
                         )
 
