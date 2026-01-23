@@ -1,6 +1,7 @@
-package com.example.healthapp.core.ViewModel
+package com.example.healthapp.core.viewmodel
 
 import android.util.Log
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,6 +16,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.healthapp.core.data.HealthSensorManager
 import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.model.dao.HealthDao
+import com.example.healthapp.core.model.entity.DailyHealthEntity
 import com.example.healthapp.core.model.entity.UserEntity
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -127,14 +129,6 @@ class MainViewModel @Inject constructor(
                 repository.updateLocalSteps(currentUserId, todaySteps, _realtimeCalories.value)
             }
         }
-
-        viewModelScope.launch {
-            sensorManager.heartRateFlow.collect { bpm ->
-                _realtimeHeartRate.value = bpm
-                // Lưu nhịp tim luôn nếu cần
-                // healthDao.updateHeartRate(...)
-            }
-        }
     }
 
     // Hàm lưu Mốc và Ngày vào DataStore
@@ -165,13 +159,19 @@ class MainViewModel @Inject constructor(
             if (email != null) it[CURRENT_USER_EMAIL_KEY] = email
         }
     }
+
     fun updateLoginStatus(isLoggedIn: Boolean) {
         viewModelScope.launch {
             setIsLoggedIn(isLoggedIn)
         }
     }
 
-    fun registerUser(email: String, pass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+    fun registerUser(
+        email: String,
+        pass: String,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
         viewModelScope.launch {
             val existingUser = healthDao.getUserByEmail(email)
             if (existingUser != null) {
@@ -218,6 +218,7 @@ class MainViewModel @Inject constructor(
             }
         }
     }
+
     fun loginUser(email: String, pass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
             val user = healthDao.getUserByEmail(email)
@@ -235,7 +236,6 @@ class MainViewModel @Inject constructor(
     }
 
 
-
     fun addName(name: String) {
         viewModelScope.launch {
             currentUserId?.let { id ->
@@ -246,6 +246,7 @@ class MainViewModel @Inject constructor(
             }
         }
     }
+
     private fun calculateAndSaveBMI() {
         viewModelScope.launch {
             currentUserId?.let { id ->
@@ -267,6 +268,7 @@ class MainViewModel @Inject constructor(
             }
         }
     }
+
     fun addHeight(height: Int) {
         viewModelScope.launch {
             currentUserId?.let { id ->
@@ -284,6 +286,7 @@ class MainViewModel @Inject constructor(
             }
         }
     }
+
     val currentUserInfo: StateFlow<UserEntity?> = dataStore.data
         .map { prefs -> prefs[CURRENT_USER_EMAIL_KEY] }
         .flatMapLatest { email ->
@@ -298,10 +301,52 @@ class MainViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = null
         )
+
     fun syncData() {
         viewModelScope.launch {
             // Đồng bộ dữ liệu cho User hiện tại
             repository.syncHealthData(currentUserId)
         }
     }
+    // Hàm này để cập nhật giá trị hiển thị Realtime lên Dashboard
+    fun updateRealtimeHeartRate(bpm: Int) {
+        _realtimeHeartRate.value = bpm
+    }
+
+    // Nếu muốn lưu vào Database khi đo xong (ví dụ có nút "Lưu kết quả")
+    fun saveHeartRateRecord(bpm: Int) {
+        viewModelScope.launch {
+            currentUserId?.let { id ->
+                val today = LocalDate.now().toString()
+                healthDao.updateHeartRate(today, id, bpm)
+            }
+        }
+    }
+
+
+    //Biểu đồ
+    // 1. Luồng dữ liệu cho NGÀY HÔM NAY (Tự động cập nhật khi DB thay đổi)
+    // Dùng flatMapLatest để khi currentUserId thay đổi, nó tự lấy data của user mới
+    val todayHealthData: StateFlow<DailyHealthEntity?> = snapshotFlow { currentUserId }
+        .flatMapLatest { userId ->
+            if (userId != null) {
+                val today = LocalDate.now().toString()
+                healthDao.getDailyHealth(today, userId)
+            } else {
+                flowOf(null)
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    // 2. Luồng dữ liệu cho BIỂU ĐỒ (7 ngày gần nhất)
+    val weeklyHealthData: StateFlow<List<DailyHealthEntity>> = snapshotFlow { currentUserId }
+        .flatMapLatest { userId ->
+            if (userId != null) {
+                healthDao.getLast7DaysHealth(userId)
+            } else {
+                flowOf(emptyList())
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
 }

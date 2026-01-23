@@ -20,7 +20,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.healthapp.core.ViewModel.MainViewModel
+import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.feature.auth.ForgotPasswordScreen
 import com.example.healthapp.feature.auth.LoginScreen
 import com.example.healthapp.feature.auth.SignUpScreen
@@ -31,6 +31,7 @@ import com.example.healthapp.feature.home.ProfileScreen
 import com.example.healthapp.feature.home.SettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
 import android.Manifest
+import com.example.healthapp.feature.detail.HeartRateScreen
 import com.example.healthapp.feature.home.HeightPickerScreen
 import com.example.healthapp.feature.home.NameScreen
 import com.example.healthapp.feature.home.WeightScreen
@@ -73,7 +74,7 @@ class MainActivity : ComponentActivity() {
                     when (currentScreen) {
                         "login"->currentScreen= "intro"
                         "signup", "forgot" -> currentScreen = "login"
-                        "profile", "notifications", "settings" -> currentScreen = "dashboard"
+                        "profile", "notifications", "settings","heart_rate" -> currentScreen = "dashboard"
                         //"dashboard" -> currentScreen = "login"
                         "height" -> currentScreen = "name"
                         "weight" -> currentScreen = "height"
@@ -161,7 +162,15 @@ class MainActivity : ComponentActivity() {
                             onNotificationsClick = { currentScreen = "notifications" },
                             onSettingsClick = { currentScreen = "settings" },
                             isDark,
-                            mainViewModel
+                            onHeartRateClick = { currentScreen = "heart_rate" },
+                                    mainViewModel
+                        )
+
+                        "heart_rate" -> HeartRateScreen(
+                            onBackClick = { heartRate ->
+                                mainViewModel.saveHeartRateRecord(heartRate)
+                                currentScreen = "dashboard" },
+                            mainViewModel = mainViewModel
                         )
 
                         "profile" -> ProfileScreen(

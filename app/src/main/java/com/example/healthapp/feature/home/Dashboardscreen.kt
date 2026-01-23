@@ -8,7 +8,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -34,10 +33,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.healthapp.core.ViewModel.MainViewModel
+import com.example.healthapp.core.viewmodel.MainViewModel
+import com.example.healthapp.feature.chart.HeartRateChart
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun HealthDashboardScreen(
@@ -46,14 +47,19 @@ fun HealthDashboardScreen(
     onNotificationsClick: () -> Unit = {},
     onSettingsClick: () -> Unit = {},
     isDarkTheme: Boolean,
+    onHeartRateClick: () -> Unit = {},
     mainViewModel: MainViewModel
 ) {
     val isPreview = LocalInspectionMode.current
     var isContentVisible by remember { mutableStateOf(isPreview) }
 
     val steps by mainViewModel.realtimeSteps.collectAsState()
-    val heartRate by mainViewModel.realtimeHeartRate.collectAsState()
+    val todayHealth by mainViewModel.todayHealthData.collectAsState()
 
+    val weeklyHealth by mainViewModel.weeklyHealthData.collectAsState()
+
+    val realtimeBpm by mainViewModel.realtimeHeartRate.collectAsState()
+    val displayBpm = if (realtimeBpm > 0) realtimeBpm else (todayHealth?.heartRateAvg ?: 0)
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
 
     val user by mainViewModel.currentUserInfo.collectAsState()
@@ -150,9 +156,11 @@ fun HealthDashboardScreen(
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                        HealthStatCard(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f)
+                                .clickable { onHeartRateClick() }
+                                ,
                             title = "Nhịp Tim",
-                            value = heartRate.toString(),
+                            value = displayBpm.toString(),
                             unit = "BPM",
                             icon = Icons.Default.Favorite,
                             accentColor = Color(0xFFEF4444), // Đỏ (Heart) giữ nguyên
@@ -210,47 +218,17 @@ fun HealthDashboardScreen(
                         visible = isContentVisible,
                         enter = fadeIn(tween(800, 500)) + slideInVertically { 40 }
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(32.dp))
-                                .background(colors.glassContainer) // Kính mờ
-                                .border(1.dp, colors.glassBorder, RoundedCornerShape(32.dp))
-                                .padding(24.dp)
-                        ) {
-                            Text(
-                                "Weekly Activity",
-                                color = colors.textPrimary,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp
-                            )
-                            Spacer(modifier = Modifier.height(20.dp))
-                            // Simple bar chart representation
-                            Row(
+
+                            // Gọi Composable Chart vừa tạo
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(100.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Bottom
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(colors.glassContainer)
+                                    .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
                             ) {
-                                listOf(0.4f, 0.7f, 0.5f, 0.9f, 0.6f, 0.8f, 0.75f).forEach { scale ->
-                                    Box(
-                                        modifier = Modifier
-                                            .width(20.dp)
-                                            .fillMaxHeight(scale)
-                                            .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                                            .background(
-                                                Brush.verticalGradient(
-                                                    listOf(
-                                                        colors.gradientOrb1, // Gradient cột biểu đồ theo theme
-                                                        colors.gradientOrb2.copy(0.5f)
-                                                    )
-                                                )
-                                            )
-                                    )
-                                }
+                                HeartRateChart(data = weeklyHealth)
                             }
-                        }
                     }
                 }
             }

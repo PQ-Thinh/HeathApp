@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.appcompat)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -85,4 +86,11 @@ dependencies {
     implementation("androidx.health.connect:connect-client:1.2.0-alpha02")
 
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
-}
+
+    // Thư viện đo nhịp tim & thuật toán lọc nhiễu (từ đoạn code bạn gửi)
+    implementation("com.github.kibotu:Heart-Rate-Ometer:1.3.2")
+    implementation("com.github.kibotu:KalmanRx:2.0.0")
+
+    // RxJava (Thư viện này dùng RxJava nên cần thêm để nó chạy)
+    implementation("io.reactivex.rxjava2:rxjava:2.2.21")
+    implementation("io.reactivex.rxjava2:rxandroid:2.1.1")}

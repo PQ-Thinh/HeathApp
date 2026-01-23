@@ -117,25 +117,5 @@ class HealthSensorManager @Inject constructor(
         }
     }
 
-    // ---Flow Nhịp tim  trả về 0 nếu không có
-    val heartRateFlow: Flow<Int> = callbackFlow {
-        val heartSensor = sensorManager.getDefaultSensor(Sensor.TYPE_HEART_RATE)
 
-        if (heartSensor == null) {
-            trySend(0)
-            close()
-            return@callbackFlow
-        }
-
-        val listener = object : SensorEventListener {
-            override fun onSensorChanged(event: SensorEvent?) {
-                event?.let { trySend(it.values[0].toInt()) }
-            }
-            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
-        }
-
-        sensorManager.registerListener(listener, heartSensor, SensorManager.SENSOR_DELAY_NORMAL)
-
-        awaitClose { sensorManager.unregisterListener(listener) }
-    }
 }
