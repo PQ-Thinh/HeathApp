@@ -1,5 +1,6 @@
 package com.example.healthapp.core.data.responsitory
 
+import android.util.Log
 import com.example.healthapp.core.data.HealthConnectManager
 import com.example.healthapp.core.data.HeartRateBucket
 import com.example.healthapp.core.model.dao.HealthDao
@@ -30,7 +31,7 @@ class HealthRepository @Inject constructor(
         // Lấy dữ liệu từ Health Connect
         val steps = healthConnectManager.readSteps(startOfDay, now)
         val heartRate = healthConnectManager.readHeartRate(startOfDay, now)
-        val calories = steps * 0.04f // Công thức tính nhanh calo
+        val calories = steps * 0.04f
 
         //Cập nhật vào Room (Cache) gắn với User ID
         // Nếu user đổi máy hoặc đăng nhập lại, bước 2 sẽ lấy lại đc dữ liệu cũ,
@@ -85,11 +86,12 @@ class HealthRepository @Inject constructor(
     suspend fun saveHeartRate(userId: Int, bpm: Int) {
         val now = LocalDateTime.now()
 
-        // Bước 1: Ghi vào Health Connect (Source of Truth)
+        //Ghi vào Health Connect (Source of Truth)
         val success = healthConnectManager.writeHeartRate(bpm, now)
+        Log.d("HealthRepository", "Write to Health Connect: $success")
 
         if (success) {
-            // Bước 2: Chỉ lưu giá trị mới nhất vào Room để hiển thị ở Dashboard (Realtime)
+            //Chỉ lưu giá trị mới nhất vào Room để hiển thị ở Dashboard (Realtime)
             healthDao.updateHeartRate(now.toLocalDate().toString(), userId, bpm)
         }
     }

@@ -1,14 +1,11 @@
 package com.example.healthapp.feature.detail
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -30,11 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,14 +35,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.feature.chart.HeartRateOptionChart
-import com.example.healthapp.feature.home.SettingsTopBar
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
@@ -63,18 +54,8 @@ fun HeartDetailScreen(
     onBackClick: () -> Unit = {},
     mainViewModel : MainViewModel
 ) {
-    val isPreview = LocalInspectionMode.current
-    var isVisible by remember { mutableStateOf(isPreview) }
-
-    // State for demo purposes
-
-    var isContentVisible by remember { mutableStateOf(isPreview) }
 
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
-
-    LaunchedEffect(Unit) {
-        if (!isPreview) isVisible = true
-    }
 
     val infiniteTransition = rememberInfiniteTransition(label = "background")
     val floatAnim by infiniteTransition.animateFloat(
@@ -122,23 +103,7 @@ fun HeartDetailScreen(
                 contentPadding = PaddingValues(24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                item {
 
-
-                        // Gọi Composable Chart vừa tạo
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(colors.glassContainer)
-                                .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
-                        ) {
-                            Button(onClick = { onHeartRateClick() }) {
-                                Text("Cập Nhật Nhịp Tim Của Bạn")
-                            }
-                        }
-
-                }
                 item {
 
 
@@ -152,6 +117,23 @@ fun HeartDetailScreen(
                         ) {
                             HeartRateOptionChart(mainViewModel)
                         }
+                }
+                item {
+
+
+                    // Gọi Composable Chart vừa tạo
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(colors.glassContainer)
+                            .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
+                    ) {
+                        Button(onClick = { onHeartRateClick() }) {
+                            Text("Cập Nhật Nhịp Tim Của Bạn")
+                        }
+                    }
+
                 }
             }
         }

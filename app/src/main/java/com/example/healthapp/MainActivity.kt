@@ -30,6 +30,13 @@ import com.example.healthapp.feature.home.ProfileScreen
 import com.example.healthapp.feature.home.SettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
 import android.Manifest
+import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.platform.LocalContext
+import androidx.health.connect.client.PermissionController
 import com.example.healthapp.feature.componets.HeartRateScreen
 import com.example.healthapp.feature.detail.HeartDetailScreen
 import com.example.healthapp.feature.home.HeightPickerScreen
@@ -46,11 +53,66 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val permissionState = rememberPermissionState(Manifest.permission.ACTIVITY_RECOGNITION)
+            val mainViewModel: MainViewModel = hiltViewModel()
+            val healthConnectManager = mainViewModel.healthConnectManager
+            val healthState by mainViewModel.healthConnectState.collectAsState()
+            val context = LocalContext.current // Lấy context ở đây để dùng cho Toast/Intent
+
+            // 1. Launcher Xin Quyền (Popup hệ thống)
+            val healthConnectPermissionLauncher = rememberLauncherForActivityResult(
+                contract = PermissionController.createRequestPermissionResultContract()
+            ) { granted ->
+                if (granted.containsAll(healthConnectManager.permissions)) {
+                    Toast.makeText(context, "Đã cấp quyền!", Toast.LENGTH_SHORT).show()
+                    mainViewModel.checkHealthConnectStatus()
+                } else {
+                    Toast.makeText(context, "Cần quyền để đồng bộ dữ liệu", Toast.LENGTH_SHORT).show()
+                }
+            }
+            var showInstallDialog by remember { mutableStateOf(false) }
 
             LaunchedEffect(Unit) {
+
+                // Bắt đầu kiểm tra Health Connect
+                mainViewModel.checkHealthConnectStatus()
+                // Xin quyền Activity Recognition
                 permissionState.launchPermissionRequest()
+
             }
-            val mainViewModel: MainViewModel = hiltViewModel()
+            LaunchedEffect(healthState) {
+                Log.d("MainActivity", "Health Connect State changed to: $healthState")
+
+                when (healthState) {
+
+                    2, 3 -> {
+                        showInstallDialog = true
+                    }
+
+                    4 -> {
+                        // Cần xin quyền -> Bắn Popup
+                        healthConnectPermissionLauncher.launch(healthConnectManager.permissions)
+                    }
+                }
+            }
+
+            if (showInstallDialog) {
+                AlertDialog(
+                    onDismissRequest = { showInstallDialog = false },
+                    title = { Text("Cài đặt Health Connect") },
+                    text = { Text("Ứng dụng cần Health Connect để đồng bộ dữ liệu sức khỏe. Bạn có muốn cài đặt ngay không?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showInstallDialog = false
+                                healthConnectManager.openHealthConnectInPlayStore(context)
+                            }
+                        ) { Text("Cài đặt") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showInstallDialog = false }) { Text("Để sau") }
+                    }
+                )
+            }
             val isDark by mainViewModel.isDarkMode.collectAsState()
             val isLoggedIn by mainViewModel.isLoggedIn.collectAsState()
 

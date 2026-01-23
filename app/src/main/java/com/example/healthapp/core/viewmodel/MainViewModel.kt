@@ -1,5 +1,7 @@
 package com.example.healthapp.core.viewmodel
 
+import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
@@ -13,6 +15,8 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.health.connect.client.HealthConnectClient
+import com.example.healthapp.core.data.HealthConnectManager
 import com.example.healthapp.core.data.HealthSensorManager
 import com.example.healthapp.core.data.HeartRateBucket
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
@@ -25,6 +29,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -37,7 +42,8 @@ class MainViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val healthDao: HealthDao,
     private val repository: HealthRepository,
-    private val sensorManager: HealthSensorManager
+    private val sensorManager: HealthSensorManager,
+    val healthConnectManager: HealthConnectManager
 ) : ViewModel() {
 
     // --- KEYS DATASTORE ---
@@ -68,6 +74,10 @@ class MainViewModel @Inject constructor(
     // Biến nội bộ
     private var startOfDaySteps = 0
     private var currentUserId: Int? = null // Default ID
+    // Thêm State để báo lỗi ra UI
+    private val _healthConnectState = MutableStateFlow<Int>(0)
+    // 0: Init, 1: Available, 2: Update Required, 3: Not Supported
+    val healthConnectState = _healthConnectState.asStateFlow()
 
     init {
         // 1. Load dữ liệu User và Mốc bước chân trước khi đo
@@ -83,7 +93,24 @@ class MainViewModel @Inject constructor(
                 currentUserId = user?.id ?: 1
                 Log.d("MainViewModel", "User ID: $currentUserId")
             }
+            currentUserId?.let { id ->
+                val today = LocalDate.now().toString()
+                val todayData = healthDao.getDailyHealth(today, id).firstOrNull()
 
+                // Nếu hôm nay đã có dữ liệu, cập nhật lại State ngay lập tức
+                if (todayData != null) {
+                    // Khôi phục nhịp tim
+                    if (todayData.heartRateAvg > 0) {
+                        _realtimeHeartRate.value = todayData.heartRateAvg
+                    }
+
+
+                    _realtimeCalories.value = todayData.caloriesBurned
+
+
+                    _realtimeSteps.value = todayData.steps
+                }
+            }
             // Lấy Mốc bước chân đã lưu từ DataStore
             val preferences = dataStore.data.first()
             startOfDaySteps = preferences[START_OF_DAY_STEPS_KEY] ?: 0
@@ -100,7 +127,30 @@ class MainViewModel @Inject constructor(
             startSensorTracking()
         }
     }
+    fun checkHealthConnectStatus() { // Đổi tên hàm cho đúng nghĩa
+        viewModelScope.launch {
+            val status = healthConnectManager.checkAvailability()
 
+            when (status) {
+                HealthConnectClient.SDK_AVAILABLE -> {
+                    if (healthConnectManager.hasAllPermissions()) {
+                        syncData()
+                        _healthConnectState.value = 1 // Đã ngon
+                    } else {
+                        _healthConnectState.value = 4 // Cần xin quyền
+                    }
+                }
+                HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> {
+                    _healthConnectState.value = 2 // Cần update
+                }
+                else -> {
+                    _healthConnectState.value = 3 // Không hỗ trợ
+                }
+            }
+            Log.d("MainViewModel", " Gía trị chuyển: $_healthConnectState ")
+
+        }
+    }
     private fun startSensorTracking() {
         viewModelScope.launch {
             // 'totalStepsSinceBoot' là tổng số bước từ lúc bật điện thoại (VD: 15000)
@@ -200,7 +250,7 @@ class MainViewModel @Inject constructor(
             )
             healthDao.saveUser(newUser)
 
-            // 3. Lấy lại User vừa tạo để có ID chính xác (vì ID tự tăng)
+            //  Lấy lại User vừa tạo để có ID chính xác (vì ID tự tăng)
             val createdUser = healthDao.getUserByEmail(email)
 
             if (createdUser != null) {
@@ -318,6 +368,7 @@ class MainViewModel @Inject constructor(
     // Hàm này để cập nhật giá trị hiển thị Realtime lên Dashboard
     fun updateRealtimeHeartRate(bpm: Int) {
         _realtimeHeartRate.value = bpm
+
     }
 
 
@@ -328,7 +379,7 @@ class MainViewModel @Inject constructor(
         .flatMapLatest { userId ->
             if (userId != null) {
                 val today = LocalDate.now().toString()
-                healthDao.getDailyHealth(today, userId)
+                repository.getDailyHealth(today, userId)
             } else {
                 flowOf(null)
             }
@@ -345,7 +396,7 @@ class MainViewModel @Inject constructor(
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    // 1. Hàm gọi khi người dùng đo xong nhịp tim
+    // Hàm gọi khi người dùng đo xong nhịp tim
     fun saveHeartRateRecord(bpm: Int) {
         viewModelScope.launch {
             currentUserId?.let { id ->
@@ -368,3 +419,4 @@ class MainViewModel @Inject constructor(
         }
     }
 }
+// calories = step X chieu cao X can năng

@@ -1,5 +1,6 @@
 package com.example.healthapp.feature.home
 
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -28,6 +29,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -62,8 +64,11 @@ fun HealthDashboardScreen(
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
 
     val user by mainViewModel.currentUserInfo.collectAsState()
+
     LaunchedEffect(Unit) {
         if (!isPreview) isContentVisible = true
+
+        mainViewModel.checkHealthConnectStatus()
     }
 
     // Matching background animation

@@ -1,7 +1,8 @@
 package com.example.healthapp.core.data
 
 import android.content.Context
-import android.util.Log
+import android.content.Intent
+import android.net.Uri
 
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
@@ -11,11 +12,9 @@ import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.LocalDateTime
 import androidx.health.connect.client.records.metadata.Metadata
-import androidx.health.connect.client.response.InsertRecordsResponse
 import java.time.ZoneOffset
+import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
-import java.time.Duration
-import java.time.ZoneId
 import java.time.Period
 
 class HealthConnectManager(private val context: Context) {
@@ -28,7 +27,9 @@ class HealthConnectManager(private val context: Context) {
     // Định nghĩa các quyền cần xin
     val permissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
-        HealthPermission.getReadPermission(HeartRateRecord::class)
+        HealthPermission.getWritePermission(StepsRecord::class),
+        HealthPermission.getReadPermission(HeartRateRecord::class),
+        HealthPermission.getWritePermission(HeartRateRecord::class)
     )
 
     // Hàm xin quyền (gọi từ Activity)
@@ -142,6 +143,23 @@ class HealthConnectManager(private val context: Context) {
             } else 0
         } catch (e: Exception) {
             0
+        }
+    }
+    // Hàm mở CH Play để cài/update Health Connect
+    fun openHealthConnectInPlayStore(context: Context) {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setPackage("com.android.vending") // Mở bằng CH Play
+            data = Uri.parse("market://details?id=com.google.android.apps.healthdata")
+            putExtra("overlay", true) // Hiển thị đè lên app (nếu hỗ trợ)
+            putExtra("callerId", context.packageName)
+        }
+        try {
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // Fallback nếu không có CH Play: mở bằng trình duyệt
+            val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://play.google.com/store/apps/details?id=com.google.android.apps.healthdata"))
+            context.startActivity(webIntent)
         }
     }
 }
