@@ -56,6 +56,10 @@ class HealthRepository @Inject constructor(
 
     // 2. Hàm Lưu dữ liệu (Gọi liên tục khi đi bộ để update Room)
     suspend fun updateLocalSteps(userId: Int?, steps: Int, calories: Float) {
+        if (userId == null) {
+            Log.w("HealthRepository", "Chưa có User ID, bỏ qua việc lưu bước chân.")
+            return
+        }
         val today = LocalDate.now().toString()
         // Kiểm tra xem đã có record hôm nay chưa
         val currentData = healthDao.getDailyHealth(today, userId).firstOrNull()
