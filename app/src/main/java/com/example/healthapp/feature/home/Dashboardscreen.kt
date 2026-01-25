@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.healthapp.core.viewmodel.MainViewModel
+import com.example.healthapp.core.viewmodel.SleepViewModel
 import com.example.healthapp.core.viewmodel.UserViewModel
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
@@ -50,8 +51,10 @@ fun HealthDashboardScreen(
     onSettingsClick: () -> Unit = {},
     isDarkTheme: Boolean,
     onHeartDetailClick: () -> Unit = {},
+    onSleepDetailClick: () -> Unit = {},
     mainViewModel: MainViewModel,
-    userViewModel: UserViewModel
+    userViewModel: UserViewModel,
+    sleepViewModel: SleepViewModel
 ) {
     val isPreview = LocalInspectionMode.current
     var isContentVisible by remember { mutableStateOf(isPreview) }
@@ -64,6 +67,8 @@ fun HealthDashboardScreen(
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
 
     val user by userViewModel.currentUserInfo.collectAsState()
+    val duration by sleepViewModel.sleepDuration.collectAsState()
+
 
     LaunchedEffect(Unit) {
         if (!isPreview) isContentVisible = true
@@ -173,10 +178,11 @@ fun HealthDashboardScreen(
                             delay = 200
                         )
                         HealthStatCard(
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f)
+                                .clickable{ onSleepDetailClick() },
                             title = "Ngủ",
-                            value = "7.5",
-                            unit = "Hrs",
+                            value = sleepViewModel.formatDuration(duration),
+                            unit = "",
                             icon = Icons.Default.NightsStay,
                             accentColor = Color(0xFF8B5CF6), // Tím (Sleep) giữ nguyên
                             colors = colors,

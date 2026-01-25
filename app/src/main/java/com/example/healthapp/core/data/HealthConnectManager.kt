@@ -3,6 +3,7 @@ package com.example.healthapp.core.data
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.util.Log
 
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
@@ -13,9 +14,9 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.LocalDateTime
 import androidx.health.connect.client.records.metadata.Metadata
 import java.time.ZoneOffset
-import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import androidx.health.connect.client.request.AggregateGroupByPeriodRequest
 import java.time.Period
+import androidx.health.connect.client.records.SleepSessionRecord
 
 class HealthConnectManager(private val context: Context) {
 
@@ -34,7 +35,8 @@ class HealthConnectManager(private val context: Context) {
 
     // Hàm xin quyền (gọi từ Activity)
     suspend fun hasAllPermissions(): Boolean {
-        return healthConnectClient.permissionController.getGrantedPermissions().containsAll(permissions)
+        return healthConnectClient.permissionController.getGrantedPermissions()
+            .containsAll(permissions)
     }
 
     //Đọc tổng số bước chân trong khoảng thời gian
@@ -52,8 +54,9 @@ class HealthConnectManager(private val context: Context) {
             0 // Trả về 0 nếu lỗi hoặc chưa cấp quyền
         }
     }
+
     suspend fun writeSteps(startTime: LocalDateTime, endTime: LocalDateTime, steps: Int): Boolean {
-        if(steps <= 0) return true
+        if (steps <= 0) return true
         return try {
             val stepsRecord = StepsRecord(
                 startTime = startTime.toInstant(ZoneOffset.UTC),
@@ -71,6 +74,7 @@ class HealthConnectManager(private val context: Context) {
             false
         }
     }
+
     suspend fun writeHeartRate(bpm: Int, time: LocalDateTime): Boolean {
         return try {
             val record = HeartRateRecord(
@@ -93,6 +97,7 @@ class HealthConnectManager(private val context: Context) {
             false
         }
     }
+
     suspend fun readHeartRateAggregation(
         startTime: LocalDateTime,
         endTime: LocalDateTime,
@@ -138,11 +143,77 @@ class HealthConnectManager(private val context: Context) {
             )
             if (response.records.isNotEmpty()) {
                 // Tính trung bình cộng nhịp tim
-                val avg = response.records.flatMap { it.samples }.map { it.beatsPerMinute }.average()
+                val avg =
+                    response.records.flatMap { it.samples }.map { it.beatsPerMinute }.average()
                 avg.toInt()
             } else 0
         } catch (e: Exception) {
             0
+        }
+    }
+
+    // Thêm vào HealthConnectManager
+    suspend fun writeSleepSession(start: LocalDateTime, end: LocalDateTime) {
+        try {
+            val record = SleepSessionRecord(
+                startTime = start.toInstant(ZoneOffset.UTC),
+                startZoneOffset = ZoneOffset.UTC,
+                endTime = end.toInstant(ZoneOffset.UTC),
+                endZoneOffset = ZoneOffset.UTC,
+                metadata = Metadata.manualEntry()
+
+            )
+            healthConnectClient.insertRecords(listOf(record))
+            Log.d("HealthConnect", "Đã lưu giấc ngủ: $start -> $end")
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Lỗi lưu giấc ngủ: ${e.message}")
+        }
+    }
+
+    suspend fun readSleepSessions(start: LocalDateTime, end: LocalDateTime): Long {
+        return try {
+            val request = ReadRecordsRequest(
+                recordType = SleepSessionRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(
+                    start.toInstant(ZoneOffset.UTC),
+                    end.toInstant(ZoneOffset.UTC)
+                )
+            )
+            val response = healthConnectClient.readRecords(request)
+            // Tính tổng thời gian ngủ (phút)
+            response.records.sumOf { (it.endTime.toEpochMilli() - it.startTime.toEpochMilli()) / 60000 }
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Lỗi đọc giấc ngủ: ${e.message}")
+            return 0
+        }
+    }
+    // Hàm lấy dữ liệu biểu đồ giấc ngủ
+    suspend fun readSleepChartData(
+        startTime: LocalDateTime,
+        endTime: LocalDateTime,
+        period: Period // Period.ofDays(1) cho biểu đồ tuần/tháng
+    ): List<SleepBucket> {
+        try {
+            val request = AggregateGroupByPeriodRequest(
+                metrics = setOf(SleepSessionRecord.SLEEP_DURATION_TOTAL),
+                timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
+                timeRangeSlicer = period
+            )
+
+            val response = healthConnectClient.aggregateGroupByPeriod(request)
+
+            return response.map { bucket ->
+                val duration = bucket.result[SleepSessionRecord.SLEEP_DURATION_TOTAL]
+                val minutes = duration?.toMinutes() ?: 0
+
+                SleepBucket(
+                    startTime = bucket.startTime,
+                    totalMinutes = minutes
+                )
+            }.filter { it.totalMinutes > 0 } // Chỉ lấy ngày có dữ liệu
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return emptyList()
         }
     }
     // Hàm mở CH Play để cài/update Health Connect
@@ -168,4 +239,8 @@ data class HeartRateBucket(
     val min: Long,
     val max: Long,
     val avg: Long
+)
+data class SleepBucket(
+    val startTime: LocalDateTime,
+    val totalMinutes: Long
 )

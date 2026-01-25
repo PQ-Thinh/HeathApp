@@ -93,4 +93,6 @@ dependencies {
 
     // RxJava (Thư viện này dùng RxJava nên cần thêm để nó chạy)
     implementation("io.reactivex.rxjava2:rxjava:2.2.21")
-    implementation("io.reactivex.rxjava2:rxandroid:2.1.1")}
+    implementation("io.reactivex.rxjava2:rxandroid:2.1.1")
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
+}

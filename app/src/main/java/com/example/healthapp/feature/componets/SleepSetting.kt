@@ -21,10 +21,10 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
 import androidx.compose.material3.TimePicker
-import androidx.compose.material3.TimePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -38,32 +38,57 @@ import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AdvancedTimePickerExample(
-    onConfirm: (TimePickerState) -> Unit,
+fun SleepSettingDialog(
     onDismiss: () -> Unit,
+    onSave: (startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) -> Unit
 ) {
-
     val currentTime = Calendar.getInstance()
 
+    // State quản lý thời gian
     val timePickerState = rememberTimePickerState(
         initialHour = currentTime.get(Calendar.HOUR_OF_DAY),
         initialMinute = currentTime.get(Calendar.MINUTE),
         is24Hour = true,
     )
 
+    // State quản lý luồng: True = Đang chọn giờ ngủ, False = Đang chọn giờ dậy
+    var isPickingStartTime by remember { mutableStateOf(true) }
+
+    // Biến tạm để lưu giờ ngủ sau khi chọn xong bước 1
+    var tempStartHour by remember { mutableIntStateOf(0) }
+    var tempStartMinute by remember { mutableIntStateOf(0) }
+
     /** Determines whether the time picker is dial or input */
     var showDial by remember { mutableStateOf(true) }
 
-    /** The icon used for the icon button that switches from dial to input */
     val toggleIcon = if (showDial) {
         Icons.Filled.EditCalendar
     } else {
         Icons.Filled.AccessTime
     }
 
+    // Tiêu đề thay đổi theo bước
+    val dialogTitle = if (isPickingStartTime) "Bạn bắt đầu ngủ lúc mấy giờ?" else "Bạn thức dậy lúc mấy giờ?"
+
     AdvancedTimePickerDialog(
+        title = dialogTitle,
         onDismiss = { onDismiss() },
-        onConfirm = { onConfirm(timePickerState) },
+        onConfirm = {
+            if (isPickingStartTime) {
+                // Xong bước 1: Lưu giờ ngủ tạm thời -> Chuyển sang bước 2
+                tempStartHour = timePickerState.hour
+                tempStartMinute = timePickerState.minute
+                isPickingStartTime = false
+            } else {
+                // Xong bước 2: Gọi callback trả về cả 4 giá trị
+                onSave(
+                    tempStartHour,
+                    tempStartMinute,
+                    timePickerState.hour,
+                    timePickerState.minute
+                )
+            }
+        },
         toggle = {
             IconButton(onClick = { showDial = !showDial }) {
                 Icon(
@@ -128,20 +153,19 @@ fun AdvancedTimePickerDialog(
                 ) {
                     toggle()
                     Spacer(modifier = Modifier.weight(1f))
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
-                    TextButton(onClick = onConfirm) { Text("OK") }
+                    TextButton(onClick = onDismiss) { Text("Hủy") }
+                    TextButton(onClick = onConfirm) { Text(if (title.contains("ngủ")) "Tiếp tục" else "Lưu") }
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Preview
 @Composable
-fun DialWithDialogExamplePreview() {
-    AdvancedTimePickerExample (
-        onConfirm = {},
-        onDismiss = {}
+fun SleepSettingPreview() {
+    SleepSettingDialog(
+        onDismiss = {},
+        onSave = { _, _, _, _ -> }
     )
 }

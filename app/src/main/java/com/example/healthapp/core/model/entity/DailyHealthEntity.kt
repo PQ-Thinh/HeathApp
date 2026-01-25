@@ -23,5 +23,5 @@ data class DailyHealthEntity(
     @ColumnInfo(name = "steps") val steps: Int = 0,
     @ColumnInfo(name = "heart_rate_avg") val heartRateAvg: Int = 0,
     @ColumnInfo(name = "calories_burned") val caloriesBurned: Float = 0f,
-    @ColumnInfo(name = "sleep_hours") val sleepHours: Float = 0f
+    @ColumnInfo(name = "sleep_hours") val sleepHours: Long = 0
 )

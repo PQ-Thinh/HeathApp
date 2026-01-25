@@ -49,7 +49,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.healthapp.core.viewmodel.SleepViewModel
 import com.example.healthapp.core.viewmodel.UserViewModel
+import com.example.healthapp.feature.detail.SleepDetailScreen
 
 @OptIn(ExperimentalPermissionsApi::class)
 @AndroidEntryPoint
@@ -60,6 +62,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val mainViewModel: MainViewModel = hiltViewModel()
             val userViewModel : UserViewModel = hiltViewModel()
+            val sleepViewModel : SleepViewModel = hiltViewModel()
             val healthConnectManager = mainViewModel.healthConnectManager
             val healthState by mainViewModel.healthConnectState.collectAsState()
             val context = LocalContext.current // Lấy context ở đây để dùng cho Toast/Intent
@@ -194,8 +197,8 @@ class MainActivity : ComponentActivity() {
                     when (currentScreen) {
                         "login"->currentScreen= "intro"
                         "signup", "forgot" -> currentScreen = "login"
-                        "profile", "notifications", "settings","heart_rate" -> currentScreen = "dashboard"
-                        //"dashboard" -> currentScreen = "login"
+                        "profile", "notifications", "settings","heart_detail","sleep_detail" -> currentScreen = "dashboard"
+                        "heart_rate" -> currentScreen = "heart_detail"
                         "height" -> currentScreen = "name"
                         "weight" -> currentScreen = "height"
                         "intro" -> finish()
@@ -283,8 +286,18 @@ class MainActivity : ComponentActivity() {
                             onSettingsClick = { currentScreen = "settings" },
                             isDark,
                            onHeartDetailClick = { currentScreen = "heart_detail" },
+                            onSleepDetailClick = { currentScreen = "sleep_detail" },
                             mainViewModel,
-                            userViewModel
+                            userViewModel,
+                            sleepViewModel
+
+                        )
+                        "sleep_detail"-> SleepDetailScreen(
+                            onBackClick = { currentScreen = "dashboard" },
+                            sleepViewModel,
+                            isDark,
+                            modifier = Modifier.padding(innerPadding)
+
                         )
                         "heart_detail"-> HeartDetailScreen(
                             modifier = Modifier.padding(innerPadding),

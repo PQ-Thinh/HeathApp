@@ -3,11 +3,13 @@ package com.example.healthapp.core.data.responsitory
 import android.util.Log
 import com.example.healthapp.core.data.HealthConnectManager
 import com.example.healthapp.core.data.HeartRateBucket
+import com.example.healthapp.core.data.SleepBucket
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
 import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 import kotlinx.coroutines.flow.firstOrNull
+import java.time.Duration
 import java.time.LocalDateTime
 import java.time.Period
 import javax.inject.Inject
@@ -99,6 +101,44 @@ class HealthRepository @Inject constructor(
             healthDao.updateHeartRate(now.toLocalDate().toString(), userId, bpm)
         }
     }
+    suspend fun saveSleepSession(userId: Int, start: LocalDateTime, end: LocalDateTime) {
+        // 1. Đẩy lên Health Connect
+        healthConnectManager.writeSleepSession(start, end)
+
+        // 2. Tính duration (phút)
+        val durationMinutes = Duration.between(start, end).toMinutes()
+
+        // 3. Lưu vào Room (Local DB)
+        val today = LocalDate.now().toString()
+        // Kiểm tra xem record hôm nay có chưa, nếu chưa thì tạo, có rồi thì update
+        val currentData = healthDao.getDailyHealth(today, userId).firstOrNull()
+        if (currentData == null) {
+            val newData = DailyHealthEntity(
+                date = today,
+                userId = userId,
+                sleepHours = durationMinutes,
+
+
+            )
+            healthDao.insertOrUpdateDailyHealth(newData)
+        } else {
+            //val updatedData = currentData.copy( sleepHours = durationMinutes )// giữ nguyên steps, heartRateAvg, caloriesBurned... )
+            healthDao.updateSleepDuration(today, userId, durationMinutes)
+        }
+    }
+    // Thêm hàm này
+    suspend fun getSleepChartData(range: ChartTimeRange): List<SleepBucket> {
+        val end = LocalDateTime.now()
+        val start = when (range) {
+            ChartTimeRange.WEEK -> end.minusDays(7)
+            ChartTimeRange.MONTH -> end.minusDays(30)
+            ChartTimeRange.YEAR -> end.minusDays(365)
+            else -> end.minusDays(7)
+        }
+        val period = if (range == ChartTimeRange.YEAR) Period.ofMonths(1) else Period.ofDays(1)
+
+        return healthConnectManager.readSleepChartData(start, end, period)
+    }
 
     // 2. Lấy dữ liệu biểu đồ (Trực tiếp từ Health Connect)
     suspend fun getHeartRateChartData(range: ChartTimeRange): List<HeartRateBucket> {
@@ -107,6 +147,7 @@ class HealthRepository @Inject constructor(
             ChartTimeRange.DAY -> end.minusDays(1)
             ChartTimeRange.WEEK -> end.minusDays(7)
             ChartTimeRange.MONTH -> end.minusDays(30)
+            else -> end.minusDays(1)
         }
 
         // Với biểu đồ ngày -> Chia theo giờ? Hiện tại AggregateGroupByPeriod hỗ trợ tốt nhất là theo Ngày (Period)
@@ -117,4 +158,4 @@ class HealthRepository @Inject constructor(
         return healthConnectManager.readHeartRateAggregation(start, end, period)
     }
 }
-enum class ChartTimeRange { DAY, WEEK, MONTH }
+enum class ChartTimeRange { DAY, WEEK, MONTH, YEAR}

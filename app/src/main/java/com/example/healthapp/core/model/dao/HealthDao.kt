@@ -71,6 +71,9 @@ interface HealthDao {
     @Query("UPDATE daily_health SET steps = steps + :stepsToAdd, calories_burned = calories_burned + :calories WHERE date = :date AND userId = :userId")
     suspend fun incrementSteps(date: String, userId: Int, stepsToAdd: Int, calories: Float)
 
+    @Query("UPDATE daily_health SET sleep_hours = :duration WHERE date = :date AND userId = :userId")
+    suspend fun updateSleepDuration(date: String, userId: Int, duration: Long)
+
     // Sửa lỗi: Thêm userId
     @Query("UPDATE daily_health SET heart_rate_avg = :bpm WHERE date = :date AND userId = :userId")
     suspend fun updateHeartRate(date: String, userId: Int, bpm: Int)
