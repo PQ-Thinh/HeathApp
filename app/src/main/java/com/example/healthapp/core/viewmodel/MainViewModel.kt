@@ -80,7 +80,6 @@ class MainViewModel @Inject constructor(
     val healthConnectState = _healthConnectState.asStateFlow()
 
     init {
-        // 1. Load dữ liệu User và Mốc bước chân trước khi đo
         initializeData()
     }
 
@@ -123,8 +122,8 @@ class MainViewModel @Inject constructor(
                 saveDayOffset(0)
             }
 
-            // Bắt đầu lắng nghe cảm biến
-            startSensorTracking()
+
+            //startSensorTracking()
         }
     }
     fun checkHealthConnectStatus() { // Đổi tên hàm cho đúng nghĩa
@@ -151,7 +150,7 @@ class MainViewModel @Inject constructor(
 
         }
     }
-    private fun startSensorTracking() {
+    fun startSensorTracking() {
         viewModelScope.launch {
             // 'totalStepsSinceBoot' là tổng số bước từ lúc bật điện thoại (VD: 15000)
             sensorManager.stepFlow.collect { totalStepsSinceBoot ->

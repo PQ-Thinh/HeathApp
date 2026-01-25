@@ -57,8 +57,6 @@ fun HealthDashboardScreen(
     val steps by mainViewModel.realtimeSteps.collectAsState()
     val todayHealth by mainViewModel.todayHealthData.collectAsState()
 
-    val weeklyHealth by mainViewModel.weeklyHealthData.collectAsState()
-
     val realtimeBpm by mainViewModel.realtimeHeartRate.collectAsState()
     val displayBpm = if (realtimeBpm > 0) realtimeBpm else (todayHealth?.heartRateAvg ?: 0)
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
@@ -68,7 +66,7 @@ fun HealthDashboardScreen(
     LaunchedEffect(Unit) {
         if (!isPreview) isContentVisible = true
 
-        mainViewModel.checkHealthConnectStatus()
+        //mainViewModel.checkHealthConnectStatus()
     }
 
     // Matching background animation

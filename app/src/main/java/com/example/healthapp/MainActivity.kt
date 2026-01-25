@@ -44,6 +44,11 @@ import com.example.healthapp.feature.home.NameScreen
 import com.example.healthapp.feature.home.WeightScreen
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.rememberPermissionState
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 
 @OptIn(ExperimentalPermissionsApi::class)
 @AndroidEntryPoint
@@ -52,13 +57,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            val permissionState = rememberPermissionState(Manifest.permission.ACTIVITY_RECOGNITION)
             val mainViewModel: MainViewModel = hiltViewModel()
             val healthConnectManager = mainViewModel.healthConnectManager
             val healthState by mainViewModel.healthConnectState.collectAsState()
             val context = LocalContext.current // Lấy context ở đây để dùng cho Toast/Intent
 
-            // 1. Launcher Xin Quyền (Popup hệ thống)
+            val lifecycleOwner = LocalLifecycleOwner.current // Lấy LifecycleOwner để lắng nghe sự kiện
+            var showPermissionRationaleDialog by remember { mutableStateOf(false) }
+            var showInstallDialog by remember { mutableStateOf(false) }
+            // Launcher Xin Quyền (Popup hệ thống)
             val healthConnectPermissionLauncher = rememberLauncherForActivityResult(
                 contract = PermissionController.createRequestPermissionResultContract()
             ) { granted ->
@@ -69,28 +76,53 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(context, "Cần quyền để đồng bộ dữ liệu", Toast.LENGTH_SHORT).show()
                 }
             }
-            var showInstallDialog by remember { mutableStateOf(false) }
 
+            val activityRecognitionLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission()
+            ) { isGranted ->
+                // Dù user đồng ý hay từ chối, ta đều tiếp tục kiểm tra Health Connect
+                // Để tránh app bị kẹt nếu user từ chối quyền đếm bước chân phần cứng
+                if (isGranted) {
+                mainViewModel.startSensorTracking()
+                }
+                // BẮT ĐẦU kiểm tra Health Connect SAU KHI popup này tắt
+                mainViewModel.checkHealthConnectStatus()
+            }
+
+
+            DisposableEffect(lifecycleOwner) {
+                val observer = LifecycleEventObserver { _, event ->
+                    if (event == Lifecycle.Event.ON_RESUME) {
+                        // Mỗi khi user quay lại app (từ Setting hoặc CH Play), tự động check lại
+                        mainViewModel.checkHealthConnectStatus()
+                        mainViewModel.startSensorTracking()
+                    }
+                }
+                lifecycleOwner.lifecycle.addObserver(observer)
+                onDispose {
+                    lifecycleOwner.lifecycle.removeObserver(observer)
+                }
+            }
             LaunchedEffect(Unit) {
 
-                // Bắt đầu kiểm tra Health Connect
-                mainViewModel.checkHealthConnectStatus()
-                // Xin quyền Activity Recognition
-                permissionState.launchPermissionRequest()
+                activityRecognitionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
 
             }
             LaunchedEffect(healthState) {
                 Log.d("MainActivity", "Health Connect State changed to: $healthState")
-
+                showInstallDialog = false
+                showPermissionRationaleDialog = false
                 when (healthState) {
-
                     2, 3 -> {
                         showInstallDialog = true
                     }
-
                     4 -> {
-                        // Cần xin quyền -> Bắn Popup
-                        healthConnectPermissionLauncher.launch(healthConnectManager.permissions)
+                        // Chỉ khi nào healthState = 4 (Cần quyền) mới gọi launcher này
+                        showPermissionRationaleDialog = true                    }
+                    1 -> {
+                        // Đã có đủ quyền và SDK sẵn sàng
+                        Log.d("MainActivity", "Health Connect Ready!")
+                        mainViewModel.syncData()
                     }
                 }
             }
@@ -110,6 +142,23 @@ class MainActivity : ComponentActivity() {
                     },
                     dismissButton = {
                         TextButton(onClick = { showInstallDialog = false }) { Text("Để sau") }
+                    }
+                )
+            }
+            if (showPermissionRationaleDialog) {
+                AlertDialog(
+                    onDismissRequest = { showPermissionRationaleDialog = false },
+                    title = { Text("Yêu cầu quyền truy cập") },
+                    text = { Text("Để theo dõi nhịp tim và bước chân, ứng dụng cần bạn cấp quyền đọc/ghi dữ liệu trong Health Connect.") },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            showPermissionRationaleDialog = false
+                            // Lúc này người dùng đã sẵn sàng, mới gọi Popup hệ thống
+                            healthConnectPermissionLauncher.launch(healthConnectManager.permissions)
+                        }) { Text("Cấp quyền") }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showPermissionRationaleDialog = false }) { Text("Huỷ") }
                     }
                 )
             }

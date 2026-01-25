@@ -60,15 +60,12 @@ class HealthSensorManager @Inject constructor(
                         gravity[1] = alpha * gravity[1] + (1 - alpha) * yRaw
                         gravity[2] = alpha * gravity[2] + (1 - alpha) * zRaw
 
-//                        val x = xRaw - gravity[0]
-//                        val y = yRaw - gravity[1]
-//                        val z = zRaw - gravity[2]
+
 
 
                         val magnitudeOld = sqrt((xRaw * xRaw + yRaw * yRaw + zRaw * zRaw).toDouble()).toFloat()
 
-                        // --- BƯỚC 3: Kiểm tra điều kiện đếm bước ---
-
+                        //  Kiểm tra điều kiện đếm bước ---
                         // Lấy thời gian hiện tại
                         val currentTimeNs = System.nanoTime()
 
@@ -92,27 +89,22 @@ class HealthSensorManager @Inject constructor(
 
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
-        if (stepSensor != null) {
-            // TRƯỜNG HỢP 1: Máy có cảm biến thật
-            Log.d("HealthSensor", "Máy CÓ hỗ trợ Step Counter! Đang đăng ký listener...")
-            val registered = sensorManager.registerListener(listener, stepSensor, SensorManager.SENSOR_DELAY_UI)
-            Log.d("HealthSensor", "Kết quả đăng ký Step Counter: $registered")
-
-        } else
-            if (accelerometer != null) {
-            // TRƯỜNG HỢP 2: Máy không có, dùng gia tốc kế
-            Log.d("HealthSensor", "Máy KHÔNG có Step Counter -> Dùng Accelerometer thay thế.")
-            val registered = sensorManager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_NORMAL)
-            Log.d("HealthSensor", "Kết quả đăng ký Accelerometer: $registered")
-
-        } else {
-            Log.e("HealthSensor", "LỖI: Máy không có cả Accelerometer!")
-            trySend(0)
-            close()
+        try {
+            if (stepSensor != null) {
+                Log.d("HealthSensor", "Máy CÓ hỗ trợ Step Counter! Đang đăng ký...")
+                sensorManager.registerListener(listener, stepSensor, SensorManager.SENSOR_DELAY_UI)
+            } else if (accelerometer != null) {
+                Log.d("HealthSensor", "Dùng Accelerometer thay thế.")
+                sensorManager.registerListener(listener, accelerometer, SensorManager.SENSOR_DELAY_NORMAL)
+            } else {
+                Log.e("HealthSensor", "LỖI: Không có cảm biến nào!")
+            }
+        } catch (e: Exception) {
+            Log.e("HealthSensor", "Không thể đăng ký cảm biến: ${e.message}")
+            trySend(0) // Gửi về 0 để flow không bị chết
         }
 
         awaitClose {
-            Log.d("HealthSensor", "Hủy đăng ký cảm biến.")
             sensorManager.unregisterListener(listener)
         }
     }
