@@ -1,121 +1,108 @@
 package com.example.healthapp.feature.chart
 
-import android.util.Log
-import androidx.compose.foundation.Canvas
+import android.graphics.Color
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.example.healthapp.core.data.HeartRateBucket
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
-import com.example.healthapp.core.viewmodel.MainViewModel
-
+import com.github.mikephil.charting.charts.BarChart
+import com.github.mikephil.charting.components.XAxis
+import com.github.mikephil.charting.data.BarData
+import com.github.mikephil.charting.data.BarDataSet
+import com.github.mikephil.charting.data.BarEntry
+import com.github.mikephil.charting.formatter.ValueFormatter
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @Composable
-fun AdvancedHeartChart(
+fun HeartChart(
     data: List<HeartRateBucket>,
-    modifier: Modifier = Modifier
+    timeRange: ChartTimeRange, // Để định dạng ngày tháng phù hợp
+    barColor: Int = android.graphics.Color.parseColor("#EF4444") // Màu đỏ
 ) {
-    if (data.isEmpty()) {
-        Box(modifier = modifier, contentAlignment = Alignment.Center) {
-            Text("Chưa có dữ liệu", color = Color.Gray)
-        }
-        return
-    }
+    AndroidView(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(250.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(androidx.compose.ui.graphics.Color(0xFF1E293B)) // Nền tối
+            .padding(8.dp),
+        factory = { context ->
+            BarChart(context).apply {
+                description.isEnabled = false
+                legend.isEnabled = false
+                setDrawGridBackground(false)
+                animateY(1000)
 
-    val maxBpm = remember(data) { (data.maxOfOrNull { it.max } ?: 150).toFloat() + 10 }
-    val minBpm = remember(data) { (data.minOfOrNull { it.min } ?: 40).toFloat() - 10 }
+                // Cấu hình trục X
+                xAxis.apply {
+                    position = XAxis.XAxisPosition.BOTTOM
+                    setDrawGridLines(false)
+                    textColor = Color.WHITE
+                    textSize = 10f
+                    granularity = 1f
+                }
 
-    // Màu sắc
-    val barColor = Color(0xFFEF4444).copy(alpha = 0.5f) // Màu thanh Min-Max (nhạt)
-    val avgLineColor = Color(0xFFEF4444) // Màu điểm Avg (đậm)
+                // Cấu hình trục Y
+                axisLeft.apply {
+                    setDrawGridLines(true)
+                    gridColor = Color.DKGRAY
+                    textColor = Color.WHITE
+                    axisMinimum = 0f
+                }
+                axisRight.isEnabled = false
+            }
+        },
+        update = { chart ->
+            if (data.isNotEmpty()) {
+                val entries = data.mapIndexed { index, bucket ->
+                    // Vẽ cột dựa trên nhịp tim TRUNG BÌNH (AVG)
+                    BarEntry(index.toFloat(), bucket.avg.toFloat())
+                }
 
-    Canvas(modifier = modifier.padding(16.dp)) {
-        val widthPerBar = size.width / data.size
-        val barWidth = widthPerBar * 0.4f // Độ rộng thanh = 40% khoảng cách
+                val dataSet = BarDataSet(entries, "Nhịp tim Avg").apply {
+                    color = barColor
+                    valueTextColor = Color.WHITE
+                    valueTextSize = 10f
+                    setDrawValues(true)
+                }
 
-        data.forEachIndexed { index, bucket ->
-            val x = index * widthPerBar + (widthPerBar / 2)
+                chart.data = BarData(dataSet)
+                chart.data.barWidth = 0.6f // Độ rộng cột
 
-            // Tính tọa độ Y (Lưu ý: Canvas Y=0 nằm ở trên cùng)
-            // Công thức: y = height - ((value - minScale) / (maxScale - minScale) * height)
+                // Cập nhật Formatter cho trục X dựa trên TimeRange
+                chart.xAxis.valueFormatter = object : ValueFormatter() {
+                    override fun getFormattedValue(value: Float): String {
+                        val index = value.toInt()
+                        if (index >= 0 && index < data.size) {
+                            val timeInstant = data[index].startTime
+                            val time = timeInstant.atZone(ZoneId.systemDefault()) // chuyển sang ZonedDateTime
 
-            val yMax = size.height - ((bucket.max - minBpm) / (maxBpm - minBpm) * size.height)
-            val yMin = size.height - ((bucket.min - minBpm) / (maxBpm - minBpm) * size.height)
-            val yAvg = size.height - ((bucket.avg - minBpm) / (maxBpm - minBpm) * size.height)
+                            return when (timeRange) {
+                                ChartTimeRange.DAY -> time.format(DateTimeFormatter.ofPattern("HH:mm")) // 14:00
+                                ChartTimeRange.WEEK -> time.format(DateTimeFormatter.ofPattern("EEE"))  // Mon, Tue
+                                ChartTimeRange.MONTH -> time.format(DateTimeFormatter.ofPattern("dd"))  // 01, 02
+                                ChartTimeRange.YEAR -> time.format(DateTimeFormatter.ofPattern("MM"))   // 01, 02
+                            }
+                        }
+                        return ""
+                    }
+                }
 
-            // 1. Vẽ thanh Range (từ Min đến Max)
-            // Dùng Brush để tạo hiệu ứng Gradient cho đẹp
-            drawRoundRect(
-                color = barColor,
-                topLeft = Offset(x - barWidth / 2, yMax),
-                size = Size(barWidth, yMin - yMax),
-                cornerRadius = CornerRadius(10f)
-            )
 
-            // 2. Vẽ điểm Trung bình (Average)
-            drawCircle(
-                color = avgLineColor,
-                radius = barWidth / 1.5f,
-                center = Offset(x, yAvg)
-            )
-//            // 2. Vẽ Ngày tháng bên dưới
-//            drawContext.canvas.nativeCanvas.apply {
-//                drawText(
-//                    day,
-//                    x + barWidth / 2,
-//                    size.height + 40f,
-//                    android.graphics.Paint().apply {
-//                        color = android.graphics.Color.LTGRAY
-//                        textSize = 24f
-//                        textAlign = android.graphics.Paint.Align.CENTER
-//                    }
-//                )
-//            }
-        }
-    }
-}
-@Composable
-fun HeartRateOptionChart(viewModel: MainViewModel) {
-    val chartData by viewModel.chartData.collectAsState()
-    val timeRange by viewModel.selectedTimeRange.collectAsState()
-
-    Column {
-        // Selector Ngày/Tuần/Tháng
-        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            ChartTimeRange.values().forEach { range ->
-                FilterChip(
-                    selected = range == timeRange,
-                    onClick = { viewModel.setTimeRange(range) },
-                    label = { Text(range.name) }
-                )
+                chart.notifyDataSetChanged()
+                chart.invalidate()
+            } else {
+                chart.clear()
             }
         }
-
-        // Biểu đồ
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp)
-                .background(Color.Black.copy(0.05f), RoundedCornerShape(16.dp))
-        ) {
-            AdvancedHeartChart(
-                data = chartData,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-    }
+    )
 }

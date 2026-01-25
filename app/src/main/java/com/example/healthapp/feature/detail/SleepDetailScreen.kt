@@ -215,9 +215,9 @@ fun TimeRangeSelector(
         listOf(ChartTimeRange.WEEK, ChartTimeRange.MONTH, ChartTimeRange.YEAR).forEach { range ->
             val isSelected = range == selectedRange
             val label = when (range) {
+                ChartTimeRange.DAY->"Ngày"
                 ChartTimeRange.WEEK -> "Tuần"
                 ChartTimeRange.MONTH -> "Tháng"
-                ChartTimeRange.YEAR -> "Năm"
                 else->""
             }
 

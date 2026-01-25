@@ -66,11 +66,6 @@ class MainViewModel @Inject constructor(
     private val _realtimeHeartRate = MutableStateFlow(0)
     val realtimeHeartRate: StateFlow<Int> = _realtimeHeartRate.asStateFlow()
 
-    private val _chartData = MutableStateFlow<List<HeartRateBucket>>(emptyList())
-    val chartData = _chartData.asStateFlow()
-
-    private val _selectedTimeRange = MutableStateFlow(ChartTimeRange.WEEK)
-    val selectedTimeRange = _selectedTimeRange.asStateFlow()
     // Biến nội bộ
     private var startOfDaySteps = 0
     private var currentUserId: Int? = null // Default ID
@@ -320,37 +315,7 @@ class MainViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    // 2. Luồng dữ liệu cho BIỂU ĐỒ (7 ngày gần nhất)
-    val weeklyHealthData: StateFlow<List<DailyHealthEntity>> = snapshotFlow { currentUserId }
-        .flatMapLatest { userId ->
-            if (userId != null) {
-                healthDao.getLast7DaysHealth(userId)
-            } else {
-                flowOf(emptyList())
-            }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-    // Hàm gọi khi người dùng đo xong nhịp tim
-    fun saveHeartRateRecord(bpm: Int) {
-        viewModelScope.launch {
-            currentUserId?.let { id ->
-                repository.saveHeartRate(id, bpm) // Lưu vào HC -> Sync Room
-                loadChartData() // Refresh biểu đồ
-            }
-        }
-    }
 
-    // 2. Hàm load dữ liệu biểu đồ
-    fun setTimeRange(range: ChartTimeRange) {
-        _selectedTimeRange.value = range
-        loadChartData()
-    }
 
-    private fun loadChartData() {
-        viewModelScope.launch {
-            val data = repository.getHeartRateChartData(_selectedTimeRange.value)
-            _chartData.value = data
-        }
-    }
 }
 // calories = step X chieu cao X can năng

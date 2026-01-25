@@ -115,6 +115,8 @@ class SleepViewModel @Inject constructor(
         _selectedTimeRange.value = range
         loadChartData() // Load lại dữ liệu ngay
     }
+
+
     // Hàm load dữ liệu
     fun loadChartData() {
         viewModelScope.launch {

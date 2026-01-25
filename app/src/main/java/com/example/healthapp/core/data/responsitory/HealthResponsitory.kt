@@ -142,20 +142,31 @@ class HealthRepository @Inject constructor(
 
     // 2. Lấy dữ liệu biểu đồ (Trực tiếp từ Health Connect)
     suspend fun getHeartRateChartData(range: ChartTimeRange): List<HeartRateBucket> {
-        val end = LocalDateTime.now()
-        val start = when (range) {
-            ChartTimeRange.DAY -> end.minusDays(1)
-            ChartTimeRange.WEEK -> end.minusDays(7)
-            ChartTimeRange.MONTH -> end.minusDays(30)
-            else -> end.minusDays(1)
+        val now = LocalDateTime.now()
+        val end = now
+
+        return when (range) {
+            ChartTimeRange.DAY -> {
+                // Xem trong 24h qua, chia mỗi 1 giờ
+                val start = now.minusDays(1)
+                healthConnectManager.readHeartRateAggregationByDuration(start, end, Duration.ofHours(1))
+            }
+            ChartTimeRange.WEEK -> {
+                // Xem 7 ngày qua, chia mỗi 1 ngày
+                val start = now.minusDays(7)
+                healthConnectManager.readHeartRateAggregation(start, end, Period.ofDays(1))
+            }
+            ChartTimeRange.MONTH -> {
+                // Xem 30 ngày qua, chia mỗi 1 ngày
+                val start = now.minusDays(30)
+                healthConnectManager.readHeartRateAggregation(start, end, Period.ofDays(1))
+            }
+            ChartTimeRange.YEAR -> {
+                // Xem 1 năm qua, chia mỗi 1 tháng
+                val start = now.minusYears(1)
+                healthConnectManager.readHeartRateAggregation(start, end, Period.ofMonths(1))
+            }
         }
-
-        // Với biểu đồ ngày -> Chia theo giờ? Hiện tại AggregateGroupByPeriod hỗ trợ tốt nhất là theo Ngày (Period)
-        // Nếu muốn chia theo Giờ, logic sẽ hơi khác một chút (dùng Duration).
-        // Ở đây ta demo theo ngày (Period.ofDays(1))
-
-        val period = Period.ofDays(1)
-        return healthConnectManager.readHeartRateAggregation(start, end, period)
     }
 }
 enum class ChartTimeRange { DAY, WEEK, MONTH, YEAR}

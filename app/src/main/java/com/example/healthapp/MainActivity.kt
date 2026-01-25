@@ -49,6 +49,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.healthapp.core.viewmodel.HeartViewModel
 import com.example.healthapp.core.viewmodel.SleepViewModel
 import com.example.healthapp.core.viewmodel.UserViewModel
 import com.example.healthapp.feature.detail.SleepDetailScreen
@@ -63,6 +64,7 @@ class MainActivity : ComponentActivity() {
             val mainViewModel: MainViewModel = hiltViewModel()
             val userViewModel : UserViewModel = hiltViewModel()
             val sleepViewModel : SleepViewModel = hiltViewModel()
+            val heartViewModel : HeartViewModel = hiltViewModel()
             val healthConnectManager = mainViewModel.healthConnectManager
             val healthState by mainViewModel.healthConnectState.collectAsState()
             val context = LocalContext.current // Lấy context ở đây để dùng cho Toast/Intent
@@ -300,16 +302,15 @@ class MainActivity : ComponentActivity() {
 
                         )
                         "heart_detail"-> HeartDetailScreen(
-                            modifier = Modifier.padding(innerPadding),
-                            onHeartRateClick = { currentScreen = "heart_rate" },
-                            isDark,
                             onBackClick = { currentScreen = "dashboard" },
-                            mainViewModel
+                            isDarkTheme = isDark,
+                            modifier = Modifier.padding(innerPadding),
+                            onHeartRateClick = { currentScreen = "heart_rate" }
                         )
 
                         "heart_rate" -> HeartRateScreen(
                             onBackClick = { heartRate ->
-                                mainViewModel.saveHeartRateRecord(heartRate)
+                                heartViewModel.saveHeartRateRecord(heartRate)
                                 currentScreen = "heart_detail" },
                             mainViewModel = mainViewModel
                         )
