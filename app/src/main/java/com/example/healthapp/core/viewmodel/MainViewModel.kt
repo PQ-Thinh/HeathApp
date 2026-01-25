@@ -47,7 +47,7 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
 
     // --- KEYS DATASTORE ---
-    private val THEME_KEY = booleanPreferencesKey("is_dark_mode")
+    //private val THEME_KEY = booleanPreferencesKey("is_dark_mode")
     private val IS_LOGGED_IN_KEY = booleanPreferencesKey("is_logged_in")
     private val CURRENT_USER_EMAIL_KEY = stringPreferencesKey("current_user_email")
 
@@ -196,23 +196,24 @@ class MainViewModel @Inject constructor(
     }
 
     // --- CÁC HÀM QUẢN LÝ USER & LOGIN ---
-
-    val isDarkMode: StateFlow<Boolean> = dataStore.data
-        .map { preferences -> preferences[THEME_KEY] ?: false }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
-
     val isLoggedIn: StateFlow<Boolean> = dataStore.data
         .map { it[IS_LOGGED_IN_KEY] ?: false }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    fun toggleTheme(isDark: Boolean) {
-        viewModelScope.launch { dataStore.edit { it[THEME_KEY] = isDark } }
-    }
+
 
     suspend fun setIsLoggedIn(isLoggedIn: Boolean, email: String? = null) {
         dataStore.edit {
             it[IS_LOGGED_IN_KEY] = isLoggedIn
-            if (email != null) it[CURRENT_USER_EMAIL_KEY] = email
+            if (isLoggedIn && email != null) {
+                it[CURRENT_USER_EMAIL_KEY] = email
+            } else if (!isLoggedIn) {
+                // KHI ĐĂNG XUẤT: Xóa sạch Email và Token để tránh nhớ nhầm User cũ
+                it.remove(CURRENT_USER_EMAIL_KEY)
+                currentUserId = null // Reset ID trong bộ nhớ
+                _realtimeSteps.value = 0
+                _realtimeCalories.value = 0f
+            }
         }
     }
 
@@ -266,7 +267,7 @@ class MainViewModel @Inject constructor(
                 saveDayOffset(0)
 
                 // Gọi lại initializeData để thiết lập lại từ đầu
-                initializeData()
+               // initializeData()
 
                 onSuccess()
             } else {
@@ -291,72 +292,72 @@ class MainViewModel @Inject constructor(
         }
     }
 
+//
+//    fun addName(name: String) {
+//        viewModelScope.launch {
+//            currentUserId?.let { id ->
+//                healthDao.updateName(id, name)
+//                Log.d("MainViewModel", "Đã cập nhật tên cho User ID: $id")
+//            } ?: run {
+//                Log.e("MainViewModel", "Lỗi: Chưa xác định được User ID!")
+//            }
+//        }
+//    }
+//
+//    private fun calculateAndSaveBMI() {
+//        viewModelScope.launch {
+//            currentUserId?.let { id ->
+//
+//                val user = healthDao.getUserById(id)
+//
+//                if (user != null && user.height != null && user.weight != null && user.height > 0) {
+//
+//
+//                    val heightInMeter = user.height / 100f
+//                    val bmiValue = user.weight / (heightInMeter * heightInMeter)
+//
+//                    val bmiRounded = (bmiValue * 10).roundToInt() / 10f
+//
+//                    healthDao.updateBMI(id, bmiRounded)
+//
+//                    Log.d("BMI", "Đã cập nhật BMI mới: $bmiRounded")
+//                }
+//            }
+//        }
+//    }
+//
+//    fun addHeight(height: Int) {
+//        viewModelScope.launch {
+//            currentUserId?.let { id ->
+//                healthDao.updateHeight(id, height.toFloat())
+//                calculateAndSaveBMI()
+//            }
+//        }
+//    }
+//
+//    fun addWeight(weight: Float) {
+//        viewModelScope.launch {
+//            currentUserId?.let { id ->
+//                healthDao.updateWeight(id, weight)
+//                calculateAndSaveBMI()
+//            }
+//        }
+//    }
 
-    fun addName(name: String) {
-        viewModelScope.launch {
-            currentUserId?.let { id ->
-                healthDao.updateName(id, name)
-                Log.d("MainViewModel", "Đã cập nhật tên cho User ID: $id")
-            } ?: run {
-                Log.e("MainViewModel", "Lỗi: Chưa xác định được User ID!")
-            }
-        }
-    }
-
-    private fun calculateAndSaveBMI() {
-        viewModelScope.launch {
-            currentUserId?.let { id ->
-
-                val user = healthDao.getUserById(id)
-
-                if (user != null && user.height != null && user.weight != null && user.height > 0) {
-
-
-                    val heightInMeter = user.height / 100f
-                    val bmiValue = user.weight / (heightInMeter * heightInMeter)
-
-                    val bmiRounded = (bmiValue * 10).roundToInt() / 10f
-
-                    healthDao.updateBMI(id, bmiRounded)
-
-                    Log.d("BMI", "Đã cập nhật BMI mới: $bmiRounded")
-                }
-            }
-        }
-    }
-
-    fun addHeight(height: Int) {
-        viewModelScope.launch {
-            currentUserId?.let { id ->
-                healthDao.updateHeight(id, height.toFloat())
-                calculateAndSaveBMI()
-            }
-        }
-    }
-
-    fun addWeight(weight: Float) {
-        viewModelScope.launch {
-            currentUserId?.let { id ->
-                healthDao.updateWeight(id, weight)
-                calculateAndSaveBMI()
-            }
-        }
-    }
-
-    val currentUserInfo: StateFlow<UserEntity?> = dataStore.data
-        .map { prefs -> prefs[CURRENT_USER_EMAIL_KEY] }
-        .flatMapLatest { email ->
-            if (email != null) {
-                healthDao.getUserFlowByEmail(email)
-            } else {
-                flowOf(null)
-            }
-        }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = null
-        )
+//    val currentUserInfo: StateFlow<UserEntity?> = dataStore.data
+//        .map { prefs -> prefs[CURRENT_USER_EMAIL_KEY] }
+//        .flatMapLatest { email ->
+//            if (email != null) {
+//                healthDao.getUserFlowByEmail(email)
+//            } else {
+//                flowOf(null)
+//            }
+//        }
+//        .stateIn(
+//            scope = viewModelScope,
+//            started = SharingStarted.WhileSubscribed(5000),
+//            initialValue = null
+//        )
 
     fun syncData() {
         viewModelScope.launch {

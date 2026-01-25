@@ -49,6 +49,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.healthapp.core.viewmodel.UserViewModel
 
 @OptIn(ExperimentalPermissionsApi::class)
 @AndroidEntryPoint
@@ -58,6 +59,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val mainViewModel: MainViewModel = hiltViewModel()
+            val userViewModel : UserViewModel = hiltViewModel()
             val healthConnectManager = mainViewModel.healthConnectManager
             val healthState by mainViewModel.healthConnectState.collectAsState()
             val context = LocalContext.current // Lấy context ở đây để dùng cho Toast/Intent
@@ -162,7 +164,7 @@ class MainActivity : ComponentActivity() {
                     }
                 )
             }
-            val isDark by mainViewModel.isDarkMode.collectAsState()
+            val isDark by userViewModel.isDarkMode.collectAsState()
             val isLoggedIn by mainViewModel.isLoggedIn.collectAsState()
 
             HealthAppTheme {
@@ -177,9 +179,17 @@ class MainActivity : ComponentActivity() {
                 }
 
                 var currentScreen by remember {
-                    mutableStateOf(if (!isLoggedIn) "dashboard" else "intro")
+                    mutableStateOf( "intro")
                 }
-
+                LaunchedEffect(isLoggedIn) {
+                    if (isLoggedIn) {
+                        // Nếu DataStore báo đã đăng nhập -> Vào thẳng Dashboard
+                        currentScreen = "dashboard"
+                    } else {
+                        // Nếu Logout -> Về lại Intro
+                        currentScreen = "intro"
+                    }
+                }
                 BackHandler {
                     when (currentScreen) {
                         "login"->currentScreen= "intro"
@@ -247,21 +257,21 @@ class MainActivity : ComponentActivity() {
                         "name" -> NameScreen(
                             modifier = Modifier.padding(innerPadding),
                             onStartClick = {name->
-                                mainViewModel.addName(name)
+                                userViewModel.addName(name)
                                 currentScreen = "height"
                             }
                         )
                         "height" -> HeightPickerScreen(
                             modifier = Modifier.padding(innerPadding),
                             onStartClick = {height->
-                                mainViewModel.addHeight(height)
+                                userViewModel.addHeight(height)
                                 currentScreen = "weight"
                             }
                         )
                         "weight" -> WeightScreen(
                             modifier = Modifier.padding(innerPadding),
                             onStartClick = {
-                                weight -> mainViewModel.addWeight(weight)
+                                weight -> userViewModel.addWeight(weight)
                                 currentScreen = "dashboard"
 
                             }
@@ -273,7 +283,8 @@ class MainActivity : ComponentActivity() {
                             onSettingsClick = { currentScreen = "settings" },
                             isDark,
                            onHeartDetailClick = { currentScreen = "heart_detail" },
-                                    mainViewModel
+                            mainViewModel,
+                            userViewModel
                         )
                         "heart_detail"-> HeartDetailScreen(
                             modifier = Modifier.padding(innerPadding),
@@ -296,11 +307,11 @@ class MainActivity : ComponentActivity() {
                             //onLogoutClick = {  },
                             isDarkTheme = isDark,
                             onChangeLogin = { isLoggedIn ->
-                                mainViewModel.updateLoginStatus(isLoggedIn = isLoggedIn)
+                                mainViewModel.updateLoginStatus(isLoggedIn = false)
                                 currentScreen = "intro"
                             },
                             isLoggingIn = isLoggedIn,
-                            mainViewModel = mainViewModel
+                            userViewModel = userViewModel
                         )
 
                         "notifications" -> NotificationsScreen(
@@ -313,7 +324,7 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(innerPadding),
                             onBackClick = { currentScreen = "dashboard" },
                             onThemeChanged = { isDarkMode ->
-                                mainViewModel.toggleTheme(isDarkMode)
+                                userViewModel.toggleTheme(isDarkMode)
                             },
                             isDark
                             ,

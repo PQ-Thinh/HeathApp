@@ -32,6 +32,7 @@ import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
 import com.example.healthapp.core.viewmodel.MainViewModel
+import com.example.healthapp.core.viewmodel.UserViewModel
 
 
 @Composable
@@ -42,10 +43,10 @@ fun ProfileScreen(
     isDarkTheme: Boolean,
     isLoggingIn: Boolean,
     onChangeLogin: (Boolean) -> Unit = {},
-    mainViewModel: MainViewModel
+    userViewModel: UserViewModel
 ) {
 
-    val user by mainViewModel.currentUserInfo.collectAsState()
+    val user by userViewModel.currentUserInfo.collectAsState()
 
     val isPreview = LocalInspectionMode.current
     var isVisible by remember { mutableStateOf(isPreview) }

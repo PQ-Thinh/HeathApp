@@ -36,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.healthapp.core.viewmodel.MainViewModel
+import com.example.healthapp.core.viewmodel.UserViewModel
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
@@ -49,7 +50,8 @@ fun HealthDashboardScreen(
     onSettingsClick: () -> Unit = {},
     isDarkTheme: Boolean,
     onHeartDetailClick: () -> Unit = {},
-    mainViewModel: MainViewModel
+    mainViewModel: MainViewModel,
+    userViewModel: UserViewModel
 ) {
     val isPreview = LocalInspectionMode.current
     var isContentVisible by remember { mutableStateOf(isPreview) }
@@ -61,7 +63,7 @@ fun HealthDashboardScreen(
     val displayBpm = if (realtimeBpm > 0) realtimeBpm else (todayHealth?.heartRateAvg ?: 0)
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
 
-    val user by mainViewModel.currentUserInfo.collectAsState()
+    val user by userViewModel.currentUserInfo.collectAsState()
 
     LaunchedEffect(Unit) {
         if (!isPreview) isContentVisible = true
