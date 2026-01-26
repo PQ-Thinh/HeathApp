@@ -128,14 +128,23 @@ class HealthRepository @Inject constructor(
     }
     // Thêm hàm này
     suspend fun getSleepChartData(range: ChartTimeRange): List<SleepBucket> {
-        val end = LocalDateTime.now()
+        val now = LocalDateTime.now()
+        val end = now
+
+        // Xác định thời gian bắt đầu (Start)
         val start = when (range) {
-            ChartTimeRange.WEEK -> end.minusDays(7)
-            ChartTimeRange.MONTH -> end.minusDays(30)
-            ChartTimeRange.YEAR -> end.minusDays(365)
-            else -> end.minusDays(7)
+            ChartTimeRange.WEEK -> now.minusDays(6) // 7 ngày gần nhất
+            ChartTimeRange.MONTH -> now.minusDays(30)
+            ChartTimeRange.YEAR -> now.minusYears(1).withDayOfMonth(1) // Lấy từ tháng này năm ngoái
+            else -> now.minusDays(6)
         }
-        val period = if (range == ChartTimeRange.YEAR) Period.ofMonths(1) else Period.ofDays(1)
+
+        // Xác định lát cắt (Slicer)
+        val period = if (range == ChartTimeRange.YEAR) {
+            Period.ofMonths(1) // Nếu chọn Năm -> Gom nhóm theo THÁNG
+        } else {
+            Period.ofDays(1)   // Nếu chọn Tuần/Tháng -> Gom nhóm theo NGÀY
+        }
 
         return healthConnectManager.readSleepChartData(start, end, period)
     }
