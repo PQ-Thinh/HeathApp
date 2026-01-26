@@ -112,11 +112,13 @@ fun SleepDetailScreen(
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .border(1.dp, colors.glassBorder, RoundedCornerShape(16.dp)) // Viền kính
+                    .border(1.dp, colors.glassBorder, RoundedCornerShape(16.dp))
+                     // Viền kính
             ) {
                 Column(
                     modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Icon(
                         Icons.Default.Bedtime,
@@ -134,8 +136,6 @@ fun SleepDetailScreen(
                     Text(
                         text = "Đánh giá: $assessment",
                         fontSize = 18.sp,
-                        // Logic màu đánh giá: Giữ nguyên logic màu xanh/vàng nhưng đảm bảo đọc được
-                        // Bạn có thể tinh chỉnh màu này nếu nó quá chói trên nền trắng
                         color = if (assessment.contains("Tốt")) Color(0xFF4CAF50) else Color(0xFFFFC107)
                     )
                 }

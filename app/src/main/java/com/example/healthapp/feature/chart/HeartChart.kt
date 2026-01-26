@@ -1,6 +1,7 @@
 package com.example.healthapp.feature.chart
 
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -13,90 +14,117 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.healthapp.core.data.HeartRateBucket
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
-import com.github.mikephil.charting.charts.BarChart
+import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
-import com.github.mikephil.charting.data.BarData
-import com.github.mikephil.charting.data.BarDataSet
-import com.github.mikephil.charting.data.BarEntry
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.data.LineData
+import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 @Composable
 fun HeartChart(
     data: List<HeartRateBucket>,
-    timeRange: ChartTimeRange, // Để định dạng ngày tháng phù hợp
-    barColor: Int = android.graphics.Color.parseColor("#EF4444") // Màu đỏ
+    timeRange: ChartTimeRange,
+    lineColor: Int = android.graphics.Color.parseColor("#EF4444") // Màu đỏ
 ) {
     AndroidView(
         modifier = Modifier
             .fillMaxWidth()
-            .height(250.dp)
+            .height(300.dp) // Tăng chiều cao xíu cho thoáng
             .clip(RoundedCornerShape(16.dp))
             .background(androidx.compose.ui.graphics.Color(0xFF1E293B)) // Nền tối
             .padding(8.dp),
         factory = { context ->
-            BarChart(context).apply {
+            LineChart(context).apply {
+                // --- Cấu hình chung ---
                 description.isEnabled = false
                 legend.isEnabled = false
                 setDrawGridBackground(false)
-                animateY(1000)
+                setTouchEnabled(true)
+                isDragEnabled = true
+                setScaleEnabled(false)
+                setPinchZoom(false)
+                animateX(1000) // Animation chạy từ trái sang phải
 
-                // Cấu hình trục X
+                // --- Trục X (Thời gian) ---
                 xAxis.apply {
                     position = XAxis.XAxisPosition.BOTTOM
-                    setDrawGridLines(false)
-                    textColor = Color.WHITE
-                    textSize = 10f
+                    setDrawGridLines(false) // Bỏ lưới dọc
+                    textColor = Color.LTGRAY
+                    textSize = 11f
                     granularity = 1f
+                    // Thêm khoảng đệm 2 đầu để điểm đầu/cuối không bị cắt
+                    axisMinimum = -0.5f
                 }
 
-                // Cấu hình trục Y
+                // --- Trục Y (BPM) ---
                 axisLeft.apply {
-                    setDrawGridLines(true)
-                    gridColor = Color.DKGRAY
-                    textColor = Color.WHITE
-                    axisMinimum = 0f
+                    setDrawGridLines(true) // Giữ lưới ngang để dễ so sánh mức BPM
+                    gridColor = Color.parseColor("#33FFFFFF") // Lưới mờ
+                    textColor = Color.LTGRAY
+                    axisMinimum = 40f // Nhịp tim thường > 40, set 0 sẽ bị khoảng trống lớn bên dưới
+                    setDrawAxisLine(false)
                 }
-                axisRight.isEnabled = false
+                axisRight.isEnabled = false // Tắt trục phải
             }
         },
         update = { chart ->
             if (data.isNotEmpty()) {
                 val entries = data.mapIndexed { index, bucket ->
-                    // Vẽ cột dựa trên nhịp tim TRUNG BÌNH (AVG)
-                    BarEntry(index.toFloat(), bucket.avg.toFloat())
+                    // Dùng Entry cho LineChart
+                    Entry(index.toFloat(), bucket.avg.toFloat())
                 }
 
-                val dataSet = BarDataSet(entries, "Nhịp tim Avg").apply {
-                    color = barColor
-                    valueTextColor = Color.WHITE
-                    valueTextSize = 10f
-                    setDrawValues(true)
+                val dataSet = LineDataSet(entries, "Nhịp tim").apply {
+                    color = lineColor
+                    lineWidth = 3f // Đường kẻ dày hơn chút cho rõ
+
+                    // --- Hiệu ứng đường cong mềm mại ---
+                    mode = LineDataSet.Mode.CUBIC_BEZIER
+                    cubicIntensity = 0.2f
+
+                    // --- Điểm tròn trên đường ---
+                    setDrawCircles(true)
+                    setCircleColor(lineColor)
+                    circleRadius = 4f
+                    setDrawCircleHole(true)
+                    circleHoleRadius = 2f
+                    circleHoleColor = Color.WHITE // Lỗ tròn màu trắng nổi bật
+
+                    // --- Tắt hiển thị số trên từng điểm (đỡ rối) ---
+                    setDrawValues(false)
+
+                    // --- Tô màu nền bên dưới (Gradient) ---
+                    setDrawFilled(true)
+                    val gradientDrawable = GradientDrawable(
+                        GradientDrawable.Orientation.TOP_BOTTOM,
+                        intArrayOf(lineColor, Color.TRANSPARENT) // Nhạt dần xuống dưới
+                    )
+                    fillDrawable = gradientDrawable
                 }
 
-                chart.data = BarData(dataSet)
-                chart.data.barWidth = 0.6f // Độ rộng cột
+                chart.data = LineData(dataSet)
 
-                // Cập nhật Formatter cho trục X dựa trên TimeRange
+                // Cập nhật trục X Max để view vừa vặn
+                chart.xAxis.axisMaximum = (data.size - 0.5).toFloat()
+
+                // Formatter ngày tháng
                 chart.xAxis.valueFormatter = object : ValueFormatter() {
                     override fun getFormattedValue(value: Float): String {
                         val index = value.toInt()
                         if (index >= 0 && index < data.size) {
-                            val timeInstant = data[index].startTime
-                            val time = timeInstant.atZone(ZoneId.systemDefault()) // chuyển sang ZonedDateTime
-
+                            val time = data[index].startTime
                             return when (timeRange) {
-                                ChartTimeRange.DAY -> time.format(DateTimeFormatter.ofPattern("HH:mm")) // 14:00
-                                ChartTimeRange.WEEK -> time.format(DateTimeFormatter.ofPattern("EEE"))  // Mon, Tue
-                                ChartTimeRange.MONTH -> time.format(DateTimeFormatter.ofPattern("dd"))  // 01, 02
-                                ChartTimeRange.YEAR -> time.format(DateTimeFormatter.ofPattern("MM"))   // 01, 02
+                                ChartTimeRange.DAY -> time.format(DateTimeFormatter.ofPattern("HH:mm"))
+                                ChartTimeRange.WEEK -> time.format(DateTimeFormatter.ofPattern("EEE")) // Mon, Tue...
+                                ChartTimeRange.MONTH -> time.format(DateTimeFormatter.ofPattern("dd"))
+                                ChartTimeRange.YEAR -> time.format(DateTimeFormatter.ofPattern("MM"))
                             }
                         }
                         return ""
                     }
                 }
-
 
                 chart.notifyDataSetChanged()
                 chart.invalidate()
