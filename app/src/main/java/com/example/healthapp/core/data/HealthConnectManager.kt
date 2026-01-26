@@ -74,7 +74,7 @@ class HealthConnectManager(private val context: Context) {
 
     // File: HealthConnectManager.kt
 
-    suspend fun writeSteps(start: LocalDateTime, end: LocalDateTime, count: Long) {
+    suspend fun writeSteps(start: LocalDateTime, end: LocalDateTime, count: Int) {
         try {
             val zoneOffset = ZoneId.systemDefault().rules.getOffset(start)
 
@@ -92,12 +92,36 @@ class HealthConnectManager(private val context: Context) {
                 endTime = end.toInstant(zoneOffset),
                 startZoneOffset = zoneOffset,
                 endZoneOffset = zoneOffset,
-                count = count,
+                count = count.toLong(),
                 metadata = Metadata.manualEntry() // Hoặc Metadata.recordingMethodFromDevice()
             )
             healthConnectClient.insertRecords(listOf(stepsRecord))
         } catch (e: Exception) {
             Log.e("HealthConnect", "Lỗi ghi bước chân: ${e.message}")
+        }
+    }
+    // Hàm lấy dữ liệu bước chân cho biểu đồ
+    suspend fun readStepChartData(
+        startTime: LocalDateTime,
+        endTime: LocalDateTime,
+        period: Period
+    ): List<StepBucket> {
+        try {
+            val request = AggregateGroupByPeriodRequest(
+                metrics = setOf(StepsRecord.COUNT_TOTAL),
+                timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
+                timeRangeSlicer = period
+            )
+            val response = healthConnectClient.aggregateGroupByPeriod(request)
+            return response.map { bucket ->
+                StepBucket(
+                    startTime = bucket.startTime,
+                    totalSteps = bucket.result[StepsRecord.COUNT_TOTAL] ?: 0
+                )
+            }.filter { it.totalSteps > 0 } // Chỉ lấy ngày nào có đi bộ
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return emptyList()
         }
     }
 
@@ -275,4 +299,8 @@ data class HeartRateBucket(
 data class SleepBucket(
     val startTime: LocalDateTime,
     val totalMinutes: Long
+)
+data class StepBucket(
+    val startTime: LocalDateTime,
+    val totalSteps: Long
 )

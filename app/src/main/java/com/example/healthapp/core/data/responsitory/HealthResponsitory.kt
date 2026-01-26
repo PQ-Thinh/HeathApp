@@ -4,6 +4,7 @@ import android.util.Log
 import com.example.healthapp.core.data.HealthConnectManager
 import com.example.healthapp.core.data.HeartRateBucket
 import com.example.healthapp.core.data.SleepBucket
+import com.example.healthapp.core.data.StepBucket
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
 import kotlinx.coroutines.flow.Flow
@@ -175,6 +176,35 @@ class HealthRepository @Inject constructor(
                 healthConnectManager.readHeartRateAggregation(start, end, Period.ofMonths(1))
             }
         }
+    }
+    // File: HealthRepository.kt
+
+    // Hàm lấy dữ liệu chart bước chân
+    suspend fun getStepChartData(range: ChartTimeRange): List<StepBucket> {
+        val now = LocalDateTime.now()
+        val end = now
+
+        val start = when (range) {
+            ChartTimeRange.WEEK -> now.minusDays(6)
+            ChartTimeRange.MONTH -> now.minusDays(30)
+            ChartTimeRange.YEAR -> now.minusYears(1).withDayOfMonth(1)
+            else -> now.minusDays(6)
+        }
+
+        val period = if (range == ChartTimeRange.YEAR) {
+            Period.ofMonths(1)
+        } else {
+            Period.ofDays(1)
+        }
+
+        return healthConnectManager.readStepChartData(start, end, period)
+    }
+
+    // Hàm lấy cân nặng user (để tính calories)
+    suspend fun getUserWeight(userId: Int): Float {
+        // Lấy cân nặng từ DB, nếu chưa set thì mặc định 70kg
+        val user = healthDao.getUserById(userId) // Bạn cần đảm bảo DAO có hàm này hoặc tương tự
+        return user?.weight ?: 70f
     }
 }
 enum class ChartTimeRange { DAY, WEEK, MONTH, YEAR}

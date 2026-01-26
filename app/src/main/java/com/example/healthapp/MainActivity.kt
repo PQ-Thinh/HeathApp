@@ -51,8 +51,10 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.example.healthapp.core.viewmodel.HeartViewModel
 import com.example.healthapp.core.viewmodel.SleepViewModel
+import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.core.viewmodel.UserViewModel
 import com.example.healthapp.feature.detail.SleepDetailScreen
+import com.example.healthapp.feature.detail.StepDetailScreen
 
 @OptIn(ExperimentalPermissionsApi::class)
 @AndroidEntryPoint
@@ -65,6 +67,7 @@ class MainActivity : ComponentActivity() {
             val userViewModel : UserViewModel = hiltViewModel()
             val sleepViewModel : SleepViewModel = hiltViewModel()
             val heartViewModel : HeartViewModel = hiltViewModel()
+            val stepViewModel : StepViewModel = hiltViewModel()
             val healthConnectManager = mainViewModel.healthConnectManager
             val healthState by mainViewModel.healthConnectState.collectAsState()
             val context = LocalContext.current // Lấy context ở đây để dùng cho Toast/Intent
@@ -199,7 +202,7 @@ class MainActivity : ComponentActivity() {
                     when (currentScreen) {
                         "login"->currentScreen= "intro"
                         "signup", "forgot" -> currentScreen = "login"
-                        "profile", "notifications", "settings","heart_detail","sleep_detail" -> currentScreen = "dashboard"
+                        "profile", "notifications", "settings","heart_detail","sleep_detail","step_detail"-> currentScreen = "dashboard"
                         "heart_rate" -> currentScreen = "heart_detail"
                         "height" -> currentScreen = "name"
                         "weight" -> currentScreen = "height"
@@ -289,6 +292,7 @@ class MainActivity : ComponentActivity() {
                             isDark,
                            onHeartDetailClick = { currentScreen = "heart_detail" },
                             onSleepDetailClick = { currentScreen = "sleep_detail" },
+                            onStepDetailClick = {currentScreen = "step_detail"},
                             mainViewModel,
                             userViewModel,
                             sleepViewModel
@@ -313,6 +317,13 @@ class MainActivity : ComponentActivity() {
                                 heartViewModel.saveHeartRateRecord(heartRate)
                                 currentScreen = "heart_detail" },
                             mainViewModel = mainViewModel
+                        )
+                        "step_detail"-> StepDetailScreen(
+                            onBackClick = { currentScreen = "dashboard" },
+                            mainViewModel = mainViewModel,
+                            stepViewModel = stepViewModel,
+                            isDarkTheme = isDark,
+                            modifier = Modifier.padding(innerPadding)
                         )
 
                         "profile" -> ProfileScreen(

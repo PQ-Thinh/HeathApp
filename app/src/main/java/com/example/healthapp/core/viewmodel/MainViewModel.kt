@@ -1,7 +1,5 @@
 package com.example.healthapp.core.viewmodel
 
-import android.content.Context
-import android.content.Intent
 import android.util.Log
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
@@ -18,8 +16,6 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.health.connect.client.HealthConnectClient
 import com.example.healthapp.core.data.HealthConnectManager
 import com.example.healthapp.core.data.HealthSensorManager
-import com.example.healthapp.core.data.HeartRateBucket
-import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
@@ -35,7 +31,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
-import kotlin.math.roundToInt
 
 @HiltViewModel
 class MainViewModel @Inject constructor(

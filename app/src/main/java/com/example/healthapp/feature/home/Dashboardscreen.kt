@@ -52,6 +52,7 @@ fun HealthDashboardScreen(
     isDarkTheme: Boolean,
     onHeartDetailClick: () -> Unit = {},
     onSleepDetailClick: () -> Unit = {},
+    onStepDetailClick: () -> Unit = {},
     mainViewModel: MainViewModel,
     userViewModel: UserViewModel,
     sleepViewModel: SleepViewModel
@@ -209,7 +210,8 @@ fun HealthDashboardScreen(
                 // 5. Large Activity Card
                 item {
                     HealthStatCard(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth()
+                            .clickable{onStepDetailClick()},
                         title = "Bước Đếm",
                         value = steps.toString(),
                         unit = "steps today",
