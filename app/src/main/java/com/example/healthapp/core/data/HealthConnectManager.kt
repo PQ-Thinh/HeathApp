@@ -72,22 +72,32 @@ class HealthConnectManager(private val context: Context) {
         }
     }
 
-    suspend fun writeSteps(startTime: LocalDateTime, endTime: LocalDateTime, steps: Int): Boolean {
-        if (steps <= 0) return true
-        return try {
+    // File: HealthConnectManager.kt
+
+    suspend fun writeSteps(start: LocalDateTime, end: LocalDateTime, count: Long) {
+        try {
+            val zoneOffset = ZoneId.systemDefault().rules.getOffset(start)
+
+            //Xóa dữ liệu bước chân cũ trong khoảng thời gian này trước
+            // Để tránh việc cộng dồn: Lần 1 gửi 100 bước, Lần 2 gửi 105 bước -> Thành 205 bước (Sai)
+            val timeRangeFilter = TimeRangeFilter.between(
+                start.toInstant(zoneOffset),
+                end.toInstant(zoneOffset)
+            )
+            healthConnectClient.deleteRecords(StepsRecord::class, timeRangeFilter)
+
+            // 2. Ghi dữ liệu mới (Ghi đè)
             val stepsRecord = StepsRecord(
-                startTime = startTime.toInstant(ZoneOffset.UTC),
-                endTime = endTime.toInstant(ZoneOffset.UTC),
-                startZoneOffset = ZoneOffset.UTC,
-                endZoneOffset = ZoneOffset.UTC,
-                count = steps.toLong(),
-                metadata = Metadata.manualEntry()
+                startTime = start.toInstant(zoneOffset),
+                endTime = end.toInstant(zoneOffset),
+                startZoneOffset = zoneOffset,
+                endZoneOffset = zoneOffset,
+                count = count,
+                metadata = Metadata.manualEntry() // Hoặc Metadata.recordingMethodFromDevice()
             )
             healthConnectClient.insertRecords(listOf(stepsRecord))
-            true
         } catch (e: Exception) {
-            e.printStackTrace()
-            false
+            Log.e("HealthConnect", "Lỗi ghi bước chân: ${e.message}")
         }
     }
 

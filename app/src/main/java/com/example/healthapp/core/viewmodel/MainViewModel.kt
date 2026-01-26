@@ -175,6 +175,13 @@ class MainViewModel @Inject constructor(
                 // Cập nhật UI
                 _realtimeSteps.value = todaySteps
                 _realtimeCalories.value = todaySteps * 0.04f
+                // ĐỒNG BỘ LÊN HEALTH CONNECT (SỬA LỖI TẠI ĐÂY)
+                // Chỉ gửi khi số bước chia hết cho 50 (ví dụ: 50, 100, 150...) để tiết kiệm pin
+                // Hoặc gửi khi số bước thay đổi quá nhiều so với lần sync trước
+                if (todaySteps % 50 == 0) {
+                    Log.d("Sync", "Đang đồng bộ $todaySteps bước lên Health Connect...")
+                    repository.syncToHealthConnect(todaySteps)
+                }
 
                 // 4. Lưu vào Room (Database)
                 repository.updateLocalSteps(currentUserId, todaySteps, _realtimeCalories.value)
@@ -300,9 +307,16 @@ class MainViewModel @Inject constructor(
 
     }
 
+    override fun onCleared() {
+        super.onCleared()
+        // Cố gắng đồng bộ lần cuối trước khi ViewModel bị hủy
+        viewModelScope.launch {
+            repository.syncToHealthConnect(_realtimeSteps.value)
+        }
+    }
 
     //Biểu đồ
-    // 1. Luồng dữ liệu cho NGÀY HÔM NAY (Tự động cập nhật khi DB thay đổi)
+    //Luồng dữ liệu cho NGÀY HÔM NAY (Tự động cập nhật khi DB thay đổi)
     // Dùng flatMapLatest để khi currentUserId thay đổi, nó tự lấy data của user mới
     val todayHealthData: StateFlow<DailyHealthEntity?> = snapshotFlow { currentUserId }
         .flatMapLatest { userId ->
