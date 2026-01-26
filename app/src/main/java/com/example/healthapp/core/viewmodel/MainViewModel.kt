@@ -40,7 +40,7 @@ class MainViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
     private val healthDao: HealthDao,
     private val repository: HealthRepository,
-    private val sensorManager: HealthSensorManager,
+    //private val sensorManager: HealthSensorManager,
     val healthConnectManager: HealthConnectManager
 ) : ViewModel() {
 
@@ -78,6 +78,7 @@ class MainViewModel @Inject constructor(
 
     init {
         initializeData()
+        observeDatabase() // Bắt đầu lắng nghe Database ngay khi App mở
     }
 
     private fun initializeData() {
@@ -89,40 +90,55 @@ class MainViewModel @Inject constructor(
                 currentUserId = user?.id ?: 1
                 Log.d("MainViewModel", "User ID: $currentUserId")
             }
-            currentUserId?.let { id ->
-                val today = LocalDate.now().toString()
-                val todayData = healthDao.getDailyHealth(today, id).firstOrNull()
-
-                // Nếu hôm nay đã có dữ liệu, cập nhật lại State ngay lập tức
-                if (todayData != null) {
-                    // Khôi phục nhịp tim
-                    if (todayData.heartRateAvg > 0) {
-                        _realtimeHeartRate.value = todayData.heartRateAvg
-                    }
-
-
-                    _realtimeCalories.value = todayData.caloriesBurned
-
-
-                    _realtimeSteps.value = todayData.steps
-                }
-            }
-            // Lấy Mốc bước chân đã lưu từ DataStore
-            val preferences = dataStore.data.first()
-            startOfDaySteps = preferences[START_OF_DAY_STEPS_KEY] ?: 0
-            val savedDate = preferences[LAST_SAVED_DATE_KEY] ?: LocalDate.now().toString()
-
-            // Kiểm tra xem có phải ngày mới không
-            if (savedDate != LocalDate.now().toString()) {
-                // Sang ngày mới -> Reset mốc = 0 (Sẽ cập nhật lại khi có dữ liệu sensor đầu tiên)
-                startOfDaySteps = 0
-                saveDayOffset(0)
-            }
+//            currentUserId?.let { id ->
+//                val today = LocalDate.now().toString()
+//                val todayData = healthDao.getDailyHealth(today, id).firstOrNull()
+//
+//                // Nếu hôm nay đã có dữ liệu, cập nhật lại State ngay lập tức
+//                if (todayData != null) {
+//                    // Khôi phục nhịp tim
+//                    if (todayData.heartRateAvg > 0) {
+//                        _realtimeHeartRate.value = todayData.heartRateAvg
+//                    }
+//
+//
+//                    _realtimeCalories.value = todayData.caloriesBurned
+//
+//
+//                    _realtimeSteps.value = todayData.steps
+//                }
+//            }
+//            // Lấy Mốc bước chân đã lưu từ DataStore
+//            val preferences = dataStore.data.first()
+//            startOfDaySteps = preferences[START_OF_DAY_STEPS_KEY] ?: 0
+//            val savedDate = preferences[LAST_SAVED_DATE_KEY] ?: LocalDate.now().toString()
+//
+//            // Kiểm tra xem có phải ngày mới không
+//            if (savedDate != LocalDate.now().toString()) {
+//                // Sang ngày mới -> Reset mốc = 0 (Sẽ cập nhật lại khi có dữ liệu sensor đầu tiên)
+//                startOfDaySteps = 0
+//                saveDayOffset(0)
+//            }
 
 
             //startSensorTracking()
         }
     }
+    // Hàm quan trọng: Cập nhật UI ngay khi Database thay đổi (do Service ghi vào)
+    private fun observeDatabase() {
+        viewModelScope.launch {
+            todayHealthData.collect { data ->
+                if (data != null) {
+                    _realtimeSteps.value = data.steps
+                    _realtimeCalories.value = data.caloriesBurned
+                    if (data.heartRateAvg > 0) {
+                        _realtimeHeartRate.value = data.heartRateAvg
+                    }
+                }
+            }
+        }
+    }
+
     fun checkHealthConnectStatus() { // Đổi tên hàm cho đúng nghĩa
         viewModelScope.launch {
             val status = healthConnectManager.checkAvailability()
@@ -147,58 +163,58 @@ class MainViewModel @Inject constructor(
 
         }
     }
-    fun startSensorTracking() {
-        viewModelScope.launch {
-            lastSyncTime = LocalDateTime.now()
-            // 'totalStepsSinceBoot' là tổng số bước từ lúc bật điện thoại (VD: 15000)
-            sensorManager.stepFlow.collect { totalStepsSinceBoot ->
-
-                // 1. Xử lý logic Reset ngày mới hoặc Khởi tạo lần đầu
-                val today = LocalDate.now().toString()
-                val savedDate = dataStore.data.first()[LAST_SAVED_DATE_KEY]
-
-                if (startOfDaySteps == 0 || savedDate != today) {
-                    // Nếu chưa có mốc hoặc vừa sang ngày mới
-                    // -> Lấy luôn số hiện tại làm mốc 00:00
-                    startOfDaySteps = totalStepsSinceBoot
-                    saveDayOffset(startOfDaySteps)
-                }
-
-                // Xử lý trường hợp Reboot máy (Tổng số bước sensor bị reset về 0)
-                if (totalStepsSinceBoot < startOfDaySteps) {
-                    startOfDaySteps = 0
-                    saveDayOffset(0)
-                }
-
-                // Tính số bước thực tế trong ngày
-                // Công thức: Tổng hiện tại - Mốc đầu ngày
-                var todaySteps = totalStepsSinceBoot - startOfDaySteps
-                if (todaySteps < 0) todaySteps = 0
-
-                // Cập nhật UI
-                _realtimeSteps.value = todaySteps
-                _realtimeCalories.value = todaySteps * 0.04f
-                // ĐỒNG BỘ LÊN HEALTH CONNECT (SỬA LỖI TẠI ĐÂY)
-                // Chỉ gửi khi số bước chia hết cho 50 (ví dụ: 50, 100, 150...) để tiết kiệm pin
-                // Hoặc gửi khi số bước thay đổi quá nhiều so với lần sync trước
-                if (todaySteps - lastSyncedStepsTotal >= 50) {
-                    val now = LocalDateTime.now()
-
-                    // Tính số bước chênh lệch: 150 - 100 = 50 bước mới
-                    val stepsToAdd = todaySteps - lastSyncedStepsTotal
-
-                    if (stepsToAdd > 0) {
-                        // Gọi hàm writeSteps mới (chỉ insert 50 bước trong khoảng thời gian từ lần trước đến nay)
-                        repository.writeStepsToHealthConnect(lastSyncTime, now, stepsToAdd)
-
-                        // Cập nhật lại mốc
-                        lastSyncedStepsTotal = todaySteps
-                        lastSyncTime = now
-                    }
-                }
-            }
-        }
-    }
+//    fun startSensorTracking() {
+//        viewModelScope.launch {
+//            lastSyncTime = LocalDateTime.now()
+//            // 'totalStepsSinceBoot' là tổng số bước từ lúc bật điện thoại (VD: 15000)
+//            sensorManager.stepFlow.collect { totalStepsSinceBoot ->
+//
+//                // 1. Xử lý logic Reset ngày mới hoặc Khởi tạo lần đầu
+//                val today = LocalDate.now().toString()
+//                val savedDate = dataStore.data.first()[LAST_SAVED_DATE_KEY]
+//
+//                if (startOfDaySteps == 0 || savedDate != today) {
+//                    // Nếu chưa có mốc hoặc vừa sang ngày mới
+//                    // -> Lấy luôn số hiện tại làm mốc 00:00
+//                    startOfDaySteps = totalStepsSinceBoot
+//                    saveDayOffset(startOfDaySteps)
+//                }
+//
+//                // Xử lý trường hợp Reboot máy (Tổng số bước sensor bị reset về 0)
+//                if (totalStepsSinceBoot < startOfDaySteps) {
+//                    startOfDaySteps = 0
+//                    saveDayOffset(0)
+//                }
+//
+//                // Tính số bước thực tế trong ngày
+//                // Công thức: Tổng hiện tại - Mốc đầu ngày
+//                var todaySteps = totalStepsSinceBoot - startOfDaySteps
+//                if (todaySteps < 0) todaySteps = 0
+//
+//                // Cập nhật UI
+//                _realtimeSteps.value = todaySteps
+//                _realtimeCalories.value = todaySteps * 0.04f
+//                // ĐỒNG BỘ LÊN HEALTH CONNECT (SỬA LỖI TẠI ĐÂY)
+//                // Chỉ gửi khi số bước chia hết cho 50 (ví dụ: 50, 100, 150...) để tiết kiệm pin
+//                // Hoặc gửi khi số bước thay đổi quá nhiều so với lần sync trước
+//                if (todaySteps - lastSyncedStepsTotal >= 50) {
+//                    val now = LocalDateTime.now()
+//
+//                    // Tính số bước chênh lệch: 150 - 100 = 50 bước mới
+//                    val stepsToAdd = todaySteps - lastSyncedStepsTotal
+//
+//                    if (stepsToAdd > 0) {
+//                        // Gọi hàm writeSteps mới (chỉ insert 50 bước trong khoảng thời gian từ lần trước đến nay)
+//                        repository.writeStepsToHealthConnect(lastSyncTime, now, stepsToAdd)
+//
+//                        // Cập nhật lại mốc
+//                        lastSyncedStepsTotal = todaySteps
+//                        lastSyncTime = now
+//                    }
+//                }
+//            }
+//        }
+//    }
 
     // Hàm lưu Mốc và Ngày vào DataStore
     private suspend fun saveDayOffset(offset: Int) {

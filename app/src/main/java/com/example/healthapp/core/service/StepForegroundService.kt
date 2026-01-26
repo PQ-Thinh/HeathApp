@@ -21,6 +21,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -39,6 +40,10 @@ class StepForegroundService : Service() {
     private val CURRENT_USER_EMAIL_KEY = stringPreferencesKey("current_user_email")
     private val START_OF_DAY_STEPS_KEY = intPreferencesKey("start_of_day_steps")
     private val LAST_SAVED_DATE_KEY = stringPreferencesKey("last_saved_date")
+
+    // Key mới: Để tránh gửi trùng hoặc reset bước chân trên Health Connect
+    private val LAST_SYNCED_STEPS_KEY = intPreferencesKey("last_synced_steps_total")
+    private val LAST_SYNC_TIME_KEY = stringPreferencesKey("last_sync_time")
 
     companion object {
         const val ACTION_START = "ACTION_START"
@@ -73,59 +78,86 @@ class StepForegroundService : Service() {
 
     private fun startTracking() {
         createNotificationChannel()
-
-        // Hiển thị thông báo ngay lập tức để Service sống
         startForegroundServiceCompact()
 
         serviceScope.launch {
-            // 1. Lấy thông tin cơ bản
+            // 1. Khôi phục dữ liệu từ DataStore
             val prefs = dataStore.data.first()
             val savedDate = prefs[LAST_SAVED_DATE_KEY] ?: ""
             var startOfDaySteps = prefs[START_OF_DAY_STEPS_KEY] ?: 0
+
+            // Khôi phục mốc đã sync lên Health Connect để tính delta (chênh lệch)
+            var lastSyncedStepsTotal = prefs[LAST_SYNCED_STEPS_KEY] ?: 0
+            var lastSyncTimeStr = prefs[LAST_SYNC_TIME_KEY] ?: LocalDateTime.now().toString()
+
             val today = LocalDate.now().toString()
 
-            // Lấy User ID để lưu vào Room (chỉ cần lấy 1 lần)
             val email = prefs[CURRENT_USER_EMAIL_KEY]
             val userId = if (email != null) healthDao.getUserByEmail(email)?.id else null
 
-            // Reset mốc nếu sang ngày mới
+            // Reset nếu sang ngày mới
             if (savedDate != today) {
                 startOfDaySteps = 0
+                lastSyncedStepsTotal = 0 // Ngày mới thì chưa sync gì cả
                 dataStore.edit {
                     it[LAST_SAVED_DATE_KEY] = today
                     it[START_OF_DAY_STEPS_KEY] = 0
+                    it[LAST_SYNCED_STEPS_KEY] = 0
                 }
             }
 
-            // 2. LẮNG NGHE CẢM BIẾN (Logic siêu đơn giản)
+            // 2. LẮNG NGHE CẢM BIẾN
             sensorManager.stepFlow.collect { totalStepsSinceBoot ->
 
-                // Set mốc lần đầu
                 if (startOfDaySteps == 0) {
                     startOfDaySteps = totalStepsSinceBoot
                     dataStore.edit { it[START_OF_DAY_STEPS_KEY] = startOfDaySteps }
                 }
 
-                // Tính toán cực nhanh
+                // Tính tổng bước hôm nay
                 val realSteps = (totalStepsSinceBoot - startOfDaySteps).coerceAtLeast(0)
                 currentSteps = realSteps
                 currentCalories = (realSteps * 0.04).toInt()
 
-                // Cập nhật UI Notification nếu không Pause
                 if (!sensorManager.isPaused) {
                     updateNotification(isPaused = false)
 
-                    // Lưu vào Room (Local DB) để giữ dữ liệu
-                    // Không cần sync Health Connect ở đây cho đỡ tốn pin
+                    // A. Cập nhật Database (Để App UI hiển thị)
                     if (userId != null) {
                         repository.updateLocalSteps(userId, currentSteps, currentCalories.toFloat())
+                    }
+
+                    // B. Đồng bộ Health Connect (Incremental Sync)
+                    // Chỉ gửi khi chênh lệch > 50 bước so với lần gửi cuối
+                    if (currentSteps - lastSyncedStepsTotal >= 50) {
+                        val now = LocalDateTime.now()
+                        val lastSyncTime = try {
+                            LocalDateTime.parse(lastSyncTimeStr)
+                        } catch (e: Exception) { now.minusMinutes(1) }
+
+                        // Tính lượng bước mới đi thêm: Ví dụ 150 - 100 = 50 bước
+                        val stepsToAdd = currentSteps - lastSyncedStepsTotal
+
+                        if (stepsToAdd > 0) {
+                            // Gửi gói 50 bước này lên (Health Connect sẽ cộng vào tổng)
+                            repository.writeStepsToHealthConnect(lastSyncTime, now, stepsToAdd)
+
+                            // Cập nhật mốc đã gửi
+                            lastSyncedStepsTotal = currentSteps
+                            lastSyncTimeStr = now.toString()
+
+                            // Lưu mốc vào DataStore để lỡ tắt máy không bị quên
+                            dataStore.edit {
+                                it[LAST_SYNCED_STEPS_KEY] = lastSyncedStepsTotal
+                                it[LAST_SYNC_TIME_KEY] = lastSyncTimeStr
+                            }
+                        }
                     }
                 }
             }
         }
     }
 
-    // Hàm update Notification: Chỉ lấy biến global currentSteps ra hiển thị, cực nhẹ
     private fun updateNotification(isPaused: Boolean) {
         val notification = buildNotification(isPaused)
         val manager = getSystemService(NotificationManager::class.java)
@@ -136,30 +168,23 @@ class StepForegroundService : Service() {
         val openAppIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, openAppIntent, PendingIntent.FLAG_IMMUTABLE)
 
-        // Tạo Action cho nút bấm (Pause / Resume)
         val actionIntent = Intent(this, StepForegroundService::class.java).apply {
             action = if (isPaused) ACTION_RESUME else ACTION_PAUSE
         }
         val actionPendingIntent = PendingIntent.getService(this, 1, actionIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
-        // Icon và Chữ cho nút bấm
-        val actionIcon = if (isPaused) R.drawable.ic_launcher_foreground else R.drawable.ic_launcher_foreground // Bạn thay icon Play/Pause ở đây
+        val actionIcon = R.drawable.ic_launcher_foreground
         val actionTitle = if (isPaused) "Tiếp tục" else "Tạm dừng"
-
-        // Nội dung hiển thị
         val contentText = if (isPaused) "Đang tạm dừng - $currentSteps bước" else "$currentSteps bước • $currentCalories kcal"
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Đếm bước chân")
             .setContentText(contentText)
-            .setSmallIcon(R.drawable.ic_launcher_foreground) // Icon nhỏ trên thanh status
+            .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
-            .setOnlyAlertOnce(true) // Quan trọng: Không rung điện thoại mỗi khi cập nhật bước
-            .setOngoing(true) // Không cho vuốt xóa
-
-            // THÊM NÚT BẤM VÀO THÔNG BÁO
+            .setOnlyAlertOnce(true)
+            .setOngoing(true)
             .addAction(actionIcon, actionTitle, actionPendingIntent)
-
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
@@ -179,7 +204,7 @@ class StepForegroundService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "Theo dõi bước chân",
-                NotificationManager.IMPORTANCE_LOW // Low để không hiện popup che màn hình
+                NotificationManager.IMPORTANCE_LOW
             )
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }

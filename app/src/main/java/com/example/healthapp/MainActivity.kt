@@ -100,9 +100,9 @@ class MainActivity : ComponentActivity() {
             ) { isGranted ->
                 // Dù user đồng ý hay từ chối, ta đều tiếp tục kiểm tra Health Connect
                 // Để tránh app bị kẹt nếu user từ chối quyền đếm bước chân phần cứng
-                if (isGranted) {
-                mainViewModel.startSensorTracking()
-                }
+//                if (isGranted) {
+//                mainViewModel.startSensorTracking()
+//                }
                 // BẮT ĐẦU kiểm tra Health Connect SAU KHI popup này tắt
                 mainViewModel.checkHealthConnectStatus()
             }
@@ -122,7 +122,7 @@ class MainActivity : ComponentActivity() {
                     if (event == Lifecycle.Event.ON_RESUME) {
                         // Mỗi khi user quay lại app (từ Setting hoặc CH Play), tự động check lại
                         mainViewModel.checkHealthConnectStatus()
-                        mainViewModel.startSensorTracking()
+                       // mainViewModel.startSensorTracking()
                     }
                 }
                 lifecycleOwner.lifecycle.addObserver(observer)
