@@ -32,7 +32,7 @@ class HeartViewModel @Inject constructor(
     private val _heartRateData = MutableStateFlow<List<HeartRateBucket>>(emptyList())
     val heartRateData = _heartRateData.asStateFlow()
 
-    private val _selectedTimeRange = MutableStateFlow(ChartTimeRange.WEEK)
+    private val _selectedTimeRange = MutableStateFlow(ChartTimeRange.DAY)
     val selectedTimeRange = _selectedTimeRange.asStateFlow()
 
     // --- State cho thông tin chung ---

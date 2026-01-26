@@ -17,6 +17,7 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.Period
+import java.time.ZoneId
 import java.time.ZoneOffset
 
 class HealthConnectManager(private val context: Context) {
@@ -94,11 +95,12 @@ class HealthConnectManager(private val context: Context) {
 
     suspend fun writeHeartRate(bpm: Int, time: LocalDateTime): Boolean {
         return try {
+            val zoneOffset = ZoneId.systemDefault().rules.getOffset(time)
             val record = HeartRateRecord(
                 startTime = time.toInstant(ZoneOffset.UTC),
                 endTime = time.plusSeconds(1).toInstant(ZoneOffset.UTC),
-                startZoneOffset = ZoneOffset.UTC,
-                endZoneOffset = ZoneOffset.UTC,
+                startZoneOffset = zoneOffset,
+                endZoneOffset = zoneOffset,
                 samples = listOf(
                     HeartRateRecord.Sample(
                         time = time.toInstant(ZoneOffset.UTC),
@@ -142,16 +144,20 @@ class HealthConnectManager(private val context: Context) {
         period: Period
     ): List<HeartRateBucket> {
         try {
+            val zoneOffset = ZoneId.systemDefault().rules.getOffset(LocalDateTime.now())
+
             val request = AggregateGroupByPeriodRequest(
                 metrics = setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MAX, HeartRateRecord.BPM_MIN),
-                timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
+                timeRangeFilter = TimeRangeFilter.between(
+                    startTime.toInstant(zoneOffset),
+                    endTime.toInstant(zoneOffset)
+                ),
                 timeRangeSlicer = period
             )
             val response = healthConnectClient.aggregateGroupByPeriod(request)
             return response.map { bucket ->
                 HeartRateBucket(
-                    // FIX LỖI: bucket.startTime ở đây là LocalDateTime -> Đúng kiểu
-                    startTime = bucket.startTime,
+                    startTime = bucket.startTime, // Period trả về LocalDateTime sẵn rồi
                     min = bucket.result[HeartRateRecord.BPM_MIN] ?: 0,
                     max = bucket.result[HeartRateRecord.BPM_MAX] ?: 0,
                     avg = bucket.result[HeartRateRecord.BPM_AVG] ?: 0
@@ -170,16 +176,22 @@ class HealthConnectManager(private val context: Context) {
         duration: Duration
     ): List<HeartRateBucket> {
         try {
+            // Cần convert startTime/endTime sang Instant với ZoneOffset
+            val zoneOffset = ZoneId.systemDefault().rules.getOffset(LocalDateTime.now())
+
             val request = AggregateGroupByDurationRequest(
                 metrics = setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MAX, HeartRateRecord.BPM_MIN),
-                timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
+                timeRangeFilter = TimeRangeFilter.between(
+                    startTime.toInstant(zoneOffset),
+                    endTime.toInstant(zoneOffset)
+                ),
                 timeRangeSlicer = duration
             )
             val response = healthConnectClient.aggregateGroupByDuration(request)
             return response.map { bucket ->
                 HeartRateBucket(
-                    // FIX LỖI: bucket.startTime ở đây là Instant -> Cần convert sang LocalDateTime
-                    startTime = LocalDateTime.ofInstant(bucket.startTime, ZoneOffset.UTC),
+                    // QUAN TRỌNG: Đổi Instant -> LocalDateTime theo múi giờ máy
+                    startTime = LocalDateTime.ofInstant(bucket.startTime, ZoneId.systemDefault()),
                     min = bucket.result[HeartRateRecord.BPM_MIN] ?: 0,
                     max = bucket.result[HeartRateRecord.BPM_MAX] ?: 0,
                     avg = bucket.result[HeartRateRecord.BPM_AVG] ?: 0

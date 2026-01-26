@@ -148,7 +148,7 @@ class HealthRepository @Inject constructor(
         return when (range) {
             ChartTimeRange.DAY -> {
                 // Xem trong 24h qua, chia mỗi 1 giờ
-                val start = now.minusDays(1)
+                val start = LocalDate.now().atStartOfDay()
                 healthConnectManager.readHeartRateAggregationByDuration(start, end, Duration.ofHours(1))
             }
             ChartTimeRange.WEEK -> {

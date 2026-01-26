@@ -67,6 +67,7 @@ fun HeartChart(
                     setDrawAxisLine(false)
                 }
                 axisRight.isEnabled = false // Tắt trục phải
+                extraBottomOffset = 10f
             }
         },
         update = { chart ->
@@ -92,9 +93,16 @@ fun HeartChart(
                     circleHoleRadius = 2f
                     circleHoleColor = Color.WHITE // Lỗ tròn màu trắng nổi bật
 
-                    // --- Tắt hiển thị số trên từng điểm (đỡ rối) ---
-                    setDrawValues(false)
+                    setDrawValues(true)
+                    valueTextColor = Color.WHITE
+                    valueTextSize = 10f
 
+                    // Format số để bỏ phần thập phân (VD: 75.0 -> 75)
+                    valueFormatter = object : ValueFormatter() {
+                        override fun getFormattedValue(value: Float): String {
+                            return value.toInt().toString()
+                        }
+                    }
                     // --- Tô màu nền bên dưới (Gradient) ---
                     setDrawFilled(true)
                     val gradientDrawable = GradientDrawable(
@@ -116,8 +124,9 @@ fun HeartChart(
                         if (index >= 0 && index < data.size) {
                             val time = data[index].startTime
                             return when (timeRange) {
+
                                 ChartTimeRange.DAY -> time.format(DateTimeFormatter.ofPattern("HH:mm"))
-                                ChartTimeRange.WEEK -> time.format(DateTimeFormatter.ofPattern("EEE")) // Mon, Tue...
+                                ChartTimeRange.WEEK -> time.format(DateTimeFormatter.ofPattern("EEE"))
                                 ChartTimeRange.MONTH -> time.format(DateTimeFormatter.ofPattern("dd"))
                                 ChartTimeRange.YEAR -> time.format(DateTimeFormatter.ofPattern("MM"))
                             }
@@ -126,8 +135,9 @@ fun HeartChart(
                     }
                 }
 
-                chart.notifyDataSetChanged()
-                chart.invalidate()
+                // Zoom chart để hiển thị điểm cuối cùng rõ hơn nếu cần
+                chart.setVisibleXRangeMaximum(7f) // Ví dụ chỉ hiện 7 điểm 1 lúc nếu quá nhiều
+                chart.moveViewToX(data.size.toFloat()) // Tự scroll đến điểm mới nhất
             } else {
                 chart.clear()
             }

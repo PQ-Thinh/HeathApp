@@ -1,0 +1,493 @@
+kotlin version: 2.0.21
+error message: org.jetbrains.kotlin.backend.common.BackendException: Backend Internal error: Exception during IR lowering
+File being compiled: D:/HealthTracking-App-master/app/src/main/java/com/example/healthapp/feature/chart/HeartChart.kt
+The root cause java.lang.RuntimeException was thrown at: org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.generate(FunctionCodegen.kt:47)
+	at org.jetbrains.kotlin.backend.common.CodegenUtil.reportBackendException(CodegenUtil.kt:253)
+	at org.jetbrains.kotlin.backend.common.CodegenUtil.reportBackendException$default(CodegenUtil.kt:236)
+	at org.jetbrains.kotlin.backend.common.phaser.PerformByIrFilePhase.invokeSequential(performByIrFile.kt:65)
+	at org.jetbrains.kotlin.backend.common.phaser.PerformByIrFilePhase.invoke(performByIrFile.kt:52)
+	at org.jetbrains.kotlin.backend.common.phaser.PerformByIrFilePhase.invoke(performByIrFile.kt:38)
+	at org.jetbrains.kotlin.backend.common.phaser.NamedCompilerPhase.phaseBody(CompilerPhase.kt:166)
+	at org.jetbrains.kotlin.backend.common.phaser.AbstractNamedCompilerPhase.invoke(CompilerPhase.kt:113)
+	at org.jetbrains.kotlin.backend.common.phaser.CompositePhase.invoke(PhaseBuilders.kt:27)
+	at org.jetbrains.kotlin.backend.common.phaser.CompositePhase.invoke(PhaseBuilders.kt:14)
+	at org.jetbrains.kotlin.backend.common.phaser.NamedCompilerPhase.phaseBody(CompilerPhase.kt:166)
+	at org.jetbrains.kotlin.backend.common.phaser.AbstractNamedCompilerPhase.invoke(CompilerPhase.kt:113)
+	at org.jetbrains.kotlin.backend.common.phaser.CompilerPhaseKt.invokeToplevel(CompilerPhase.kt:62)
+	at org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory.invokeCodegen(JvmIrCodegenFactory.kt:371)
+	at org.jetbrains.kotlin.codegen.CodegenFactory.generateModule(CodegenFactory.kt:47)
+	at org.jetbrains.kotlin.backend.jvm.JvmIrCodegenFactory.generateModuleInFrontendIRMode(JvmIrCodegenFactory.kt:433)
+	at org.jetbrains.kotlin.cli.jvm.compiler.pipeline.JvmCompilerPipelineKt.generateCodeFromIr(jvmCompilerPipeline.kt:246)
+	at org.jetbrains.kotlin.cli.jvm.compiler.pipeline.JvmCompilerPipelineKt.compileModulesUsingFrontendIrAndLightTree(jvmCompilerPipeline.kt:142)
+	at org.jetbrains.kotlin.cli.jvm.K2JVMCompiler.doExecute(K2JVMCompiler.kt:148)
+	at org.jetbrains.kotlin.cli.jvm.K2JVMCompiler.doExecute(K2JVMCompiler.kt:43)
+	at org.jetbrains.kotlin.cli.common.CLICompiler.execImpl(CLICompiler.kt:103)
+	at org.jetbrains.kotlin.cli.common.CLICompiler.execImpl(CLICompiler.kt:49)
+	at org.jetbrains.kotlin.cli.common.CLITool.exec(CLITool.kt:101)
+	at org.jetbrains.kotlin.incremental.IncrementalJvmCompilerRunner.runCompiler(IncrementalJvmCompilerRunner.kt:464)
+	at org.jetbrains.kotlin.incremental.IncrementalJvmCompilerRunner.runCompiler(IncrementalJvmCompilerRunner.kt:73)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.doCompile(IncrementalCompilerRunner.kt:506)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compileImpl(IncrementalCompilerRunner.kt:423)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.tryCompileIncrementally$lambda$9$compile(IncrementalCompilerRunner.kt:249)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.tryCompileIncrementally(IncrementalCompilerRunner.kt:267)
+	at org.jetbrains.kotlin.incremental.IncrementalCompilerRunner.compile(IncrementalCompilerRunner.kt:120)
+	at org.jetbrains.kotlin.daemon.CompileServiceImplBase.execIncrementalCompiler(CompileServiceImpl.kt:675)
+	at org.jetbrains.kotlin.daemon.CompileServiceImplBase.access$execIncrementalCompiler(CompileServiceImpl.kt:92)
+	at org.jetbrains.kotlin.daemon.CompileServiceImpl.compile(CompileServiceImpl.kt:1660)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(Unknown Source)
+	at java.base/java.lang.reflect.Method.invoke(Unknown Source)
+	at java.rmi/sun.rmi.server.UnicastServerRef.dispatch(Unknown Source)
+	at java.rmi/sun.rmi.transport.Transport$1.run(Unknown Source)
+	at java.rmi/sun.rmi.transport.Transport$1.run(Unknown Source)
+	at java.base/java.security.AccessController.doPrivileged(Unknown Source)
+	at java.rmi/sun.rmi.transport.Transport.serviceCall(Unknown Source)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport.handleMessages(Unknown Source)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run0(Unknown Source)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.lambda$run$0(Unknown Source)
+	at java.base/java.security.AccessController.doPrivileged(Unknown Source)
+	at java.rmi/sun.rmi.transport.tcp.TCPTransport$ConnectionHandler.run(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(Unknown Source)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(Unknown Source)
+	at java.base/java.lang.Thread.run(Unknown Source)
+Caused by: java.lang.RuntimeException: Exception while generating code for:
+FUN LOCAL_FUNCTION_FOR_LAMBDA name:HeartChart$lambda$12$lambda$11 visibility:private modality:FINAL <> ($data:kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket>, $lineColor:kotlin.Int, $timeRange:com.example.healthapp.core.data.responsitory.ChartTimeRange, chart:com.github.mikephil.charting.charts.LineChart) returnType:kotlin.Unit?
+  VALUE_PARAMETER BOUND_VALUE_PARAMETER name:$data index:0 type:kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket>
+  VALUE_PARAMETER BOUND_VALUE_PARAMETER name:$lineColor index:1 type:kotlin.Int
+  VALUE_PARAMETER BOUND_VALUE_PARAMETER name:$timeRange index:2 type:com.example.healthapp.core.data.responsitory.ChartTimeRange
+  VALUE_PARAMETER name:chart index:3 type:com.github.mikephil.charting.charts.LineChart
+  BLOCK_BODY
+    WHEN type=kotlin.Unit origin=IF
+      BRANCH
+        if: CALL 'public final fun isNotEmpty <T> (): kotlin.Boolean [inline] declared in kotlin.collections.CollectionsKt' type=kotlin.Boolean origin=null
+          <T>: com.example.healthapp.core.data.HeartRateBucket
+          $receiver: GET_VAR '$data: kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> origin=null
+        then: BLOCK type=kotlin.Unit origin=null
+          VAR name:entriesAvg type:kotlin.collections.List<com.github.mikephil.charting.data.Entry> [val]
+            CALL 'public final fun mapIndexed <T, R> (transform: kotlin.Function2<@[ParameterName(name = "index")] kotlin.Int, T of kotlin.collections.CollectionsKt.mapIndexed, R of kotlin.collections.CollectionsKt.mapIndexed>): kotlin.collections.List<R of kotlin.collections.CollectionsKt.mapIndexed> [inline] declared in kotlin.collections.CollectionsKt' type=kotlin.collections.List<com.github.mikephil.charting.data.Entry> origin=null
+              <T>: com.example.healthapp.core.data.HeartRateBucket
+              <R>: com.github.mikephil.charting.data.Entry
+              $receiver: GET_VAR '$data: kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> origin=null
+              transform: BLOCK type=kotlin.Function2<kotlin.Int, com.example.healthapp.core.data.HeartRateBucket, com.github.mikephil.charting.data.Entry> origin=LAMBDA
+                COMPOSITE type=kotlin.Unit origin=null
+                FUNCTION_REFERENCE 'private final fun HeartChart$lambda$12$lambda$11$lambda$5 (index: kotlin.Int, bucket: com.example.healthapp.core.data.HeartRateBucket): com.github.mikephil.charting.data.Entry declared in com.example.healthapp.feature.chart.HeartChartKt' type=kotlin.Function2<kotlin.Int, com.example.healthapp.core.data.HeartRateBucket, com.github.mikephil.charting.data.Entry> origin=INLINE_LAMBDA reflectionTarget=null
+          VAR name:entriesMax type:kotlin.collections.List<com.github.mikephil.charting.data.Entry> [val]
+            CALL 'public final fun mapIndexed <T, R> (transform: kotlin.Function2<@[ParameterName(name = "index")] kotlin.Int, T of kotlin.collections.CollectionsKt.mapIndexed, R of kotlin.collections.CollectionsKt.mapIndexed>): kotlin.collections.List<R of kotlin.collections.CollectionsKt.mapIndexed> [inline] declared in kotlin.collections.CollectionsKt' type=kotlin.collections.List<com.github.mikephil.charting.data.Entry> origin=null
+              <T>: com.example.healthapp.core.data.HeartRateBucket
+              <R>: com.github.mikephil.charting.data.Entry
+              $receiver: GET_VAR '$data: kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> origin=null
+              transform: BLOCK type=kotlin.Function2<kotlin.Int, com.example.healthapp.core.data.HeartRateBucket, com.github.mikephil.charting.data.Entry> origin=LAMBDA
+                COMPOSITE type=kotlin.Unit origin=null
+                FUNCTION_REFERENCE 'private final fun HeartChart$lambda$12$lambda$11$lambda$6 (index: kotlin.Int, bucket: com.example.healthapp.core.data.HeartRateBucket): com.github.mikephil.charting.data.Entry declared in com.example.healthapp.feature.chart.HeartChartKt' type=kotlin.Function2<kotlin.Int, com.example.healthapp.core.data.HeartRateBucket, com.github.mikephil.charting.data.Entry> origin=INLINE_LAMBDA reflectionTarget=null
+          VAR name:entriesMin type:kotlin.collections.List<com.github.mikephil.charting.data.Entry> [val]
+            CALL 'public final fun mapIndexed <T, R> (transform: kotlin.Function2<@[ParameterName(name = "index")] kotlin.Int, T of kotlin.collections.CollectionsKt.mapIndexed, R of kotlin.collections.CollectionsKt.mapIndexed>): kotlin.collections.List<R of kotlin.collections.CollectionsKt.mapIndexed> [inline] declared in kotlin.collections.CollectionsKt' type=kotlin.collections.List<com.github.mikephil.charting.data.Entry> origin=null
+              <T>: com.example.healthapp.core.data.HeartRateBucket
+              <R>: com.github.mikephil.charting.data.Entry
+              $receiver: GET_VAR '$data: kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> origin=null
+              transform: BLOCK type=kotlin.Function2<kotlin.Int, com.example.healthapp.core.data.HeartRateBucket, com.github.mikephil.charting.data.Entry> origin=LAMBDA
+                COMPOSITE type=kotlin.Unit origin=null
+                FUNCTION_REFERENCE 'private final fun HeartChart$lambda$12$lambda$11$lambda$7 (index: kotlin.Int, bucket: com.example.healthapp.core.data.HeartRateBucket): com.github.mikephil.charting.data.Entry declared in com.example.healthapp.feature.chart.HeartChartKt' type=kotlin.Function2<kotlin.Int, com.example.healthapp.core.data.HeartRateBucket, com.github.mikephil.charting.data.Entry> origin=INLINE_LAMBDA reflectionTarget=null
+          VAR name:setMax type:com.github.mikephil.charting.data.LineDataSet [val]
+            CALL 'public final fun apply <T> (block: @[ExtensionFunctionType] kotlin.Function1<T of kotlin.StandardKt.apply, kotlin.Unit>): T of kotlin.StandardKt.apply [inline] declared in kotlin.StandardKt' type=com.github.mikephil.charting.data.LineDataSet origin=null
+              <T>: com.github.mikephil.charting.data.LineDataSet
+              $receiver: CONSTRUCTOR_CALL 'public constructor <init> (p0: @[FlexibleNullability] @[FlexibleMutability] kotlin.collections.MutableList<@[FlexibleNullability] com.github.mikephil.charting.data.Entry?>?, p1: @[FlexibleNullability] kotlin.String?) declared in com.github.mikephil.charting.data.LineDataSet' type=com.github.mikephil.charting.data.LineDataSet origin=null
+                p0: GET_VAR 'val entriesMax: kotlin.collections.List<com.github.mikephil.charting.data.Entry> [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=kotlin.collections.List<com.github.mikephil.charting.data.Entry> origin=null
+                p1: CONST String type=kotlin.String value="Max"
+              block: BLOCK type=@[ExtensionFunctionType] kotlin.Function1<com.github.mikephil.charting.data.LineDataSet, kotlin.Unit> origin=LAMBDA
+                COMPOSITE type=kotlin.Unit origin=null
+                FUNCTION_REFERENCE 'private final fun HeartChart$lambda$12$lambda$11$lambda$8 ($lineColor: kotlin.Int): kotlin.Unit declared in com.example.healthapp.feature.chart.HeartChartKt' type=@[ExtensionFunctionType] kotlin.Function1<com.github.mikephil.charting.data.LineDataSet, kotlin.Unit> origin=INLINE_LAMBDA reflectionTarget=null
+                  $lineColor: GET_VAR '$lineColor: kotlin.Int declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=kotlin.Int origin=null
+          VAR name:setMin type:com.github.mikephil.charting.data.LineDataSet [val]
+            CALL 'public final fun apply <T> (block: @[ExtensionFunctionType] kotlin.Function1<T of kotlin.StandardKt.apply, kotlin.Unit>): T of kotlin.StandardKt.apply [inline] declared in kotlin.StandardKt' type=com.github.mikephil.charting.data.LineDataSet origin=null
+              <T>: com.github.mikephil.charting.data.LineDataSet
+              $receiver: CONSTRUCTOR_CALL 'public constructor <init> (p0: @[FlexibleNullability] @[FlexibleMutability] kotlin.collections.MutableList<@[FlexibleNullability] com.github.mikephil.charting.data.Entry?>?, p1: @[FlexibleNullability] kotlin.String?) declared in com.github.mikephil.charting.data.LineDataSet' type=com.github.mikephil.charting.data.LineDataSet origin=null
+                p0: GET_VAR 'val entriesMin: kotlin.collections.List<com.github.mikephil.charting.data.Entry> [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=kotlin.collections.List<com.github.mikephil.charting.data.Entry> origin=null
+                p1: CONST String type=kotlin.String value="Min"
+              block: BLOCK type=@[ExtensionFunctionType] kotlin.Function1<com.github.mikephil.charting.data.LineDataSet, kotlin.Unit> origin=LAMBDA
+                COMPOSITE type=kotlin.Unit origin=null
+                FUNCTION_REFERENCE 'private final fun HeartChart$lambda$12$lambda$11$lambda$9 (): kotlin.Unit declared in com.example.healthapp.feature.chart.HeartChartKt' type=@[ExtensionFunctionType] kotlin.Function1<com.github.mikephil.charting.data.LineDataSet, kotlin.Unit> origin=INLINE_LAMBDA reflectionTarget=null
+          VAR name:setAvg type:com.github.mikephil.charting.data.LineDataSet [val]
+            CALL 'public final fun apply <T> (block: @[ExtensionFunctionType] kotlin.Function1<T of kotlin.StandardKt.apply, kotlin.Unit>): T of kotlin.StandardKt.apply [inline] declared in kotlin.StandardKt' type=com.github.mikephil.charting.data.LineDataSet origin=null
+              <T>: com.github.mikephil.charting.data.LineDataSet
+              $receiver: CONSTRUCTOR_CALL 'public constructor <init> (p0: @[FlexibleNullability] @[FlexibleMutability] kotlin.collections.MutableList<@[FlexibleNullability] com.github.mikephil.charting.data.Entry?>?, p1: @[FlexibleNullability] kotlin.String?) declared in com.github.mikephil.charting.data.LineDataSet' type=com.github.mikephil.charting.data.LineDataSet origin=null
+                p0: GET_VAR 'val entriesAvg: kotlin.collections.List<com.github.mikephil.charting.data.Entry> [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=kotlin.collections.List<com.github.mikephil.charting.data.Entry> origin=null
+                p1: CONST String type=kotlin.String value="Avg"
+              block: BLOCK type=@[ExtensionFunctionType] kotlin.Function1<com.github.mikephil.charting.data.LineDataSet, kotlin.Unit> origin=LAMBDA
+                COMPOSITE type=kotlin.Unit origin=null
+                FUNCTION_REFERENCE 'private final fun HeartChart$lambda$12$lambda$11$lambda$10 ($lineColor: kotlin.Int): kotlin.Unit declared in com.example.healthapp.feature.chart.HeartChartKt' type=@[ExtensionFunctionType] kotlin.Function1<com.github.mikephil.charting.data.LineDataSet, kotlin.Unit> origin=INLINE_LAMBDA reflectionTarget=null
+                  $lineColor: GET_VAR '$lineColor: kotlin.Int declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=kotlin.Int origin=null
+          CALL 'public open fun setData (p0: @[FlexibleNullability] com.github.mikephil.charting.data.LineData?): kotlin.Unit [fake_override] declared in com.github.mikephil.charting.charts.LineChart' type=kotlin.Unit origin=EQ
+            $this: GET_VAR 'chart: com.github.mikephil.charting.charts.LineChart declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=com.github.mikephil.charting.charts.LineChart origin=null
+            p0: CONSTRUCTOR_CALL 'public constructor <init> (vararg p0: @[FlexibleNullability] com.github.mikephil.charting.interfaces.datasets.ILineDataSet?) declared in com.github.mikephil.charting.data.LineData' type=com.github.mikephil.charting.data.LineData origin=null
+              p0: BLOCK type=@[FlexibleNullability] @[FlexibleArrayElementVariance] kotlin.Array<out @[FlexibleNullability] com.github.mikephil.charting.interfaces.datasets.ILineDataSet?>? origin=null
+                VAR IR_TEMPORARY_VARIABLE name:tmp0 type:@[FlexibleNullability] @[FlexibleArrayElementVariance] kotlin.Array<out @[FlexibleNullability] com.github.mikephil.charting.interfaces.datasets.ILineDataSet?>? [val]
+                  CALL 'public final fun arrayOfNulls <T> (size: kotlin.Int): kotlin.Array<T of kotlin.arrayOfNulls?> declared in kotlin' type=@[FlexibleNullability] @[FlexibleArrayElementVariance] kotlin.Array<out @[FlexibleNullability] com.github.mikephil.charting.interfaces.datasets.ILineDataSet?>? origin=null
+                    <T>: @[FlexibleNullability] com.github.mikephil.charting.interfaces.datasets.ILineDataSet?
+                    size: CONST Int type=kotlin.Int value=3
+                CALL 'public final fun set (index: kotlin.Int, value: T of kotlin.Array): kotlin.Unit [operator] declared in kotlin.Array' type=kotlin.Unit origin=null
+                  $this: GET_VAR 'val tmp0: @[FlexibleNullability] @[FlexibleArrayElementVariance] kotlin.Array<out @[FlexibleNullability] com.github.mikephil.charting.interfaces.datasets.ILineDataSet?>? [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=@[FlexibleNullability] @[FlexibleArrayElementVariance] kotlin.Array<out @[FlexibleNullability] com.github.mikephil.charting.interfaces.datasets.ILineDataSet?>? origin=null
+                  index: CONST Int type=kotlin.Int value=0
+                  value: GET_VAR 'val setMax: com.github.mikephil.charting.data.LineDataSet [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=com.github.mikephil.charting.data.LineDataSet origin=null
+                CALL 'public final fun set (index: kotlin.Int, value: T of kotlin.Array): kotlin.Unit [operator] declared in kotlin.Array' type=kotlin.Unit origin=null
+                  $this: GET_VAR 'val tmp0: @[FlexibleNullability] @[FlexibleArrayElementVariance] kotlin.Array<out @[FlexibleNullability] com.github.mikephil.charting.interfaces.datasets.ILineDataSet?>? [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=@[FlexibleNullability] @[FlexibleArrayElementVariance] kotlin.Array<out @[FlexibleNullability] com.github.mikephil.charting.interfaces.datasets.ILineDataSet?>? origin=null
+                  index: CONST Int type=kotlin.Int value=1
+                  value: GET_VAR 'val setMin: com.github.mikephil.charting.data.LineDataSet [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=com.github.mikephil.charting.data.LineDataSet origin=null
+                CALL 'public final fun set (index: kotlin.Int, value: T of kotlin.Array): kotlin.Unit [operator] declared in kotlin.Array' type=kotlin.Unit origin=null
+                  $this: GET_VAR 'val tmp0: @[FlexibleNullability] @[FlexibleArrayElementVariance] kotlin.Array<out @[FlexibleNullability] com.github.mikephil.charting.interfaces.datasets.ILineDataSet?>? [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=@[FlexibleNullability] @[FlexibleArrayElementVariance] kotlin.Array<out @[FlexibleNullability] com.github.mikephil.charting.interfaces.datasets.ILineDataSet?>? origin=null
+                  index: CONST Int type=kotlin.Int value=2
+                  value: GET_VAR 'val setAvg: com.github.mikephil.charting.data.LineDataSet [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=com.github.mikephil.charting.data.LineDataSet origin=null
+                GET_VAR 'val tmp0: @[FlexibleNullability] @[FlexibleArrayElementVariance] kotlin.Array<out @[FlexibleNullability] com.github.mikephil.charting.interfaces.datasets.ILineDataSet?>? [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=@[FlexibleNullability] @[FlexibleArrayElementVariance] kotlin.Array<out @[FlexibleNullability] com.github.mikephil.charting.interfaces.datasets.ILineDataSet?>? origin=null
+          CALL 'public open fun setAxisMaximum (p0: kotlin.Float): kotlin.Unit [fake_override] declared in com.github.mikephil.charting.components.XAxis' type=kotlin.Unit origin=EQ
+            $this: CALL 'public open fun getXAxis (): @[FlexibleNullability] com.github.mikephil.charting.components.XAxis? [fake_override] declared in com.github.mikephil.charting.charts.LineChart' type=@[FlexibleNullability] com.github.mikephil.charting.components.XAxis? origin=GET_PROPERTY
+              $this: GET_VAR 'chart: com.github.mikephil.charting.charts.LineChart declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=com.github.mikephil.charting.charts.LineChart origin=null
+            p0: CALL 'public open fun toFloat (): kotlin.Float declared in kotlin.Double' type=kotlin.Float origin=null
+              $this: CALL 'public final fun minus (other: kotlin.Double): kotlin.Double [operator] declared in kotlin.Int' type=kotlin.Double origin=MINUS
+                $this: CALL 'public abstract fun <get-size> (): kotlin.Int declared in kotlin.collections.List' type=kotlin.Int origin=GET_PROPERTY
+                  $this: GET_VAR '$data: kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> origin=null
+                other: CONST Double type=kotlin.Double value=0.5
+          CALL 'public open fun setValueFormatter (p0: @[FlexibleNullability] com.github.mikephil.charting.formatter.ValueFormatter?): kotlin.Unit [fake_override] declared in com.github.mikephil.charting.components.XAxis' type=kotlin.Unit origin=EQ
+            $this: CALL 'public open fun getXAxis (): @[FlexibleNullability] com.github.mikephil.charting.components.XAxis? [fake_override] declared in com.github.mikephil.charting.charts.LineChart' type=@[FlexibleNullability] com.github.mikephil.charting.components.XAxis? origin=GET_PROPERTY
+              $this: GET_VAR 'chart: com.github.mikephil.charting.charts.LineChart declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=com.github.mikephil.charting.charts.LineChart origin=null
+            p0: BLOCK type=com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> origin=OBJECT_LITERAL
+              CLASS CLASS name:<no name provided> modality:FINAL visibility:local superTypes:[com.github.mikephil.charting.formatter.ValueFormatter]
+                $this: VALUE_PARAMETER INSTANCE_RECEIVER name:<this> type:com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>
+                CONSTRUCTOR visibility:public/*package*/ <> ($data:kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket>, $timeRange:com.example.healthapp.core.data.responsitory.ChartTimeRange) returnType:com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> [primary]
+                  VALUE_PARAMETER BOUND_VALUE_PARAMETER name:$data index:0 type:kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket>
+                  VALUE_PARAMETER BOUND_VALUE_PARAMETER name:$timeRange index:1 type:com.example.healthapp.core.data.responsitory.ChartTimeRange
+                  BLOCK_BODY
+                    SET_FIELD 'FIELD FIELD_FOR_CAPTURED_VALUE name:$data type:kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> visibility:public/*package*/ [final] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>' type=kotlin.Unit origin=INITIALIZER_OF_FIELD_FOR_CAPTURED_VALUE
+                      receiver: GET_VAR '<this>: com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>' type=com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> origin=null
+                      value: GET_VAR '$data: kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.<init>' type=kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> origin=null
+                    SET_FIELD 'FIELD FIELD_FOR_CAPTURED_VALUE name:$timeRange type:com.example.healthapp.core.data.responsitory.ChartTimeRange visibility:public/*package*/ [final] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>' type=kotlin.Unit origin=INITIALIZER_OF_FIELD_FOR_CAPTURED_VALUE
+                      receiver: GET_VAR '<this>: com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>' type=com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> origin=null
+                      value: GET_VAR '$timeRange: com.example.healthapp.core.data.responsitory.ChartTimeRange declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.<init>' type=com.example.healthapp.core.data.responsitory.ChartTimeRange origin=null
+                    DELEGATING_CONSTRUCTOR_CALL 'public constructor <init> () declared in com.github.mikephil.charting.formatter.ValueFormatter'
+                    BLOCK type=kotlin.Unit origin=null
+                FUN name:getFormattedValue visibility:public modality:OPEN <> ($this:com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>, value:kotlin.Float) returnType:kotlin.String
+                  overridden:
+                    public open fun getFormattedValue (p0: kotlin.Float): @[FlexibleNullability] kotlin.String? declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>
+                  VALUE_PARAMETER name:value index:0 type:kotlin.Float
+                  BLOCK_BODY
+                    VAR name:index type:kotlin.Int [val]
+                      CALL 'public open fun toInt (): kotlin.Int declared in kotlin.Float' type=kotlin.Int origin=null
+                        $this: GET_VAR 'value: kotlin.Float declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Float origin=null
+                    WHEN type=kotlin.Unit origin=IF
+                      BRANCH
+                        if: CALL 'public final fun ANDAND (arg0: kotlin.Boolean, arg1: kotlin.Boolean): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=null
+                          arg0: CALL 'public final fun greaterOrEqual (arg0: kotlin.Int, arg1: kotlin.Int): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=GTEQ
+                            arg0: GET_VAR 'val index: kotlin.Int [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Int origin=null
+                            arg1: CONST Int type=kotlin.Int value=0
+                          arg1: CALL 'public final fun less (arg0: kotlin.Int, arg1: kotlin.Int): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=LT
+                            arg0: GET_VAR 'val index: kotlin.Int [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Int origin=null
+                            arg1: CALL 'public abstract fun <get-size> (): kotlin.Int declared in kotlin.collections.List' type=kotlin.Int origin=GET_PROPERTY
+                              $this: GET_FIELD 'FIELD FIELD_FOR_CAPTURED_VALUE name:$data type:kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> visibility:public/*package*/ [final] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>' type=kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> origin=null
+                                receiver: GET_VAR '<this>: com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> origin=null
+                        then: BLOCK type=kotlin.Unit origin=null
+                          VAR name:time type:java.time.LocalDateTime [val]
+                            CALL 'public final fun <get-startTime> (): java.time.LocalDateTime declared in com.example.healthapp.core.data.HeartRateBucket' type=java.time.LocalDateTime origin=GET_PROPERTY
+                              $this: CALL 'public abstract fun get (index: kotlin.Int): E of kotlin.collections.List [operator] declared in kotlin.collections.List' type=com.example.healthapp.core.data.HeartRateBucket origin=GET_ARRAY_ELEMENT
+                                $this: GET_FIELD 'FIELD FIELD_FOR_CAPTURED_VALUE name:$data type:kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> visibility:public/*package*/ [final] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>' type=kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> origin=null
+                                  receiver: GET_VAR '<this>: com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> origin=null
+                                index: GET_VAR 'val index: kotlin.Int [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Int origin=null
+                          RETURN type=kotlin.Nothing from='public open fun getFormattedValue (value: kotlin.Float): kotlin.String declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>'
+                            BLOCK type=kotlin.String origin=WHEN
+                              VAR IR_TEMPORARY_VARIABLE name:tmp0_subject type:com.example.healthapp.core.data.responsitory.ChartTimeRange [val]
+                                GET_FIELD 'FIELD FIELD_FOR_CAPTURED_VALUE name:$timeRange type:com.example.healthapp.core.data.responsitory.ChartTimeRange visibility:public/*package*/ [final] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>' type=com.example.healthapp.core.data.responsitory.ChartTimeRange origin=null
+                                  receiver: GET_VAR '<this>: com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> origin=null
+                              VAR IR_TEMPORARY_VARIABLE name:tmp0 type:kotlin.Int [val]
+                                CALL 'public final fun get (index: kotlin.Int): kotlin.Int [operator] declared in kotlin.IntArray' type=kotlin.Int origin=null
+                                  $this: GET_FIELD 'FIELD ENUM_MAPPINGS_FOR_WHEN name:$EnumSwitchMapping$0 type:kotlin.IntArray visibility:public [final,static] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.WhenMappings' type=kotlin.IntArray origin=null
+                                  index: CALL 'public final fun <get-ordinal> (): kotlin.Int [fake_override] declared in com.example.healthapp.core.data.responsitory.ChartTimeRange' type=kotlin.Int origin=null
+                                    $this: GET_VAR 'val tmp0_subject: com.example.healthapp.core.data.responsitory.ChartTimeRange [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=com.example.healthapp.core.data.responsitory.ChartTimeRange origin=null
+                              WHEN type=kotlin.String origin=WHEN
+                                BRANCH
+                                  if: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=null
+                                    arg0: GET_VAR 'val tmp0: kotlin.Int [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Int origin=null
+                                    arg1: CONST Int type=kotlin.Int value=1
+                                  then: BLOCK type=kotlin.String origin=null
+                                    VAR IR_TEMPORARY_VARIABLE name:tmp0 type:kotlin.Any? [val]
+                                      CALL 'public open fun format (p0: @[FlexibleNullability] java.time.format.DateTimeFormatter?): @[FlexibleNullability] kotlin.String? declared in java.time.LocalDateTime' type=@[FlexibleNullability] kotlin.String? origin=null
+                                        $this: GET_VAR 'val time: java.time.LocalDateTime [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=java.time.LocalDateTime origin=null
+                                        p0: CALL 'public open fun ofPattern (p0: @[FlexibleNullability] kotlin.String?): @[FlexibleNullability] java.time.format.DateTimeFormatter? declared in java.time.format.DateTimeFormatter' type=@[FlexibleNullability] java.time.format.DateTimeFormatter? origin=null
+                                          p0: CONST String type=kotlin.String value="HH:mm"
+                                    CALL 'public final fun checkNotNullExpressionValue (value: kotlin.Any?, expression: kotlin.String): kotlin.Unit declared in kotlin.jvm.internal.Intrinsics' type=kotlin.Unit origin=null
+                                      value: GET_VAR 'val tmp0: kotlin.Any? [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Any? origin=null
+                                      expression: CONST String type=kotlin.String value="format(...)"
+                                    GET_VAR 'val tmp0: kotlin.Any? [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Any? origin=null
+                                BRANCH
+                                  if: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=null
+                                    arg0: GET_VAR 'val tmp0: kotlin.Int [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Int origin=null
+                                    arg1: CONST Int type=kotlin.Int value=2
+                                  then: BLOCK type=kotlin.String origin=null
+                                    VAR IR_TEMPORARY_VARIABLE name:tmp1 type:kotlin.Any? [val]
+                                      CALL 'public open fun format (p0: @[FlexibleNullability] java.time.format.DateTimeFormatter?): @[FlexibleNullability] kotlin.String? declared in java.time.LocalDateTime' type=@[FlexibleNullability] kotlin.String? origin=null
+                                        $this: GET_VAR 'val time: java.time.LocalDateTime [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=java.time.LocalDateTime origin=null
+                                        p0: CALL 'public open fun ofPattern (p0: @[FlexibleNullability] kotlin.String?): @[FlexibleNullability] java.time.format.DateTimeFormatter? declared in java.time.format.DateTimeFormatter' type=@[FlexibleNullability] java.time.format.DateTimeFormatter? origin=null
+                                          p0: CONST String type=kotlin.String value="EEE"
+                                    CALL 'public final fun checkNotNullExpressionValue (value: kotlin.Any?, expression: kotlin.String): kotlin.Unit declared in kotlin.jvm.internal.Intrinsics' type=kotlin.Unit origin=null
+                                      value: GET_VAR 'val tmp1: kotlin.Any? [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Any? origin=null
+                                      expression: CONST String type=kotlin.String value="format(...)"
+                                    GET_VAR 'val tmp1: kotlin.Any? [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Any? origin=null
+                                BRANCH
+                                  if: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=null
+                                    arg0: GET_VAR 'val tmp0: kotlin.Int [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Int origin=null
+                                    arg1: CONST Int type=kotlin.Int value=3
+                                  then: BLOCK type=kotlin.String origin=null
+                                    VAR IR_TEMPORARY_VARIABLE name:tmp2 type:kotlin.Any? [val]
+                                      CALL 'public open fun format (p0: @[FlexibleNullability] java.time.format.DateTimeFormatter?): @[FlexibleNullability] kotlin.String? declared in java.time.LocalDateTime' type=@[FlexibleNullability] kotlin.String? origin=null
+                                        $this: GET_VAR 'val time: java.time.LocalDateTime [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=java.time.LocalDateTime origin=null
+                                        p0: CALL 'public open fun ofPattern (p0: @[FlexibleNullability] kotlin.String?): @[FlexibleNullability] java.time.format.DateTimeFormatter? declared in java.time.format.DateTimeFormatter' type=@[FlexibleNullability] java.time.format.DateTimeFormatter? origin=null
+                                          p0: CONST String type=kotlin.String value="dd"
+                                    CALL 'public final fun checkNotNullExpressionValue (value: kotlin.Any?, expression: kotlin.String): kotlin.Unit declared in kotlin.jvm.internal.Intrinsics' type=kotlin.Unit origin=null
+                                      value: GET_VAR 'val tmp2: kotlin.Any? [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Any? origin=null
+                                      expression: CONST String type=kotlin.String value="format(...)"
+                                    GET_VAR 'val tmp2: kotlin.Any? [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Any? origin=null
+                                BRANCH
+                                  if: CALL 'public final fun EQEQ (arg0: kotlin.Any?, arg1: kotlin.Any?): kotlin.Boolean declared in kotlin.internal.ir' type=kotlin.Boolean origin=null
+                                    arg0: GET_VAR 'val tmp0: kotlin.Int [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Int origin=null
+                                    arg1: CONST Int type=kotlin.Int value=4
+                                  then: BLOCK type=kotlin.String origin=null
+                                    VAR IR_TEMPORARY_VARIABLE name:tmp3 type:kotlin.Any? [val]
+                                      CALL 'public open fun format (p0: @[FlexibleNullability] java.time.format.DateTimeFormatter?): @[FlexibleNullability] kotlin.String? declared in java.time.LocalDateTime' type=@[FlexibleNullability] kotlin.String? origin=null
+                                        $this: GET_VAR 'val time: java.time.LocalDateTime [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=java.time.LocalDateTime origin=null
+                                        p0: CALL 'public open fun ofPattern (p0: @[FlexibleNullability] kotlin.String?): @[FlexibleNullability] java.time.format.DateTimeFormatter? declared in java.time.format.DateTimeFormatter' type=@[FlexibleNullability] java.time.format.DateTimeFormatter? origin=null
+                                          p0: CONST String type=kotlin.String value="MM"
+                                    CALL 'public final fun checkNotNullExpressionValue (value: kotlin.Any?, expression: kotlin.String): kotlin.Unit declared in kotlin.jvm.internal.Intrinsics' type=kotlin.Unit origin=null
+                                      value: GET_VAR 'val tmp3: kotlin.Any? [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Any? origin=null
+                                      expression: CONST String type=kotlin.String value="format(...)"
+                                    GET_VAR 'val tmp3: kotlin.Any? [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.getFormattedValue' type=kotlin.Any? origin=null
+                                BRANCH
+                                  if: CONST Boolean type=kotlin.Boolean value=true
+                                  then: BLOCK type=kotlin.Nothing origin=null
+                                    CALL 'public final fun noWhenBranchMatchedException (): kotlin.Nothing declared in kotlin.internal.ir' type=kotlin.Nothing origin=null
+                                    CALL 'public final fun throwKotlinNothingValueException (): kotlin.Nothing declared in kotlin.jvm.internal.Intrinsics' type=kotlin.Nothing origin=null
+                    RETURN type=kotlin.Nothing from='public open fun getFormattedValue (value: kotlin.Float): kotlin.String declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>'
+                      CONST String type=kotlin.String value=""
+                FUN FAKE_OVERRIDE name:getFormattedValue visibility:public modality:OPEN <> ($this:com.github.mikephil.charting.formatter.ValueFormatter, p0:kotlin.Float, p1:@[FlexibleNullability] com.github.mikephil.charting.components.AxisBase?) returnType:@[FlexibleNullability] kotlin.String? [fake_override]
+                  annotations:
+                    Deprecated(message = "Deprecated in Java", replaceWith = <null>, level = <null>)
+                  overridden:
+                    public open fun getFormattedValue (p0: kotlin.Float, p1: @[FlexibleNullability] com.github.mikephil.charting.components.AxisBase?): @[FlexibleNullability] kotlin.String? declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:com.github.mikephil.charting.formatter.ValueFormatter
+                  VALUE_PARAMETER name:p0 index:0 type:kotlin.Float
+                  VALUE_PARAMETER name:p1 index:1 type:@[FlexibleNullability] com.github.mikephil.charting.components.AxisBase?
+                FUN FAKE_OVERRIDE name:getFormattedValue visibility:public modality:OPEN <> ($this:com.github.mikephil.charting.formatter.ValueFormatter, p0:kotlin.Float, p1:@[FlexibleNullability] com.github.mikephil.charting.data.Entry?, p2:kotlin.Int, p3:@[FlexibleNullability] com.github.mikephil.charting.utils.ViewPortHandler?) returnType:@[FlexibleNullability] kotlin.String? [fake_override]
+                  annotations:
+                    Deprecated(message = "Deprecated in Java", replaceWith = <null>, level = <null>)
+                  overridden:
+                    public open fun getFormattedValue (p0: kotlin.Float, p1: @[FlexibleNullability] com.github.mikephil.charting.data.Entry?, p2: kotlin.Int, p3: @[FlexibleNullability] com.github.mikephil.charting.utils.ViewPortHandler?): @[FlexibleNullability] kotlin.String? declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:com.github.mikephil.charting.formatter.ValueFormatter
+                  VALUE_PARAMETER name:p0 index:0 type:kotlin.Float
+                  VALUE_PARAMETER name:p1 index:1 type:@[FlexibleNullability] com.github.mikephil.charting.data.Entry?
+                  VALUE_PARAMETER name:p2 index:2 type:kotlin.Int
+                  VALUE_PARAMETER name:p3 index:3 type:@[FlexibleNullability] com.github.mikephil.charting.utils.ViewPortHandler?
+                FUN FAKE_OVERRIDE name:getAxisLabel visibility:public modality:OPEN <> ($this:com.github.mikephil.charting.formatter.ValueFormatter, p0:kotlin.Float, p1:@[FlexibleNullability] com.github.mikephil.charting.components.AxisBase?) returnType:@[FlexibleNullability] kotlin.String? [fake_override]
+                  overridden:
+                    public open fun getAxisLabel (p0: kotlin.Float, p1: @[FlexibleNullability] com.github.mikephil.charting.components.AxisBase?): @[FlexibleNullability] kotlin.String? declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:com.github.mikephil.charting.formatter.ValueFormatter
+                  VALUE_PARAMETER name:p0 index:0 type:kotlin.Float
+                  VALUE_PARAMETER name:p1 index:1 type:@[FlexibleNullability] com.github.mikephil.charting.components.AxisBase?
+                FUN FAKE_OVERRIDE name:getBarLabel visibility:public modality:OPEN <> ($this:com.github.mikephil.charting.formatter.ValueFormatter, p0:@[FlexibleNullability] com.github.mikephil.charting.data.BarEntry?) returnType:@[FlexibleNullability] kotlin.String? [fake_override]
+                  overridden:
+                    public open fun getBarLabel (p0: @[FlexibleNullability] com.github.mikephil.charting.data.BarEntry?): @[FlexibleNullability] kotlin.String? declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:com.github.mikephil.charting.formatter.ValueFormatter
+                  VALUE_PARAMETER name:p0 index:0 type:@[FlexibleNullability] com.github.mikephil.charting.data.BarEntry?
+                FUN FAKE_OVERRIDE name:getBarStackedLabel visibility:public modality:OPEN <> ($this:com.github.mikephil.charting.formatter.ValueFormatter, p0:kotlin.Float, p1:@[FlexibleNullability] com.github.mikephil.charting.data.BarEntry?) returnType:@[FlexibleNullability] kotlin.String? [fake_override]
+                  overridden:
+                    public open fun getBarStackedLabel (p0: kotlin.Float, p1: @[FlexibleNullability] com.github.mikephil.charting.data.BarEntry?): @[FlexibleNullability] kotlin.String? declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:com.github.mikephil.charting.formatter.ValueFormatter
+                  VALUE_PARAMETER name:p0 index:0 type:kotlin.Float
+                  VALUE_PARAMETER name:p1 index:1 type:@[FlexibleNullability] com.github.mikephil.charting.data.BarEntry?
+                FUN FAKE_OVERRIDE name:getPointLabel visibility:public modality:OPEN <> ($this:com.github.mikephil.charting.formatter.ValueFormatter, p0:@[FlexibleNullability] com.github.mikephil.charting.data.Entry?) returnType:@[FlexibleNullability] kotlin.String? [fake_override]
+                  overridden:
+                    public open fun getPointLabel (p0: @[FlexibleNullability] com.github.mikephil.charting.data.Entry?): @[FlexibleNullability] kotlin.String? declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:com.github.mikephil.charting.formatter.ValueFormatter
+                  VALUE_PARAMETER name:p0 index:0 type:@[FlexibleNullability] com.github.mikephil.charting.data.Entry?
+                FUN FAKE_OVERRIDE name:getPieLabel visibility:public modality:OPEN <> ($this:com.github.mikephil.charting.formatter.ValueFormatter, p0:kotlin.Float, p1:@[FlexibleNullability] com.github.mikephil.charting.data.PieEntry?) returnType:@[FlexibleNullability] kotlin.String? [fake_override]
+                  overridden:
+                    public open fun getPieLabel (p0: kotlin.Float, p1: @[FlexibleNullability] com.github.mikephil.charting.data.PieEntry?): @[FlexibleNullability] kotlin.String? declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:com.github.mikephil.charting.formatter.ValueFormatter
+                  VALUE_PARAMETER name:p0 index:0 type:kotlin.Float
+                  VALUE_PARAMETER name:p1 index:1 type:@[FlexibleNullability] com.github.mikephil.charting.data.PieEntry?
+                FUN FAKE_OVERRIDE name:getRadarLabel visibility:public modality:OPEN <> ($this:com.github.mikephil.charting.formatter.ValueFormatter, p0:@[FlexibleNullability] com.github.mikephil.charting.data.RadarEntry?) returnType:@[FlexibleNullability] kotlin.String? [fake_override]
+                  overridden:
+                    public open fun getRadarLabel (p0: @[FlexibleNullability] com.github.mikephil.charting.data.RadarEntry?): @[FlexibleNullability] kotlin.String? declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:com.github.mikephil.charting.formatter.ValueFormatter
+                  VALUE_PARAMETER name:p0 index:0 type:@[FlexibleNullability] com.github.mikephil.charting.data.RadarEntry?
+                FUN FAKE_OVERRIDE name:getBubbleLabel visibility:public modality:OPEN <> ($this:com.github.mikephil.charting.formatter.ValueFormatter, p0:@[FlexibleNullability] com.github.mikephil.charting.data.BubbleEntry?) returnType:@[FlexibleNullability] kotlin.String? [fake_override]
+                  overridden:
+                    public open fun getBubbleLabel (p0: @[FlexibleNullability] com.github.mikephil.charting.data.BubbleEntry?): @[FlexibleNullability] kotlin.String? declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:com.github.mikephil.charting.formatter.ValueFormatter
+                  VALUE_PARAMETER name:p0 index:0 type:@[FlexibleNullability] com.github.mikephil.charting.data.BubbleEntry?
+                FUN FAKE_OVERRIDE name:getCandleLabel visibility:public modality:OPEN <> ($this:com.github.mikephil.charting.formatter.ValueFormatter, p0:@[FlexibleNullability] com.github.mikephil.charting.data.CandleEntry?) returnType:@[FlexibleNullability] kotlin.String? [fake_override]
+                  overridden:
+                    public open fun getCandleLabel (p0: @[FlexibleNullability] com.github.mikephil.charting.data.CandleEntry?): @[FlexibleNullability] kotlin.String? declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:com.github.mikephil.charting.formatter.ValueFormatter
+                  VALUE_PARAMETER name:p0 index:0 type:@[FlexibleNullability] com.github.mikephil.charting.data.CandleEntry?
+                FUN FAKE_OVERRIDE name:equals visibility:public modality:OPEN <> ($this:kotlin.Any, other:kotlin.Any?) returnType:kotlin.Boolean [fake_override,operator]
+                  overridden:
+                    public open fun equals (other: kotlin.Any?): kotlin.Boolean [fake_override,operator] declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:kotlin.Any
+                  VALUE_PARAMETER name:other index:0 type:kotlin.Any?
+                FUN FAKE_OVERRIDE name:hashCode visibility:public modality:OPEN <> ($this:kotlin.Any) returnType:kotlin.Int [fake_override]
+                  overridden:
+                    public open fun hashCode (): kotlin.Int [fake_override] declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:kotlin.Any
+                FUN FAKE_OVERRIDE name:toString visibility:public modality:OPEN <> ($this:kotlin.Any) returnType:kotlin.String [fake_override]
+                  overridden:
+                    public open fun toString (): kotlin.String [fake_override] declared in com.github.mikephil.charting.formatter.ValueFormatter
+                  $this: VALUE_PARAMETER name:<this> type:kotlin.Any
+                CLASS ENUM_MAPPINGS_FOR_WHEN CLASS name:WhenMappings modality:FINAL visibility:public superTypes:[]
+                  $this: VALUE_PARAMETER INSTANCE_RECEIVER name:<this> type:com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.WhenMappings
+                  FIELD ENUM_MAPPINGS_FOR_WHEN name:$EnumSwitchMapping$0 type:kotlin.IntArray visibility:public [final,static]
+                  FUN CLASS_STATIC_INITIALIZER name:<clinit> visibility:public/*package*/ modality:FINAL <> () returnType:kotlin.Unit
+                    BLOCK_BODY
+                      SET_FIELD 'FIELD ENUM_MAPPINGS_FOR_WHEN name:$EnumSwitchMapping$0 type:kotlin.IntArray visibility:public [final,static] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.WhenMappings' type=kotlin.Unit origin=INITIALIZE_FIELD
+                        value: BLOCK type=kotlin.IntArray origin=null
+                          VAR IR_TEMPORARY_VARIABLE name:tmp0 type:kotlin.IntArray [val]
+                            CONSTRUCTOR_CALL 'public constructor <init> (size: kotlin.Int) [primary] declared in kotlin.IntArray' type=kotlin.IntArray origin=null
+                              size: CALL 'public final fun <get-size> (): kotlin.Int declared in kotlin.Array' type=kotlin.Int origin=null
+                                $this: CALL 'public final fun values (): kotlin.Array<com.example.healthapp.core.data.responsitory.ChartTimeRange> declared in com.example.healthapp.core.data.responsitory.ChartTimeRange' type=kotlin.Array<com.example.healthapp.core.data.responsitory.ChartTimeRange> origin=null
+                          TRY type=kotlin.Unit
+                            try: CALL 'public final fun set (index: kotlin.Int, value: kotlin.Int): kotlin.Unit [operator] declared in kotlin.IntArray' type=kotlin.Unit origin=null
+                              $this: GET_VAR 'val tmp0: kotlin.IntArray [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.WhenMappings.<clinit>' type=kotlin.IntArray origin=null
+                              index: CALL 'public final fun <get-ordinal> (): kotlin.Int [fake_override] declared in com.example.healthapp.core.data.responsitory.ChartTimeRange' type=kotlin.Int origin=null
+                                $this: GET_FIELD 'FIELD FIELD_FOR_ENUM_ENTRY name:DAY type:com.example.healthapp.core.data.responsitory.ChartTimeRange visibility:public [final,static] declared in com.example.healthapp.core.data.responsitory.ChartTimeRange' type=com.example.healthapp.core.data.responsitory.ChartTimeRange origin=null
+                              value: CONST Int type=kotlin.Int value=1
+                            CATCH parameter=val tmp1: java.lang.NoSuchFieldError [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.WhenMappings.<clinit>
+                              VAR IR_TEMPORARY_VARIABLE name:tmp1 type:java.lang.NoSuchFieldError [val]
+                              GET_FIELD 'FIELD FIELD_FOR_OBJECT_INSTANCE name:INSTANCE type:kotlin.Unit visibility:public [final,static] declared in kotlin.Unit' type=kotlin.Unit origin=null
+                          TRY type=kotlin.Unit
+                            try: CALL 'public final fun set (index: kotlin.Int, value: kotlin.Int): kotlin.Unit [operator] declared in kotlin.IntArray' type=kotlin.Unit origin=null
+                              $this: GET_VAR 'val tmp0: kotlin.IntArray [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.WhenMappings.<clinit>' type=kotlin.IntArray origin=null
+                              index: CALL 'public final fun <get-ordinal> (): kotlin.Int [fake_override] declared in com.example.healthapp.core.data.responsitory.ChartTimeRange' type=kotlin.Int origin=null
+                                $this: GET_FIELD 'FIELD FIELD_FOR_ENUM_ENTRY name:WEEK type:com.example.healthapp.core.data.responsitory.ChartTimeRange visibility:public [final,static] declared in com.example.healthapp.core.data.responsitory.ChartTimeRange' type=com.example.healthapp.core.data.responsitory.ChartTimeRange origin=null
+                              value: CONST Int type=kotlin.Int value=2
+                            CATCH parameter=val tmp2: java.lang.NoSuchFieldError [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.WhenMappings.<clinit>
+                              VAR IR_TEMPORARY_VARIABLE name:tmp2 type:java.lang.NoSuchFieldError [val]
+                              GET_FIELD 'FIELD FIELD_FOR_OBJECT_INSTANCE name:INSTANCE type:kotlin.Unit visibility:public [final,static] declared in kotlin.Unit' type=kotlin.Unit origin=null
+                          TRY type=kotlin.Unit
+                            try: CALL 'public final fun set (index: kotlin.Int, value: kotlin.Int): kotlin.Unit [operator] declared in kotlin.IntArray' type=kotlin.Unit origin=null
+                              $this: GET_VAR 'val tmp0: kotlin.IntArray [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.WhenMappings.<clinit>' type=kotlin.IntArray origin=null
+                              index: CALL 'public final fun <get-ordinal> (): kotlin.Int [fake_override] declared in com.example.healthapp.core.data.responsitory.ChartTimeRange' type=kotlin.Int origin=null
+                                $this: GET_FIELD 'FIELD FIELD_FOR_ENUM_ENTRY name:MONTH type:com.example.healthapp.core.data.responsitory.ChartTimeRange visibility:public [final,static] declared in com.example.healthapp.core.data.responsitory.ChartTimeRange' type=com.example.healthapp.core.data.responsitory.ChartTimeRange origin=null
+                              value: CONST Int type=kotlin.Int value=3
+                            CATCH parameter=val tmp3: java.lang.NoSuchFieldError [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.WhenMappings.<clinit>
+                              VAR IR_TEMPORARY_VARIABLE name:tmp3 type:java.lang.NoSuchFieldError [val]
+                              GET_FIELD 'FIELD FIELD_FOR_OBJECT_INSTANCE name:INSTANCE type:kotlin.Unit visibility:public [final,static] declared in kotlin.Unit' type=kotlin.Unit origin=null
+                          TRY type=kotlin.Unit
+                            try: CALL 'public final fun set (index: kotlin.Int, value: kotlin.Int): kotlin.Unit [operator] declared in kotlin.IntArray' type=kotlin.Unit origin=null
+                              $this: GET_VAR 'val tmp0: kotlin.IntArray [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.WhenMappings.<clinit>' type=kotlin.IntArray origin=null
+                              index: CALL 'public final fun <get-ordinal> (): kotlin.Int [fake_override] declared in com.example.healthapp.core.data.responsitory.ChartTimeRange' type=kotlin.Int origin=null
+                                $this: GET_FIELD 'FIELD FIELD_FOR_ENUM_ENTRY name:YEAR type:com.example.healthapp.core.data.responsitory.ChartTimeRange visibility:public [final,static] declared in com.example.healthapp.core.data.responsitory.ChartTimeRange' type=com.example.healthapp.core.data.responsitory.ChartTimeRange origin=null
+                              value: CONST Int type=kotlin.Int value=4
+                            CATCH parameter=val tmp4: java.lang.NoSuchFieldError [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.WhenMappings.<clinit>
+                              VAR IR_TEMPORARY_VARIABLE name:tmp4 type:java.lang.NoSuchFieldError [val]
+                              GET_FIELD 'FIELD FIELD_FOR_OBJECT_INSTANCE name:INSTANCE type:kotlin.Unit visibility:public [final,static] declared in kotlin.Unit' type=kotlin.Unit origin=null
+                          GET_VAR 'val tmp0: kotlin.IntArray [val] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>.WhenMappings.<clinit>' type=kotlin.IntArray origin=null
+                FIELD FIELD_FOR_CAPTURED_VALUE name:$data type:kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> visibility:public/*package*/ [final]
+                FIELD FIELD_FOR_CAPTURED_VALUE name:$timeRange type:com.example.healthapp.core.data.responsitory.ChartTimeRange visibility:public/*package*/ [final]
+              BLOCK type=com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> origin=null
+                CONSTRUCTOR_CALL 'public/*package*/ constructor <init> ($data: kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket>, $timeRange: com.example.healthapp.core.data.responsitory.ChartTimeRange) [primary] declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided>' type=com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11.<no name provided> origin=OBJECT_LITERAL
+                  $data: GET_VAR '$data: kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=kotlin.collections.List<com.example.healthapp.core.data.HeartRateBucket> origin=null
+                  $timeRange: GET_VAR '$timeRange: com.example.healthapp.core.data.responsitory.ChartTimeRange declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=com.example.healthapp.core.data.responsitory.ChartTimeRange origin=null
+          CALL 'public open fun notifyDataSetChanged (): kotlin.Unit [fake_override] declared in com.github.mikephil.charting.charts.LineChart' type=kotlin.Unit origin=null
+            $this: GET_VAR 'chart: com.github.mikephil.charting.charts.LineChart declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=com.github.mikephil.charting.charts.LineChart origin=null
+          CALL 'public open fun invalidate (): kotlin.Unit [fake_override] declared in com.github.mikephil.charting.charts.LineChart' type=kotlin.Unit origin=null
+            $this: GET_VAR 'chart: com.github.mikephil.charting.charts.LineChart declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=com.github.mikephil.charting.charts.LineChart origin=null
+      BRANCH
+        if: CONST Boolean type=kotlin.Boolean value=true
+        then: BLOCK type=kotlin.Unit origin=null
+          CALL 'public open fun clear (): kotlin.Unit [fake_override] declared in com.github.mikephil.charting.charts.LineChart' type=kotlin.Unit origin=null
+            $this: GET_VAR 'chart: com.github.mikephil.charting.charts.LineChart declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11' type=com.github.mikephil.charting.charts.LineChart origin=null
+
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.generate(FunctionCodegen.kt:47)
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.generate$default(FunctionCodegen.kt:40)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen.generateMethodNode(ClassCodegen.kt:406)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen.generateMethod(ClassCodegen.kt:423)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ClassCodegen.generate(ClassCodegen.kt:168)
+	at org.jetbrains.kotlin.backend.jvm.FileCodegen.lower(JvmPhases.kt:39)
+	at org.jetbrains.kotlin.backend.common.phaser.PhaseFactoriesKt.createFilePhase$lambda$4(PhaseFactories.kt:71)
+	at org.jetbrains.kotlin.backend.common.phaser.PhaseBuildersKt$createSimpleNamedCompilerPhase$1.phaseBody(PhaseBuilders.kt:69)
+	at org.jetbrains.kotlin.backend.common.phaser.SimpleNamedCompilerPhase.phaseBody(CompilerPhase.kt:226)
+	at org.jetbrains.kotlin.backend.common.phaser.AbstractNamedCompilerPhase.invoke(CompilerPhase.kt:113)
+	at org.jetbrains.kotlin.backend.common.phaser.PerformByIrFilePhase.invokeSequential(performByIrFile.kt:62)
+	... 44 more
+Caused by: java.lang.RuntimeException: Exception while generating code for:
+FUN INLINE_LAMBDA name:HeartChart$lambda$12$lambda$11$lambda$8 visibility:private modality:FINAL <> ($receiver:com.github.mikephil.charting.data.LineDataSet, $lineColor:kotlin.Int) returnType:kotlin.Unit
+  $receiver: VALUE_PARAMETER name:$this$apply type:com.github.mikephil.charting.data.LineDataSet
+  VALUE_PARAMETER BOUND_VALUE_PARAMETER name:$lineColor index:0 type:kotlin.Int
+  BLOCK_BODY
+    VAR name:$i$a$-apply-HeartChartKt$HeartChart$2$1$setMax$1 type:kotlin.Int [val]
+      CONST Int type=kotlin.Int value=0
+    CALL 'public open fun setColor (p0: kotlin.Int): kotlin.Unit [fake_override] declared in com.github.mikephil.charting.data.LineDataSet' type=kotlin.Unit origin=EQ
+      $this: GET_VAR '$this$apply: com.github.mikephil.charting.data.LineDataSet declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11$lambda$8' type=com.github.mikephil.charting.data.LineDataSet origin=null
+      p0: GET_VAR '$lineColor: kotlin.Int declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11$lambda$8' type=kotlin.Int origin=null
+    SET_FIELD 'FIELD IR_EXTERNAL_JAVA_DECLARATION_STUB name:alpha type:kotlin.Int visibility:public [final,static] declared in android.R.attr' type=kotlin.Unit superQualifierSymbol=android.R.attr origin=EQ
+      value: CONST Int type=kotlin.Int value=80
+    CALL 'public open fun setLineWidth (p0: kotlin.Float): kotlin.Unit [fake_override] declared in com.github.mikephil.charting.data.LineDataSet' type=kotlin.Unit origin=EQ
+      $this: GET_VAR '$this$apply: com.github.mikephil.charting.data.LineDataSet declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11$lambda$8' type=com.github.mikephil.charting.data.LineDataSet origin=null
+      p0: CONST Float type=kotlin.Float value=1.0
+    CALL 'public open fun enableDashedLine (p0: kotlin.Float, p1: kotlin.Float, p2: kotlin.Float): kotlin.Unit declared in com.github.mikephil.charting.data.LineDataSet' type=kotlin.Unit origin=null
+      $this: GET_VAR '$this$apply: com.github.mikephil.charting.data.LineDataSet declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11$lambda$8' type=com.github.mikephil.charting.data.LineDataSet origin=null
+      p0: CONST Float type=kotlin.Float value=10.0
+      p1: CONST Float type=kotlin.Float value=10.0
+      p2: CONST Float type=kotlin.Float value=0.0
+    CALL 'public open fun setDrawCircles (p0: kotlin.Boolean): kotlin.Unit declared in com.github.mikephil.charting.data.LineDataSet' type=kotlin.Unit origin=null
+      $this: GET_VAR '$this$apply: com.github.mikephil.charting.data.LineDataSet declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11$lambda$8' type=com.github.mikephil.charting.data.LineDataSet origin=null
+      p0: CONST Boolean type=kotlin.Boolean value=false
+    CALL 'public open fun setDrawValues (p0: kotlin.Boolean): kotlin.Unit [fake_override] declared in com.github.mikephil.charting.data.LineDataSet' type=kotlin.Unit origin=null
+      $this: GET_VAR '$this$apply: com.github.mikephil.charting.data.LineDataSet declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11$lambda$8' type=com.github.mikephil.charting.data.LineDataSet origin=null
+      p0: CONST Boolean type=kotlin.Boolean value=false
+    CALL 'public open fun setMode (p0: @[FlexibleNullability] com.github.mikephil.charting.data.LineDataSet.Mode?): kotlin.Unit declared in com.github.mikephil.charting.data.LineDataSet' type=kotlin.Unit origin=EQ
+      $this: GET_VAR '$this$apply: com.github.mikephil.charting.data.LineDataSet declared in com.example.healthapp.feature.chart.HeartChartKt.HeartChart$lambda$12$lambda$11$lambda$8' type=com.github.mikephil.charting.data.LineDataSet origin=null
+      p0: GET_FIELD 'FIELD FIELD_FOR_ENUM_ENTRY name:CUBIC_BEZIER type:com.github.mikephil.charting.data.LineDataSet.Mode visibility:public [final,static] declared in com.github.mikephil.charting.data.LineDataSet.Mode' type=com.github.mikephil.charting.data.LineDataSet.Mode origin=null
+
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.generate(FunctionCodegen.kt:47)
+	at org.jetbrains.kotlin.backend.jvm.codegen.IrSourceCompilerForInline.generateLambdaBody(IrSourceCompilerForInline.kt:67)
+	at org.jetbrains.kotlin.codegen.inline.ExpressionLambda.generateLambdaBody(LambdaInfo.kt:72)
+	at org.jetbrains.kotlin.backend.jvm.codegen.IrInlineCodegen.genValueAndPut(IrInlineCodegen.kt:100)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitCall$handleParameter(ExpressionCodegen.kt:616)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitCall(ExpressionCodegen.kt:644)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitCall(ExpressionCodegen.kt:138)
+	at org.jetbrains.kotlin.ir.expressions.IrCall.accept(IrCall.kt:24)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitVariable(ExpressionCodegen.kt:790)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitVariable(ExpressionCodegen.kt:138)
+	at org.jetbrains.kotlin.ir.declarations.IrVariable.accept(IrVariable.kt:36)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitStatementContainer(ExpressionCodegen.kt:579)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitContainerExpression(ExpressionCodegen.kt:593)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitContainerExpression(ExpressionCodegen.kt:138)
+	at org.jetbrains.kotlin.ir.visitors.IrElementVisitor$DefaultImpls.visitBlock(IrElementVisitor.kt:122)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitBlock(ExpressionCodegen.kt:413)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitBlock(ExpressionCodegen.kt:138)
+	at org.jetbrains.kotlin.ir.expressions.IrBlock.accept(IrBlock.kt:18)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitWhen(ExpressionCodegen.kt:1101)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitWhen(ExpressionCodegen.kt:138)
+	at org.jetbrains.kotlin.ir.expressions.IrWhen.accept(IrWhen.kt:24)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitStatementContainer(ExpressionCodegen.kt:579)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitBlockBody(ExpressionCodegen.kt:584)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitBlockBody(ExpressionCodegen.kt:138)
+	at org.jetbrains.kotlin.ir.expressions.IrBlockBody.accept(IrBlockBody.kt:20)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.generate(ExpressionCodegen.kt:240)
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.doGenerate(FunctionCodegen.kt:123)
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.generate(FunctionCodegen.kt:44)
+	... 54 more
+Caused by: java.lang.AssertionError: access of const val: SET_FIELD 'FIELD IR_EXTERNAL_JAVA_DECLARATION_STUB name:alpha type:kotlin.Int visibility:public [final,static] declared in android.R.attr' type=kotlin.Unit superQualifierSymbol=android.R.attr origin=EQ
+  value: CONST Int type=kotlin.Int value=80
+
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitFieldAccess(ExpressionCodegen.kt:861)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitFieldAccess(ExpressionCodegen.kt:138)
+	at org.jetbrains.kotlin.ir.visitors.IrElementVisitor$DefaultImpls.visitSetField(IrElementVisitor.kt:206)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitSetField(ExpressionCodegen.kt:908)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitSetField(ExpressionCodegen.kt:138)
+	at org.jetbrains.kotlin.ir.expressions.IrSetField.accept(IrSetField.kt:21)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitStatementContainer(ExpressionCodegen.kt:579)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitBlockBody(ExpressionCodegen.kt:584)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.visitBlockBody(ExpressionCodegen.kt:138)
+	at org.jetbrains.kotlin.ir.expressions.IrBlockBody.accept(IrBlockBody.kt:20)
+	at org.jetbrains.kotlin.backend.jvm.codegen.ExpressionCodegen.generate(ExpressionCodegen.kt:240)
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.doGenerate(FunctionCodegen.kt:123)
+	at org.jetbrains.kotlin.backend.jvm.codegen.FunctionCodegen.generate(FunctionCodegen.kt:44)
+	... 81 more
+
+
