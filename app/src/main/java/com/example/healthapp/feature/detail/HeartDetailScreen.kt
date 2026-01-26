@@ -172,7 +172,7 @@ fun HeartDetailScreen(
                         HeartChart(
                             data = chartData,
                             timeRange = selectedTimeRange,
-                            barColor = android.graphics.Color.parseColor("#EF4444")
+                            lineColor =  android.graphics.Color.parseColor("#EF4444")
                         )
                     }
                 }
