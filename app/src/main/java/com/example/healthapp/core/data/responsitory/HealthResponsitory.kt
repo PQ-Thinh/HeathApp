@@ -83,12 +83,9 @@ class HealthRepository @Inject constructor(
     }
 
     // 3. Hàm "Chốt sổ" cuối ngày: Đẩy lên Health Connect
-    suspend fun syncToHealthConnect(steps: Int) {
-        val now = LocalDateTime.now()
-        val startOfDay = now.toLocalDate().atStartOfDay()
-
-        // Ghi vào Health Connect (Google server)
-        healthConnectManager.writeSteps(startOfDay, now, steps)
+    suspend fun writeStepsToHealthConnect(start: LocalDateTime, end: LocalDateTime, stepsDelta: Int) {
+        // Gọi hàm writeSteps mới đã sửa ở Bước 1
+        healthConnectManager.writeSteps(start, end, stepsDelta)
     }
     suspend fun saveHeartRate(userId: Int, bpm: Int) {
         val now = LocalDateTime.now()

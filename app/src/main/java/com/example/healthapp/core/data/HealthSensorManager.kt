@@ -16,7 +16,16 @@ class HealthSensorManager @Inject constructor(
     private val context: Context
 ) {
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    private var _isPaused = false
+    val isPaused get() = _isPaused
 
+    fun pauseTracking() {
+        _isPaused = true
+    }
+
+    fun resumeTracking() {
+        _isPaused = false
+    }
     val stepFlow: Flow<Int> = callbackFlow {
         // Ưu tiên 1: Tìm cảm biến đếm bước chuyên dụng (Hardware Step Counter)
         val stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER)
@@ -29,10 +38,10 @@ class HealthSensorManager @Inject constructor(
 
 
         val listener = object : SensorEventListener {
-            // 1. Biến lưu thời gian để chặn rung lắc quá nhanh
+            // Biến lưu thời gian để chặn rung lắc quá nhanh
             private var lastStepTimeNs: Long = 0
 
-            // 2. Ngưỡng lọc (Threshold)
+            // Ngưỡng lọc (Threshold)
             // Trọng lực ~ 9.8. Khi đi bộ, lực dậm chân thường đẩy tổng lực lên khoảng 11-13.
             // Đặt 12f là an toàn để loại bỏ các rung động nhẹ.
             private val threshold = 12f
@@ -42,6 +51,9 @@ class HealthSensorManager @Inject constructor(
             private val alpha = 0.8f
 
             override fun onSensorChanged(event: SensorEvent?) {
+                if (!_isPaused && event != null) {
+                    trySend(event.values[0].toInt())
+                }
                 event?.let {
                     if (it.sensor.type == Sensor.TYPE_STEP_COUNTER) {
                         //có sẵn cảm biến đếm

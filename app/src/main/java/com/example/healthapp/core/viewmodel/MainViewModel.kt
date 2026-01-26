@@ -1,5 +1,7 @@
 package com.example.healthapp.core.viewmodel
 
+import android.app.ActivityManager
+import android.content.Context
 import android.util.Log
 import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
@@ -31,6 +33,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -61,6 +64,8 @@ class MainViewModel @Inject constructor(
     private val _realtimeHeartRate = MutableStateFlow(0)
     val realtimeHeartRate: StateFlow<Int> = _realtimeHeartRate.asStateFlow()
 
+    private val _isServiceRunning = MutableStateFlow(false)
+    val isServiceRunning = _isServiceRunning.asStateFlow()
     // Biến nội bộ
     private var startOfDaySteps = 0
     private var currentUserId: Int? = null // Default ID
@@ -68,6 +73,8 @@ class MainViewModel @Inject constructor(
     private val _healthConnectState = MutableStateFlow<Int>(0)
     // 0: Init, 1: Available, 2: Update Required, 3: Not Supported
     val healthConnectState = _healthConnectState.asStateFlow()
+    private var lastSyncTime: LocalDateTime = LocalDateTime.now()
+    private var lastSyncedStepsTotal: Int = 0
 
     init {
         initializeData()
@@ -142,6 +149,7 @@ class MainViewModel @Inject constructor(
     }
     fun startSensorTracking() {
         viewModelScope.launch {
+            lastSyncTime = LocalDateTime.now()
             // 'totalStepsSinceBoot' là tổng số bước từ lúc bật điện thoại (VD: 15000)
             sensorManager.stepFlow.collect { totalStepsSinceBoot ->
 
@@ -165,7 +173,7 @@ class MainViewModel @Inject constructor(
                 // Tính số bước thực tế trong ngày
                 // Công thức: Tổng hiện tại - Mốc đầu ngày
                 var todaySteps = totalStepsSinceBoot - startOfDaySteps
-                if (todaySteps < 0) todaySteps = 0 // Tránh số âm
+                if (todaySteps < 0) todaySteps = 0
 
                 // Cập nhật UI
                 _realtimeSteps.value = todaySteps
@@ -173,13 +181,21 @@ class MainViewModel @Inject constructor(
                 // ĐỒNG BỘ LÊN HEALTH CONNECT (SỬA LỖI TẠI ĐÂY)
                 // Chỉ gửi khi số bước chia hết cho 50 (ví dụ: 50, 100, 150...) để tiết kiệm pin
                 // Hoặc gửi khi số bước thay đổi quá nhiều so với lần sync trước
-                if (todaySteps % 50 == 0) {
-                    Log.d("Sync", "Đang đồng bộ $todaySteps bước lên Health Connect...")
-                    repository.syncToHealthConnect(todaySteps)
-                }
+                if (todaySteps - lastSyncedStepsTotal >= 50) {
+                    val now = LocalDateTime.now()
 
-                // 4. Lưu vào Room (Database)
-                repository.updateLocalSteps(currentUserId, todaySteps, _realtimeCalories.value)
+                    // Tính số bước chênh lệch: 150 - 100 = 50 bước mới
+                    val stepsToAdd = todaySteps - lastSyncedStepsTotal
+
+                    if (stepsToAdd > 0) {
+                        // Gọi hàm writeSteps mới (chỉ insert 50 bước trong khoảng thời gian từ lần trước đến nay)
+                        repository.writeStepsToHealthConnect(lastSyncTime, now, stepsToAdd)
+
+                        // Cập nhật lại mốc
+                        lastSyncedStepsTotal = todaySteps
+                        lastSyncTime = now
+                    }
+                }
             }
         }
     }
@@ -302,14 +318,6 @@ class MainViewModel @Inject constructor(
 
     }
 
-    override fun onCleared() {
-        super.onCleared()
-        // Cố gắng đồng bộ lần cuối trước khi ViewModel bị hủy
-        viewModelScope.launch {
-            repository.syncToHealthConnect(_realtimeSteps.value)
-        }
-    }
-
     //Biểu đồ
     //Luồng dữ liệu cho NGÀY HÔM NAY (Tự động cập nhật khi DB thay đổi)
     // Dùng flatMapLatest để khi currentUserId thay đổi, nó tự lấy data của user mới
@@ -324,7 +332,10 @@ class MainViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-
+    fun setServiceRunningStatus(isRunning: Boolean) {
+        _isServiceRunning.value = isRunning
+    }
+    // Hàm kiểm tra Service đang chạy
 
 }
 // calories = step X chieu cao X can năng

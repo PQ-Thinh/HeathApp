@@ -30,6 +30,10 @@ import com.example.healthapp.feature.home.ProfileScreen
 import com.example.healthapp.feature.home.SettingsScreen
 import dagger.hilt.android.AndroidEntryPoint
 import android.Manifest
+import android.app.ActivityManager
+import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.material3.AlertDialog
@@ -49,12 +53,14 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.example.healthapp.core.service.StepForegroundService
 import com.example.healthapp.core.viewmodel.HeartViewModel
 import com.example.healthapp.core.viewmodel.SleepViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.core.viewmodel.UserViewModel
 import com.example.healthapp.feature.detail.SleepDetailScreen
 import com.example.healthapp.feature.detail.StepDetailScreen
+import kotlin.jvm.java
 
 @OptIn(ExperimentalPermissionsApi::class)
 @AndroidEntryPoint
@@ -72,6 +78,8 @@ class MainActivity : ComponentActivity() {
             val healthState by mainViewModel.healthConnectState.collectAsState()
             val context = LocalContext.current // Lấy context ở đây để dùng cho Toast/Intent
 
+
+            val isServiceRunning by mainViewModel.isServiceRunning.collectAsState()
             val lifecycleOwner = LocalLifecycleOwner.current // Lấy LifecycleOwner để lắng nghe sự kiện
             var showPermissionRationaleDialog by remember { mutableStateOf(false) }
             var showInstallDialog by remember { mutableStateOf(false) }
@@ -99,7 +107,16 @@ class MainActivity : ComponentActivity() {
                 mainViewModel.checkHealthConnectStatus()
             }
 
-
+            @Suppress("DEPRECATION")
+            fun isServiceRunning(context: Context, serviceClass: Class<*>): Boolean {
+                val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                for (service in manager.getRunningServices(Int.MAX_VALUE)) {
+                    if (serviceClass.name == service.service.className) {
+                        return true
+                    }
+                }
+                return false
+            }
             DisposableEffect(lifecycleOwner) {
                 val observer = LifecycleEventObserver { _, event ->
                     if (event == Lifecycle.Event.ON_RESUME) {
@@ -116,6 +133,9 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) {
 
                 activityRecognitionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                mainViewModel.setServiceRunningStatus(
+                    isServiceRunning(context, StepForegroundService::class.java)
+                )
 
             }
             LaunchedEffect(healthState) {
@@ -353,7 +373,24 @@ class MainActivity : ComponentActivity() {
                             },
                             isDark
                             ,
-                            onChangePassword = { currentScreen = "forgot" }
+                            onChangePassword = { currentScreen = "forgot" },
+                            isServiceRunning = isServiceRunning,
+                            onToggleService = { shouldStart ->
+                                val intent = Intent(context, StepForegroundService::class.java)
+                                if (shouldStart) {
+                                    intent.action = StepForegroundService.ACTION_START
+                                    if (Build.VERSION.SDK_INT >= 26) {
+                                        context.startForegroundService(intent)
+                                    } else {
+                                        context.startService(intent)
+                                    }
+                                    mainViewModel.setServiceRunningStatus(true)
+                                } else {
+                                    intent.action = StepForegroundService.ACTION_STOP
+                                    context.startService(intent)
+                                    mainViewModel.setServiceRunningStatus(false)
+                                }
+                            }
                         )
                     }
                 }

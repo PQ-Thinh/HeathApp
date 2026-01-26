@@ -72,30 +72,25 @@ class HealthConnectManager(private val context: Context) {
         }
     }
 
-    // File: HealthConnectManager.kt
 
     suspend fun writeSteps(start: LocalDateTime, end: LocalDateTime, count: Int) {
         try {
+            if (count <= 0) return // Không ghi nếu không có bước nào
+
             val zoneOffset = ZoneId.systemDefault().rules.getOffset(start)
 
-            //Xóa dữ liệu bước chân cũ trong khoảng thời gian này trước
-            // Để tránh việc cộng dồn: Lần 1 gửi 100 bước, Lần 2 gửi 105 bước -> Thành 205 bước (Sai)
-            val timeRangeFilter = TimeRangeFilter.between(
-                start.toInstant(zoneOffset),
-                end.toInstant(zoneOffset)
-            )
-            healthConnectClient.deleteRecords(StepsRecord::class, timeRangeFilter)
-
-            // 2. Ghi dữ liệu mới (Ghi đè)
+            // CHỈ GHI DỮ LIỆU MỚI (CỘNG DỒN)
+            // Health Connect sẽ tự động cộng tổng các record lại với nhau
             val stepsRecord = StepsRecord(
                 startTime = start.toInstant(zoneOffset),
                 endTime = end.toInstant(zoneOffset),
                 startZoneOffset = zoneOffset,
                 endZoneOffset = zoneOffset,
                 count = count.toLong(),
-                metadata = Metadata.manualEntry() // Hoặc Metadata.recordingMethodFromDevice()
+                metadata = Metadata.manualEntry()
             )
             healthConnectClient.insertRecords(listOf(stepsRecord))
+            Log.d("HealthConnect", "Đã cộng thêm $count bước vào hệ thống")
         } catch (e: Exception) {
             Log.e("HealthConnect", "Lỗi ghi bước chân: ${e.message}")
         }

@@ -29,7 +29,14 @@ import androidx.compose.ui.unit.sp
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
-
+import android.Manifest
+import android.os.Build
+import android.content.Context
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.compose.ui.platform.LocalContext
 //
 @Composable
 fun SettingsScreen(
@@ -37,14 +44,24 @@ fun SettingsScreen(
     onBackClick: () -> Unit = {},
     onThemeChanged: (Boolean) -> Unit,
     isDarkTheme: Boolean,
-    onChangePassword: () -> Unit = {}
+    onChangePassword: () -> Unit = {},
+    isServiceRunning: Boolean,
+    onToggleService: (Boolean) -> Unit
 
 ) {
+    val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
     var isVisible by remember { mutableStateOf(isPreview) }
 
     // State for demo purposes
-    var notificationsEnabled by remember { mutableStateOf(true) }
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { isGranted ->
+            if (isGranted) {
+                onToggleService(true) // Có quyền -> Bật service
+            }
+        }
+    )
     var biometricEnabled by remember { mutableStateOf(false) }
 
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
@@ -105,9 +122,23 @@ fun SettingsScreen(
                     SettingsSection(title = "App Preferences", visible = isVisible, delay = 100, colors = colors) {
                         ToggleSettingItem(
                             icon = Icons.Default.NotificationsActive,
-                            title = "Push Notifications",
-                            checked = notificationsEnabled,
-                            onCheckedChange = { notificationsEnabled = it },
+                            title = "Đếm bước chạy nền", // Đổi tên cho sát nghĩa
+                            checked = isServiceRunning,  // Dùng state từ bên ngoài
+                            onCheckedChange = { shouldEnable ->
+                                if (shouldEnable) {
+                                    // Logic xin quyền khi BẬT
+                                    if (Build.VERSION.SDK_INT >= 33 &&
+                                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                                    ) {
+                                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                    } else {
+                                        onToggleService(true)
+                                    }
+                                } else {
+                                    // Tắt service
+                                    onToggleService(false)
+                                }
+                            },
                             colors = colors
                         )
                         Divider(color = colors.glassBorder, thickness = 1.dp)
@@ -295,22 +326,22 @@ fun ActionSettingItem(
     }
 }
 
-@Preview(name = "Dark Mode")
-@Composable
-fun SettingsScreenDarkPreview() {
-    SettingsScreen(
-        onBackClick = {},
-        onThemeChanged = {},
-        isDarkTheme = true
-    )
-}
-
-@Preview(name = "Light Mode")
-@Composable
-fun SettingsScreenLightPreview() {
-    SettingsScreen(
-        onBackClick = {},
-        onThemeChanged = {},
-        isDarkTheme = false
-    )
-}
+//@Preview(name = "Dark Mode")
+//@Composable
+//fun SettingsScreenDarkPreview() {
+//    SettingsScreen(
+//        onBackClick = {},
+//        onThemeChanged = {},
+//        isDarkTheme = true
+//    )
+//}
+//
+//@Preview(name = "Light Mode")
+//@Composable
+//fun SettingsScreenLightPreview() {
+//    SettingsScreen(
+//        onBackClick = {},
+//        onThemeChanged = {},
+//        isDarkTheme = false
+//    )
+//}
