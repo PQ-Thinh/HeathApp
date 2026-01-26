@@ -17,7 +17,6 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.health.connect.client.HealthConnectClient
 import com.example.healthapp.core.data.HealthConnectManager
-import com.example.healthapp.core.data.HealthSensorManager
 import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
@@ -27,13 +26,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
-import java.time.LocalDateTime
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -73,66 +68,39 @@ class MainViewModel @Inject constructor(
     private val _healthConnectState = MutableStateFlow<Int>(0)
     // 0: Init, 1: Available, 2: Update Required, 3: Not Supported
     val healthConnectState = _healthConnectState.asStateFlow()
-    private var lastSyncTime: LocalDateTime = LocalDateTime.now()
-    private var lastSyncedStepsTotal: Int = 0
+    private val _todayHealthData = MutableStateFlow<DailyHealthEntity?>(null)
+    val todayHealthData: StateFlow<DailyHealthEntity?> = _todayHealthData.asStateFlow()
 
     init {
         initializeData()
-        observeDatabase() // Bắt đầu lắng nghe Database ngay khi App mở
+    // Bắt đầu lắng nghe Database ngay khi App mở
     }
-
     private fun initializeData() {
         viewModelScope.launch {
-            // Lấy Email đang đăng nhập để tìm User ID
+            // 1. Lấy User ID
             val email = dataStore.data.first()[CURRENT_USER_EMAIL_KEY]
             if (email != null) {
                 val user = healthDao.getUserByEmail(email)
                 currentUserId = user?.id ?: 1
-                Log.d("MainViewModel", "User ID: $currentUserId")
+            } else {
+                currentUserId = 1 // Hoặc xử lý mặc định
             }
-//            currentUserId?.let { id ->
-//                val today = LocalDate.now().toString()
-//                val todayData = healthDao.getDailyHealth(today, id).firstOrNull()
-//
-//                // Nếu hôm nay đã có dữ liệu, cập nhật lại State ngay lập tức
-//                if (todayData != null) {
-//                    // Khôi phục nhịp tim
-//                    if (todayData.heartRateAvg > 0) {
-//                        _realtimeHeartRate.value = todayData.heartRateAvg
-//                    }
-//
-//
-//                    _realtimeCalories.value = todayData.caloriesBurned
-//
-//
-//                    _realtimeSteps.value = todayData.steps
-//                }
-//            }
-//            // Lấy Mốc bước chân đã lưu từ DataStore
-//            val preferences = dataStore.data.first()
-//            startOfDaySteps = preferences[START_OF_DAY_STEPS_KEY] ?: 0
-//            val savedDate = preferences[LAST_SAVED_DATE_KEY] ?: LocalDate.now().toString()
-//
-//            // Kiểm tra xem có phải ngày mới không
-//            if (savedDate != LocalDate.now().toString()) {
-//                // Sang ngày mới -> Reset mốc = 0 (Sẽ cập nhật lại khi có dữ liệu sensor đầu tiên)
-//                startOfDaySteps = 0
-//                saveDayOffset(0)
-//            }
 
+            // 2. Bắt đầu lắng nghe Database ngay sau khi có User ID
+            // Logic này thay thế cho observeDatabase cũ và cả snapshotFlow
+            currentUserId?.let { userId ->
+                val today = LocalDate.now().toString()
+                repository.getDailyHealth(today, userId).collect { data ->
+                    // Cập nhật StateFlow nội bộ
+                    _todayHealthData.value = data
 
-            //startSensorTracking()
-        }
-    }
-    // Hàm quan trọng: Cập nhật UI ngay khi Database thay đổi (do Service ghi vào)
-    private fun observeDatabase() {
-        viewModelScope.launch {
-            todayHealthData.collect { data ->
-                if (data != null) {
-                    _realtimeSteps.value = data.steps
-                    _realtimeCalories.value = data.caloriesBurned
-                    if (data.heartRateAvg > 0) {
-                        _realtimeHeartRate.value = data.heartRateAvg
+                    // Cập nhật UI State (Logic cũ của observeDatabase)
+                    if (data != null) {
+                        _realtimeSteps.value = data.steps
+                        _realtimeCalories.value = data.caloriesBurned
+                        if (data.heartRateAvg > 0) {
+                            _realtimeHeartRate.value = data.heartRateAvg
+                        }
                     }
                 }
             }
@@ -163,58 +131,7 @@ class MainViewModel @Inject constructor(
 
         }
     }
-//    fun startSensorTracking() {
-//        viewModelScope.launch {
-//            lastSyncTime = LocalDateTime.now()
-//            // 'totalStepsSinceBoot' là tổng số bước từ lúc bật điện thoại (VD: 15000)
-//            sensorManager.stepFlow.collect { totalStepsSinceBoot ->
-//
-//                // 1. Xử lý logic Reset ngày mới hoặc Khởi tạo lần đầu
-//                val today = LocalDate.now().toString()
-//                val savedDate = dataStore.data.first()[LAST_SAVED_DATE_KEY]
-//
-//                if (startOfDaySteps == 0 || savedDate != today) {
-//                    // Nếu chưa có mốc hoặc vừa sang ngày mới
-//                    // -> Lấy luôn số hiện tại làm mốc 00:00
-//                    startOfDaySteps = totalStepsSinceBoot
-//                    saveDayOffset(startOfDaySteps)
-//                }
-//
-//                // Xử lý trường hợp Reboot máy (Tổng số bước sensor bị reset về 0)
-//                if (totalStepsSinceBoot < startOfDaySteps) {
-//                    startOfDaySteps = 0
-//                    saveDayOffset(0)
-//                }
-//
-//                // Tính số bước thực tế trong ngày
-//                // Công thức: Tổng hiện tại - Mốc đầu ngày
-//                var todaySteps = totalStepsSinceBoot - startOfDaySteps
-//                if (todaySteps < 0) todaySteps = 0
-//
-//                // Cập nhật UI
-//                _realtimeSteps.value = todaySteps
-//                _realtimeCalories.value = todaySteps * 0.04f
-//                // ĐỒNG BỘ LÊN HEALTH CONNECT (SỬA LỖI TẠI ĐÂY)
-//                // Chỉ gửi khi số bước chia hết cho 50 (ví dụ: 50, 100, 150...) để tiết kiệm pin
-//                // Hoặc gửi khi số bước thay đổi quá nhiều so với lần sync trước
-//                if (todaySteps - lastSyncedStepsTotal >= 50) {
-//                    val now = LocalDateTime.now()
-//
-//                    // Tính số bước chênh lệch: 150 - 100 = 50 bước mới
-//                    val stepsToAdd = todaySteps - lastSyncedStepsTotal
-//
-//                    if (stepsToAdd > 0) {
-//                        // Gọi hàm writeSteps mới (chỉ insert 50 bước trong khoảng thời gian từ lần trước đến nay)
-//                        repository.writeStepsToHealthConnect(lastSyncTime, now, stepsToAdd)
-//
-//                        // Cập nhật lại mốc
-//                        lastSyncedStepsTotal = todaySteps
-//                        lastSyncTime = now
-//                    }
-//                }
-//            }
-//        }
-//    }
+
 
     // Hàm lưu Mốc và Ngày vào DataStore
     private suspend fun saveDayOffset(offset: Int) {
@@ -264,7 +181,6 @@ class MainViewModel @Inject constructor(
                 onError("Email này đã được sử dụng!")
                 return@launch
             }
-
             val newUser = UserEntity(
                 name = "New User",
                 email = email,
@@ -334,19 +250,19 @@ class MainViewModel @Inject constructor(
 
     }
 
-    //Biểu đồ
-    //Luồng dữ liệu cho NGÀY HÔM NAY (Tự động cập nhật khi DB thay đổi)
-    // Dùng flatMapLatest để khi currentUserId thay đổi, nó tự lấy data của user mới
-    val todayHealthData: StateFlow<DailyHealthEntity?> = snapshotFlow { currentUserId }
-        .flatMapLatest { userId ->
-            if (userId != null) {
-                val today = LocalDate.now().toString()
-                repository.getDailyHealth(today, userId)
-            } else {
-                flowOf(null)
-            }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+//    //Biểu đồ
+//    //Luồng dữ liệu cho NGÀY HÔM NAY (Tự động cập nhật khi DB thay đổi)
+//    // Dùng flatMapLatest để khi currentUserId thay đổi, nó tự lấy data của user mới
+//    val todayHealthData: StateFlow<DailyHealthEntity?> = snapshotFlow { currentUserId }
+//        .flatMapLatest { userId ->
+//            if (userId != null) {
+//                val today = LocalDate.now().toString()
+//                repository.getDailyHealth(today, userId)
+//            } else {
+//                flowOf(null)
+//            }
+//        }
+//        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     fun setServiceRunningStatus(isRunning: Boolean) {
         _isServiceRunning.value = isRunning
@@ -355,3 +271,98 @@ class MainViewModel @Inject constructor(
 
 }
 // calories = step X chieu cao X can năng
+//    private fun initializeData() {
+//        viewModelScope.launch {
+//            // Lấy Email đang đăng nhập để tìm User ID
+//            val email = dataStore.data.first()[CURRENT_USER_EMAIL_KEY]
+//            if (email != null) {
+//                val user = healthDao.getUserByEmail(email)
+//                currentUserId = user?.id ?: 1
+//                Log.d("MainViewModel", "User ID: $currentUserId")
+//            }
+////            currentUserId?.let { id ->
+////                val today = LocalDate.now().toString()
+////                val todayData = healthDao.getDailyHealth(today, id).firstOrNull()
+////
+////                // Nếu hôm nay đã có dữ liệu, cập nhật lại State ngay lập tức
+////                if (todayData != null) {
+////                    // Khôi phục nhịp tim
+////                    if (todayData.heartRateAvg > 0) {
+////                        _realtimeHeartRate.value = todayData.heartRateAvg
+////                    }
+////
+////
+////                    _realtimeCalories.value = todayData.caloriesBurned
+////
+////
+////                    _realtimeSteps.value = todayData.steps
+////                }
+////            }
+////            // Lấy Mốc bước chân đã lưu từ DataStore
+////            val preferences = dataStore.data.first()
+////            startOfDaySteps = preferences[START_OF_DAY_STEPS_KEY] ?: 0
+////            val savedDate = preferences[LAST_SAVED_DATE_KEY] ?: LocalDate.now().toString()
+////
+////            // Kiểm tra xem có phải ngày mới không
+////            if (savedDate != LocalDate.now().toString()) {
+////                // Sang ngày mới -> Reset mốc = 0 (Sẽ cập nhật lại khi có dữ liệu sensor đầu tiên)
+////                startOfDaySteps = 0
+////                saveDayOffset(0)
+////            }
+//
+//
+//            //startSensorTracking()
+//        }
+//    }
+//    fun startSensorTracking() {
+//        viewModelScope.launch {
+//            lastSyncTime = LocalDateTime.now()
+//            // 'totalStepsSinceBoot' là tổng số bước từ lúc bật điện thoại (VD: 15000)
+//            sensorManager.stepFlow.collect { totalStepsSinceBoot ->
+//
+//                // 1. Xử lý logic Reset ngày mới hoặc Khởi tạo lần đầu
+//                val today = LocalDate.now().toString()
+//                val savedDate = dataStore.data.first()[LAST_SAVED_DATE_KEY]
+//
+//                if (startOfDaySteps == 0 || savedDate != today) {
+//                    // Nếu chưa có mốc hoặc vừa sang ngày mới
+//                    // -> Lấy luôn số hiện tại làm mốc 00:00
+//                    startOfDaySteps = totalStepsSinceBoot
+//                    saveDayOffset(startOfDaySteps)
+//                }
+//
+//                // Xử lý trường hợp Reboot máy (Tổng số bước sensor bị reset về 0)
+//                if (totalStepsSinceBoot < startOfDaySteps) {
+//                    startOfDaySteps = 0
+//                    saveDayOffset(0)
+//                }
+//
+//                // Tính số bước thực tế trong ngày
+//                // Công thức: Tổng hiện tại - Mốc đầu ngày
+//                var todaySteps = totalStepsSinceBoot - startOfDaySteps
+//                if (todaySteps < 0) todaySteps = 0
+//
+//                // Cập nhật UI
+//                _realtimeSteps.value = todaySteps
+//                _realtimeCalories.value = todaySteps * 0.04f
+//                // ĐỒNG BỘ LÊN HEALTH CONNECT (SỬA LỖI TẠI ĐÂY)
+//                // Chỉ gửi khi số bước chia hết cho 50 (ví dụ: 50, 100, 150...) để tiết kiệm pin
+//                // Hoặc gửi khi số bước thay đổi quá nhiều so với lần sync trước
+//                if (todaySteps - lastSyncedStepsTotal >= 50) {
+//                    val now = LocalDateTime.now()
+//
+//                    // Tính số bước chênh lệch: 150 - 100 = 50 bước mới
+//                    val stepsToAdd = todaySteps - lastSyncedStepsTotal
+//
+//                    if (stepsToAdd > 0) {
+//                        // Gọi hàm writeSteps mới (chỉ insert 50 bước trong khoảng thời gian từ lần trước đến nay)
+//                        repository.writeStepsToHealthConnect(lastSyncTime, now, stepsToAdd)
+//
+//                        // Cập nhật lại mốc
+//                        lastSyncedStepsTotal = todaySteps
+//                        lastSyncTime = now
+//                    }
+//                }
+//            }
+//        }
+//    }

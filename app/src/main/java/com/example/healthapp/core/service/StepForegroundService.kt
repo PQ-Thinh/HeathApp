@@ -19,6 +19,7 @@ import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.model.dao.HealthDao
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -93,8 +94,16 @@ class StepForegroundService : Service() {
             val today = LocalDate.now().toString()
 
             val email = prefs[CURRENT_USER_EMAIL_KEY]
-            val userId = if (email != null) healthDao.getUserByEmail(email)?.id else null
-
+            var userId: Int? = null
+            if (email != null) {
+                val user = healthDao.getUserByEmail(email)
+                userId = user?.id
+            } else {
+                // Nếu chưa đăng nhập (không có email), thử lấy User đầu tiên trong DB làm fallback
+                // Hoặc bỏ qua luôn nếu muốn chặt chẽ
+//                val firstUser = healthDao.getUserFlowByEmail().firstOrNull()?.get(0)
+//                userId = firstUser?.id
+            }
             // Reset nếu sang ngày mới
             if (savedDate != today) {
                 startOfDaySteps = 0
