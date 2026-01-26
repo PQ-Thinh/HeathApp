@@ -143,8 +143,7 @@ class HealthRepository @Inject constructor(
     // 2. Lấy dữ liệu biểu đồ (Trực tiếp từ Health Connect)
     suspend fun getHeartRateChartData(range: ChartTimeRange): List<HeartRateBucket> {
         val now = LocalDateTime.now()
-        val end = now
-
+        val end = now.plusMinutes(1) // Cộng thêm chút thời gian đệm
         return when (range) {
             ChartTimeRange.DAY -> {
                 // Xem trong 24h qua, chia mỗi 1 giờ
@@ -153,7 +152,7 @@ class HealthRepository @Inject constructor(
             }
             ChartTimeRange.WEEK -> {
                 // Xem 7 ngày qua, chia mỗi 1 ngày
-                val start = now.minusDays(7)
+                val start = now.minusDays(6) // 7 ngày bao gồm hôm nay
                 healthConnectManager.readHeartRateAggregation(start, end, Period.ofDays(1))
             }
             ChartTimeRange.MONTH -> {

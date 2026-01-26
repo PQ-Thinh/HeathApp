@@ -95,15 +95,21 @@ class HealthConnectManager(private val context: Context) {
 
     suspend fun writeHeartRate(bpm: Int, time: LocalDateTime): Boolean {
         return try {
+            // Lấy offset hiện tại của máy (Ví dụ VN là +07:00)
             val zoneOffset = ZoneId.systemDefault().rules.getOffset(time)
+
+            // Dùng zoneOffset để convert, KHÔNG dùng ZoneOffset.UTC ở đây
+            val startInstant = time.toInstant(zoneOffset)
+            val endInstant = time.plusSeconds(60).toInstant(zoneOffset) // Tăng độ rộng mẫu lên chút cho chắc
+
             val record = HeartRateRecord(
-                startTime = time.toInstant(ZoneOffset.UTC),
-                endTime = time.plusSeconds(1).toInstant(ZoneOffset.UTC),
+                startTime = startInstant,
+                endTime = endInstant,
                 startZoneOffset = zoneOffset,
                 endZoneOffset = zoneOffset,
                 samples = listOf(
                     HeartRateRecord.Sample(
-                        time = time.toInstant(ZoneOffset.UTC),
+                        time = startInstant,
                         beatsPerMinute = bpm.toLong()
                     )
                 ),
@@ -127,8 +133,7 @@ class HealthConnectManager(private val context: Context) {
             )
             if (response.records.isNotEmpty()) {
                 // Tính trung bình cộng nhịp tim
-                val avg =
-                    response.records.flatMap { it.samples }.map { it.beatsPerMinute }.average()
+                val avg = response.records.flatMap { it.samples }.map { it.beatsPerMinute }.average()
                 avg.toInt()
             } else 0
         } catch (e: Exception) {
@@ -176,7 +181,6 @@ class HealthConnectManager(private val context: Context) {
         duration: Duration
     ): List<HeartRateBucket> {
         try {
-            // Cần convert startTime/endTime sang Instant với ZoneOffset
             val zoneOffset = ZoneId.systemDefault().rules.getOffset(LocalDateTime.now())
 
             val request = AggregateGroupByDurationRequest(
@@ -190,13 +194,14 @@ class HealthConnectManager(private val context: Context) {
             val response = healthConnectClient.aggregateGroupByDuration(request)
             return response.map { bucket ->
                 HeartRateBucket(
-                    // QUAN TRỌNG: Đổi Instant -> LocalDateTime theo múi giờ máy
+                    // QUAN TRỌNG: Convert ngược lại từ Instant sang LocalTime của máy
                     startTime = LocalDateTime.ofInstant(bucket.startTime, ZoneId.systemDefault()),
                     min = bucket.result[HeartRateRecord.BPM_MIN] ?: 0,
                     max = bucket.result[HeartRateRecord.BPM_MAX] ?: 0,
                     avg = bucket.result[HeartRateRecord.BPM_AVG] ?: 0
                 )
-            }.filter { it.avg > 0 }
+            }.filter { it.avg > 0 } // Lọc bỏ các khung giờ không có dữ liệu
+                .sortedBy { it.startTime } // Đảm bảo sắp xếp đúng thứ tự thời gian
         } catch (e: Exception) {
             e.printStackTrace()
             return emptyList()

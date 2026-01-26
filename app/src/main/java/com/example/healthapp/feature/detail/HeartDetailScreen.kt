@@ -158,7 +158,7 @@ fun HeartDetailScreen(
                 // 3. Biểu đồ Cột (MPAndroidChart)
                 item {
                     Text(
-                        "Biểu đồ nhịp tim",
+                        "Biểu đồ nhịp tim (Min/Max/Avg)",
                         color = colors.textSecondary,
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
@@ -167,12 +167,12 @@ fun HeartDetailScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(16.dp))
-                        // .background(...) đã xử lý bên trong HeartChart
+
                     ) {
                         HeartChart(
                             data = chartData,
                             timeRange = selectedTimeRange,
-                            lineColor =  android.graphics.Color.parseColor("#EF4444")
+                            //lineColor =  android.graphics.Color.parseColor("#EF4444")
                         )
                     }
                 }

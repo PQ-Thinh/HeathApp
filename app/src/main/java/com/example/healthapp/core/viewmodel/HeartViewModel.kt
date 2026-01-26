@@ -10,6 +10,7 @@ import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.model.dao.HealthDao
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
@@ -96,13 +97,23 @@ class HeartViewModel @Inject constructor(
         }
     }
         // Hàm gọi khi người dùng đo xong nhịp tim
-    fun saveHeartRateRecord(bpm: Int) {
-        viewModelScope.launch {
-            val user = currentUserInfo.filterNotNull().first()
-            user.id?.let { id ->
-                repository.saveHeartRate(id, bpm) // Lưu vào HC -> Sync Room
-                loadChartData() // Refresh biểu đồ
+        fun saveHeartRateRecord(bpm: Int) {
+            viewModelScope.launch {
+                val user = currentUserInfo.filterNotNull().first()
+                user.id?.let { id ->
+                    // 1. Lưu vào Health Connect
+                    repository.saveHeartRate(id, bpm)
+
+                    // 2. Cập nhật số to ngay lập tức (UI phản hồi nhanh)
+                    _latestHeartRate.value = bpm
+                    evaluateHeartRate(bpm)
+
+                    // 3. Đợi 1 chút để Health Connect kịp index dữ liệu
+                    delay(1000)
+
+                    // 4. Reload lại biểu đồ
+                    loadChartData()
+                }
             }
         }
-    }
 }

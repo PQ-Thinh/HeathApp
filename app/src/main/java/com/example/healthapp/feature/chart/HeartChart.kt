@@ -1,7 +1,6 @@
 package com.example.healthapp.feature.chart
 
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,107 +14,111 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.healthapp.core.data.HeartRateBucket
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.components.Legend
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
 import com.github.mikephil.charting.formatter.ValueFormatter
+import com.github.mikephil.charting.interfaces.datasets.ILineDataSet
 import java.time.format.DateTimeFormatter
 
 @Composable
 fun HeartChart(
     data: List<HeartRateBucket>,
-    timeRange: ChartTimeRange,
-    lineColor: Int = android.graphics.Color.parseColor("#EF4444") // Màu đỏ
+    timeRange: ChartTimeRange
 ) {
     AndroidView(
         modifier = Modifier
             .fillMaxWidth()
-            .height(300.dp) // Tăng chiều cao xíu cho thoáng
+            .height(320.dp) // Tăng chiều cao để chứa Legend
             .clip(RoundedCornerShape(16.dp))
-            .background(androidx.compose.ui.graphics.Color(0xFF1E293B)) // Nền tối
+            .background(androidx.compose.ui.graphics.Color(0xFF1E293B))
             .padding(8.dp),
         factory = { context ->
             LineChart(context).apply {
-                // --- Cấu hình chung ---
-                description.isEnabled = false
-                legend.isEnabled = false
+//                description.text = "Biểu đồ nhịp tim (Min/Max/Avg)"
+//                description.textColor = Color.WHITE
+//                description.textSize = 12f
+
                 setDrawGridBackground(false)
                 setTouchEnabled(true)
                 isDragEnabled = true
-                setScaleEnabled(false)
-                setPinchZoom(false)
-                animateX(1000) // Animation chạy từ trái sang phải
+                setScaleEnabled(true)  // Cho phép zoom (cả 2 trục)
+                setPinchZoom(true)     // Cho phép dùng 2 ngón tay để zoom
+                animateX(1000)
 
-                // --- Trục X (Thời gian) ---
+                // --- Legend (Chú thích) ---
+                legend.apply {
+                    isEnabled = true
+                    textColor = Color.WHITE
+                    textSize = 12f
+                    form = Legend.LegendForm.LINE
+                    horizontalAlignment = Legend.LegendHorizontalAlignment.CENTER
+                    verticalAlignment = Legend.LegendVerticalAlignment.BOTTOM
+                    orientation = Legend.LegendOrientation.HORIZONTAL
+                    setDrawInside(false)
+                    yEntrySpace = 10f
+                }
+
+                // --- Trục X ---
                 xAxis.apply {
                     position = XAxis.XAxisPosition.BOTTOM
-                    setDrawGridLines(false) // Bỏ lưới dọc
+                    setDrawGridLines(false)
                     textColor = Color.LTGRAY
-                    textSize = 11f
+                    textSize = 10f
                     granularity = 1f
-                    // Thêm khoảng đệm 2 đầu để điểm đầu/cuối không bị cắt
-                    axisMinimum = -0.5f
+                    labelRotationAngle = -45f // Xoay chữ nhẹ nếu dày quá
                 }
 
-                // --- Trục Y (BPM) ---
+                // --- Trục Y ---
                 axisLeft.apply {
-                    setDrawGridLines(true) // Giữ lưới ngang để dễ so sánh mức BPM
-                    gridColor = Color.parseColor("#33FFFFFF") // Lưới mờ
+                    setDrawGridLines(true)
+                    gridColor = Color.parseColor("#33FFFFFF")
                     textColor = Color.LTGRAY
-                    axisMinimum = 40f // Nhịp tim thường > 40, set 0 sẽ bị khoảng trống lớn bên dưới
-                    setDrawAxisLine(false)
+                    axisMinimum = 40f
                 }
-                axisRight.isEnabled = false // Tắt trục phải
-                extraBottomOffset = 10f
+                axisRight.isEnabled = false
+                setNoDataText("Chưa có dữ liệu")
+                setNoDataTextColor(Color.WHITE)
             }
         },
         update = { chart ->
             if (data.isNotEmpty()) {
-                val entries = data.mapIndexed { index, bucket ->
-                    // Dùng Entry cho LineChart
-                    Entry(index.toFloat(), bucket.avg.toFloat())
+                val entriesMin = ArrayList<Entry>()
+                val entriesMax = ArrayList<Entry>()
+                val entriesAvg = ArrayList<Entry>()
+
+                data.forEachIndexed { index, bucket ->
+                    entriesMin.add(Entry(index.toFloat(), bucket.min.toFloat()))
+                    entriesMax.add(Entry(index.toFloat(), bucket.max.toFloat()))
+                    entriesAvg.add(Entry(index.toFloat(), bucket.avg.toFloat()))
                 }
 
-                val dataSet = LineDataSet(entries, "Nhịp tim").apply {
-                    color = lineColor
-                    lineWidth = 3f // Đường kẻ dày hơn chút cho rõ
-
-                    // --- Hiệu ứng đường cong mềm mại ---
-                    mode = LineDataSet.Mode.CUBIC_BEZIER
-                    cubicIntensity = 0.2f
-
-                    // --- Điểm tròn trên đường ---
-                    setDrawCircles(true)
-                    setCircleColor(lineColor)
-                    circleRadius = 4f
-                    setDrawCircleHole(true)
-                    circleHoleRadius = 2f
-                    circleHoleColor = Color.WHITE // Lỗ tròn màu trắng nổi bật
-
-                    setDrawValues(true)
-                    valueTextColor = Color.WHITE
-                    valueTextSize = 10f
-
-                    // Format số để bỏ phần thập phân (VD: 75.0 -> 75)
-                    valueFormatter = object : ValueFormatter() {
-                        override fun getFormattedValue(value: Float): String {
-                            return value.toInt().toString()
-                        }
+                // Helper function tạo LineDataSet
+                fun createSet(entries: List<Entry>, label: String, color: Int): LineDataSet {
+                    return LineDataSet(entries, label).apply {
+                        this.color = color
+                        setCircleColor(color)
+                        lineWidth = 2f
+                        circleRadius = 3f
+                        setDrawCircleHole(false)
+                        setDrawValues(false) // Ẩn số trên line cho đỡ rối
+                        mode = LineDataSet.Mode.CUBIC_BEZIER // Đường cong
                     }
-                    // --- Tô màu nền bên dưới (Gradient) ---
-                    setDrawFilled(true)
-                    val gradientDrawable = GradientDrawable(
-                        GradientDrawable.Orientation.TOP_BOTTOM,
-                        intArrayOf(lineColor, Color.TRANSPARENT) // Nhạt dần xuống dưới
-                    )
-                    fillDrawable = gradientDrawable
                 }
 
-                chart.data = LineData(dataSet)
+                // Màu sắc: Min (Xanh dương), Max (Đỏ), Avg (Xanh lá)
+                val setMin = createSet(entriesMin, "Min", Color.parseColor("#3B82F6")) // Blue
+                val setMax = createSet(entriesMax, "Max", Color.parseColor("#EF4444")) // Red
+                val setAvg = createSet(entriesAvg, "Avg", Color.parseColor("#22C55E")) // Green
 
-                // Cập nhật trục X Max để view vừa vặn
-                chart.xAxis.axisMaximum = (data.size - 0.5).toFloat()
+                val dataSets = ArrayList<ILineDataSet>()
+                dataSets.add(setMin)
+                dataSets.add(setMax)
+                dataSets.add(setAvg)
+
+                chart.data = LineData(dataSets)
 
                 // Formatter ngày tháng
                 chart.xAxis.valueFormatter = object : ValueFormatter() {
@@ -124,20 +127,21 @@ fun HeartChart(
                         if (index >= 0 && index < data.size) {
                             val time = data[index].startTime
                             return when (timeRange) {
-
                                 ChartTimeRange.DAY -> time.format(DateTimeFormatter.ofPattern("HH:mm"))
-                                ChartTimeRange.WEEK -> time.format(DateTimeFormatter.ofPattern("EEE"))
+                                ChartTimeRange.WEEK -> time.format(DateTimeFormatter.ofPattern("dd/MM"))
                                 ChartTimeRange.MONTH -> time.format(DateTimeFormatter.ofPattern("dd"))
-                                ChartTimeRange.YEAR -> time.format(DateTimeFormatter.ofPattern("MM"))
+                                ChartTimeRange.YEAR -> time.format(DateTimeFormatter.ofPattern("MM/yy"))
                             }
                         }
                         return ""
                     }
                 }
 
-                // Zoom chart để hiển thị điểm cuối cùng rõ hơn nếu cần
-                chart.setVisibleXRangeMaximum(7f) // Ví dụ chỉ hiện 7 điểm 1 lúc nếu quá nhiều
-                chart.moveViewToX(data.size.toFloat()) // Tự scroll đến điểm mới nhất
+                chart.xAxis.axisMaximum = (data.size - 1).toFloat() + 0.5f // Padding phải
+                chart.xAxis.axisMinimum = -0.5f // Padding trái
+
+                chart.notifyDataSetChanged()
+                chart.invalidate()
             } else {
                 chart.clear()
             }
