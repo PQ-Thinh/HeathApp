@@ -43,13 +43,17 @@ class StepForegroundService : Service() {
     private val LAST_SAVED_DATE_KEY = stringPreferencesKey("last_saved_date")
     private val LAST_SYNCED_STEPS_KEY = intPreferencesKey("last_synced_steps_total")
     private val LAST_SYNC_TIME_KEY = stringPreferencesKey("last_sync_time")
+    private val CURRENT_MODE_KEY = stringPreferencesKey("current_mode")
 
     companion object {
         const val ACTION_START = "ACTION_START"
         const val ACTION_PAUSE = "ACTION_PAUSE"
         const val ACTION_RESUME = "ACTION_RESUME"
         const val ACTION_STOP = "ACTION_STOP"
+        const val ACTION_SWITCH_MODE = "ACTION_SWITCH_MODE"
+        const val EXTRA_MODE = "EXTRA_MODE"
     }
+    private var currentMode = "Chạy Bộ"
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -68,6 +72,25 @@ class StepForegroundService : Service() {
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
+            ACTION_SWITCH_MODE -> {
+                val newMode = intent.getStringExtra(EXTRA_MODE) ?: "Chạy Bộ"
+                currentMode = newMode
+
+                //Lưu vào DataStore để UI cập nhật theo
+                serviceScope.launch {
+                    dataStore.edit { prefs ->
+                        prefs[CURRENT_MODE_KEY] = newMode
+                    }
+                }
+
+                if (newMode == "Chạy Bộ") {
+                    sensorManager.resumeTracking()
+                    updateNotification(isPaused = false)
+                } else {
+                    sensorManager.pauseTracking()
+                    updateNotification(isPaused = true)
+                }
+            }
         }
         return START_STICKY
     }
@@ -85,6 +108,7 @@ class StepForegroundService : Service() {
             val prefs = dataStore.data.first()
             val savedDate = prefs[LAST_SAVED_DATE_KEY] ?: ""
             var startOfDaySteps = prefs[START_OF_DAY_STEPS_KEY] ?: 0
+            currentMode = prefs[CURRENT_MODE_KEY] ?: "Chạy Bộ"
 
             // Sync variables
             var lastSyncedStepsTotal = prefs[LAST_SYNCED_STEPS_KEY] ?: 0
@@ -179,27 +203,59 @@ class StepForegroundService : Service() {
         val openAppIntent = Intent(this, MainActivity::class.java)
         val pendingIntent = PendingIntent.getActivity(this, 0, openAppIntent, PendingIntent.FLAG_IMMUTABLE)
 
-        val actionIntent = Intent(this, StepForegroundService::class.java).apply {
-            action = if (isPaused) ACTION_RESUME else ACTION_PAUSE
-        }
-        val actionPendingIntent = PendingIntent.getService(this, 1, actionIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        // 1. XÁC ĐỊNH ACTION CHO NÚT BẤM
+        val actionIntent = Intent(this, StepForegroundService::class.java)
+        val actionTitle: String
+        val actionIcon: Int
 
-        val actionIcon = R.drawable.ic_launcher_foreground
-        val actionTitle = if (isPaused) "Tiếp tục" else "Tạm dừng"
-        val contentText = if (isPaused) "Đang tạm dừng - $currentSteps bước" else "$currentSteps bước • $currentCalories kcal"
+        if (currentMode == "Chạy Bộ") {
+            // Đang chạy thì Pause/Resume
+            if (isPaused) {
+                actionIntent.action = ACTION_RESUME
+                actionTitle = "Tiếp tục"
+                actionIcon = R.drawable.ic_launcher_foreground // Icon Play
+            } else {
+                actionIntent.action = ACTION_PAUSE
+                actionTitle = "Tạm dừng"
+                actionIcon = R.drawable.ic_launcher_foreground // Icon Pause
+            }
+        } else {
+            // Đang Đạp xe/Leo núi -> Nút bấm để quay lại đi bộ
+            // Gửi action chuyển mode về "Chạy Bộ"
+            actionIntent.action = ACTION_SWITCH_MODE
+            actionIntent.putExtra(EXTRA_MODE, "Chạy Bộ")
+
+            actionTitle = "Chuyển sang Đi bộ"
+            actionIcon = R.drawable.ic_launcher_foreground // Icon Đi bộ
+        }
+
+        val actionPendingIntent = PendingIntent.getService(
+            this,
+            1,
+            actionIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // 2. NỘI DUNG HIỂN THỊ
+        val contentText = if (isPaused) {
+            if (currentMode == "Chạy Bộ") "Đang tạm dừng - $currentSteps bước"
+            else "Đang theo dõi hoạt động khác" // Đạp xe, Leo núi...
+        } else {
+            "$currentSteps bước • $currentCalories kcal"
+        }
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Đếm bước chân")
+            .setContentTitle(currentMode) // Tiêu đề là tên môn thể thao
             .setContentText(contentText)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentIntent(pendingIntent)
             .setOnlyAlertOnce(true)
             .setOngoing(true)
+            // Thêm nút bấm đã được cấu hình ở trên
             .addAction(actionIcon, actionTitle, actionPendingIntent)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
-
     private fun startForegroundServiceCompact() {
         val notification = buildNotification(isPaused = false)
         ServiceCompat.startForeground(

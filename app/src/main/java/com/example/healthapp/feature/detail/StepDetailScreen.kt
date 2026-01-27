@@ -39,6 +39,9 @@ import com.example.healthapp.feature.componets.CustomTopMenu
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
+import android.content.Intent
+import androidx.compose.ui.platform.LocalContext
+import com.example.healthapp.core.service.StepForegroundService
 
 @Composable
 fun StepDetailScreen(
@@ -50,7 +53,7 @@ fun StepDetailScreen(
 ) {
     // Lấy dữ liệu Realtime
     val currentSteps by mainViewModel.realtimeSteps.collectAsState()
-
+    val currentMode by mainViewModel.currentMode.collectAsState()
     // Lấy dữ liệu Chart
     val chartData by stepViewModel.chartData.collectAsState()
     val selectedTimeRange by stepViewModel.selectedTimeRange.collectAsState()
@@ -58,7 +61,7 @@ fun StepDetailScreen(
     // Vì StepViewModel đã nắm giữ userWeight, ta có thể dùng hàm trong đó hoặc tính tại chỗ.
     // Để đơn giản và reactive, ta tính tại UI này bằng hàm của ViewModel
     val currentCalories = stepViewModel.calculateCalories(currentSteps.toLong())
-
+    val context = LocalContext.current
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
     // Animation nền (Giống Sleep)
     val infiniteTransition = rememberInfiniteTransition(label = "background")
@@ -196,14 +199,31 @@ fun StepDetailScreen(
 
                 }
                 item {
-                    Box(modifier = Modifier
-                        .fillMaxWidth()
+                    Text(
+                        "Chế độ luyện tập",
+                        color = colors.textSecondary,
+                        modifier = Modifier.padding(bottom = 8.dp, start = 8.dp)
+                    )
 
-                    ) {
-                        CustomTopMenu(
-                            color = colors.background
-                        )
-                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    CustomTopMenu(
+                        colors = colors,
+                        selectedMode = currentMode, // UI sẽ tự cập nhật khi DataStore thay đổi
+                        onOptionSelected = { selected ->
+                            // Gửi lệnh cho Service
+                            val intent = Intent(context, StepForegroundService::class.java).apply {
+                                action = StepForegroundService.ACTION_SWITCH_MODE
+                                putExtra(StepForegroundService.EXTRA_MODE, selected)
+                            }
+                            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                                context.startForegroundService(intent)
+                            } else {
+                                context.startService(intent)
+                            }
+                        }
+                    )
+                    Spacer(modifier = Modifier.height(80.dp))
 
                 }
             }

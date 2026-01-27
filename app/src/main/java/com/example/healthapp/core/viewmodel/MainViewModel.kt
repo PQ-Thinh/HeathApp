@@ -267,6 +267,15 @@ class MainViewModel @Inject constructor(
     fun setServiceRunningStatus(isRunning: Boolean) {
         _isServiceRunning.value = isRunning
     }
+    val currentMode: StateFlow<String> = dataStore.data
+        .map { preferences ->
+            preferences[stringPreferencesKey("current_mode")] ?: "Chạy Bộ"
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = "Chạy Bộ"
+        )
     // Hàm kiểm tra Service đang chạy
 
 }
