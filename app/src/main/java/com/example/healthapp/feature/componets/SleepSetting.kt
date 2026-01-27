@@ -21,6 +21,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerColors
+import androidx.compose.material3.TimePickerDefaults
+import androidx.compose.material3.TimePickerDefaults.colors
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -30,10 +33,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.healthapp.R
 import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -43,7 +48,7 @@ fun SleepSettingDialog(
     onSave: (startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) -> Unit
 ) {
     val currentTime = Calendar.getInstance()
-
+    val purple: Color = Color(0xFF8B5CF6)
     // State quản lý thời gian
     val timePickerState = rememberTimePickerState(
         initialHour = currentTime.get(Calendar.HOUR_OF_DAY),
@@ -101,6 +106,10 @@ fun SleepSettingDialog(
         if (showDial) {
             TimePicker(
                 state = timePickerState,
+                colors = TimePickerDefaults.colors(
+                   selectorColor = purple
+                )
+
             )
         } else {
             TimeInput(
@@ -153,8 +162,8 @@ fun AdvancedTimePickerDialog(
                 ) {
                     toggle()
                     Spacer(modifier = Modifier.weight(1f))
-                    TextButton(onClick = onDismiss) { Text("Hủy") }
-                    TextButton(onClick = onConfirm) { Text(if (title.contains("ngủ")) "Tiếp tục" else "Lưu") }
+                    TextButton(onClick = onDismiss) { Text("Hủy", color = Color.Black) }
+                    TextButton(onClick = onConfirm) { Text(if (title.contains("ngủ")) "Tiếp tục" else "Lưu", color = Color.Black) }
                 }
             }
         }

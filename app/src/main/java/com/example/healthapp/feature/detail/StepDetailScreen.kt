@@ -35,6 +35,7 @@ import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.feature.chart.StepChart
+import com.example.healthapp.feature.componets.CustomTopMenu
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
@@ -96,7 +97,7 @@ fun StepDetailScreen(
 
         Scaffold(
             containerColor = Color.Transparent,
-            topBar = { HeartTopBar(onBackClick, colors) }
+            topBar = { StepTopBar(onBackClick, colors) }
         ) { paddingValues ->
             LazyColumn(
                 modifier = Modifier.padding(paddingValues).padding(16.dp),
@@ -191,35 +192,52 @@ fun StepDetailScreen(
                         data = chartData,
                         timeRange = selectedTimeRange
                     )
+
+
+                }
+                item {
+                    Box(modifier = Modifier
+                        .fillMaxWidth()
+
+                    ) {
+                        CustomTopMenu(
+                            color = colors.background
+                        )
+                    }
+
                 }
             }
         }
     }
 }
-@Composable
-fun StepTopBar(onBackClick: () -> Unit, colors: AestheticColors) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 8.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onBackClick) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
+    @Composable
+    fun StepTopBar(onBackClick: () -> Unit, colors: AestheticColors) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(horizontal = 8.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(onClick = onBackClick) {
+                Icon(
+                    Icons.Default.ArrowBack,
+                    contentDescription = "Back",
+                    tint = colors.textPrimary
+                )
+            }
+            Text(
+                text = "Bước Đếm",
+                style = TextStyle(
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.textPrimary,
+                    // Giảm bóng đổ ở Light mode để trông sạch hơn
+                    shadow = if (colors.background == DarkAesthetic.background)
+                        Shadow(Color.Black.copy(0.3f), blurRadius = 4f)
+                    else null
+                ),
+                modifier = Modifier.padding(start = 8.dp)
+            )
         }
-        Text(
-            text = "Bước Đếm",
-            style = TextStyle(
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = colors.textPrimary,
-                // Giảm bóng đổ ở Light mode để trông sạch hơn
-                shadow = if (colors.background == DarkAesthetic.background)
-                    Shadow(Color.Black.copy(0.3f), blurRadius = 4f)
-                else null
-            ),
-            modifier = Modifier.padding(start = 8.dp)
-        )
     }
-}
