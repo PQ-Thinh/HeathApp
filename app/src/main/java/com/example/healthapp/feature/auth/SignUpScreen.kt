@@ -9,7 +9,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.text.KeyboardOptions.Companion
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
@@ -36,7 +35,6 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.room.Room
 import androidx.room.Room.databaseBuilder
 import com.example.healthapp.core.model.AppDb
 
@@ -60,9 +58,6 @@ fun SignUpScreen(
         context,
         AppDb::class.java,"app_db"
     ).allowMainThreadQueries().build()
-    var listUser by remember {
-        mutableStateOf(db.healthDao().getUser())
-    }
 
     LaunchedEffect(Unit) {
         if (!isPreview) {
