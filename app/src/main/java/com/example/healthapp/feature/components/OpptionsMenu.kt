@@ -1,4 +1,4 @@
-package com.example.healthapp.feature.componets
+package com.example.healthapp.feature.components
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background

@@ -1,4 +1,4 @@
-package com.example.healthapp.feature.componets
+package com.example.healthapp.feature.components
 
 
 

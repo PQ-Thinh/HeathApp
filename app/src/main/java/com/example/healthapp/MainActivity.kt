@@ -41,13 +41,12 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.ui.platform.LocalContext
 import androidx.health.connect.client.PermissionController
-import com.example.healthapp.feature.componets.HeartRateScreen
+import com.example.healthapp.feature.components.HeartRateScreen
 import com.example.healthapp.feature.detail.HeartDetailScreen
 import com.example.healthapp.feature.home.HeightPickerScreen
 import com.example.healthapp.feature.home.NameScreen
 import com.example.healthapp.feature.home.WeightScreen
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
-import com.google.accompanist.permissions.rememberPermissionState
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
@@ -315,7 +314,33 @@ class MainActivity : ComponentActivity() {
                             onStepDetailClick = {currentScreen = "step_detail"},
                             mainViewModel,
                             userViewModel,
-                            sleepViewModel
+                            sleepViewModel,
+                            stepViewModel,
+                            isServiceRunning = isServiceRunning, // State từ MainActivity
+                            onToggleService = { shouldStart ->
+                                if (shouldStart) {
+                                    // Start Service
+                                    val intent = Intent(
+                                        this@MainActivity,
+                                        StepForegroundService::class.java
+                                    ).apply {
+                                        action = StepForegroundService.ACTION_START
+                                    }
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                        startForegroundService(intent)
+                                    } else {
+                                        startService(intent)
+                                    }
+                                    mainViewModel.setServiceRunningStatus(true)
+                                } else {
+                                    // Stop Service
+                                    val intent = Intent(this@MainActivity, StepForegroundService::class.java).apply {
+                                        action = StepForegroundService.ACTION_STOP
+                                    }
+                                    startService(intent)
+                                    mainViewModel.setServiceRunningStatus(false)
+                                }
+                            }
 
                         )
                         "sleep_detail"-> SleepDetailScreen(
@@ -374,23 +399,7 @@ class MainActivity : ComponentActivity() {
                             isDark
                             ,
                             onChangePassword = { currentScreen = "forgot" },
-                            isServiceRunning = isServiceRunning,
-                            onToggleService = { shouldStart ->
-                                val intent = Intent(context, StepForegroundService::class.java)
-                                if (shouldStart) {
-                                    intent.action = StepForegroundService.ACTION_START
-                                    if (Build.VERSION.SDK_INT >= 26) {
-                                        context.startForegroundService(intent)
-                                    } else {
-                                        context.startService(intent)
-                                    }
-                                    mainViewModel.setServiceRunningStatus(true)
-                                } else {
-                                    intent.action = StepForegroundService.ACTION_STOP
-                                    context.startService(intent)
-                                    mainViewModel.setServiceRunningStatus(false)
-                                }
-                            }
+
                         )
                     }
                 }

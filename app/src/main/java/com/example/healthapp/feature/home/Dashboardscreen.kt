@@ -1,6 +1,9 @@
 package com.example.healthapp.feature.home
 
-import android.widget.Toast
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -36,15 +39,15 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
 import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.SleepViewModel
+import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.core.viewmodel.UserViewModel
-import com.example.healthapp.feature.componets.FabMenu
-import com.example.healthapp.feature.componets.FabMenuDemo
+import com.example.healthapp.feature.components.FabMenu
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
-import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun HealthDashboardScreen(
@@ -58,8 +61,12 @@ fun HealthDashboardScreen(
     onStepDetailClick: () -> Unit = {},
     mainViewModel: MainViewModel,
     userViewModel: UserViewModel,
-    sleepViewModel: SleepViewModel
+    sleepViewModel: SleepViewModel,
+    stepViewModel: StepViewModel,
+    onToggleService: (Boolean) -> Unit = {},
+    isServiceRunning: Boolean = false
 ) {
+    val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
     var isContentVisible by remember { mutableStateOf(isPreview) }
 
@@ -73,14 +80,56 @@ fun HealthDashboardScreen(
     val user by userViewModel.currentUserInfo.collectAsState()
     val duration by sleepViewModel.sleepDuration.collectAsState()
 
+    // --- STATE QUẢN LÝ UI MỚI ---
+    var isFabExpanded by remember { mutableStateOf(false) }
+    var isRunModeActive by remember { mutableStateOf(false) } // Trạng thái màn hình chạy bộ
+
+    // --- PERMISSION LAUNCHER (Quyền Thông báo + Vị trí) ---
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions(),
+        onResult = { permissions ->
+            val notifGranted = permissions[Manifest.permission.POST_NOTIFICATIONS] ?: false
+            val locGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
+
+            // Logic: Cần ít nhất quyền thông báo (trên Android 13+) HOẶC quyền vị trí để chạy tốt
+            // Ở đây mình cho phép chạy nếu có ít nhất 1 trong các quyền quan trọng hoặc Android < 13
+            if (notifGranted || locGranted || (Build.VERSION.SDK_INT < 33)) {
+                isRunModeActive = true
+                onToggleService(true) // Bật service
+            } else {
+                // Xử lý khi từ chối (Optional: Show Dialog)
+            }
+        }
+    )
+
+    // Hàm xử lý khi bấm nút "Chạy bộ" từ FAB
+    fun onRunClick() {
+        val permissionsToRequest = mutableListOf<String>()
+
+        // 1. Quyền thông báo (Android 13+)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+        // 2. Quyền vị trí (Quan trọng cho tracking)
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
+
+        if (permissionsToRequest.isNotEmpty()) {
+            permissionLauncher.launch(permissionsToRequest.toTypedArray())
+        } else {
+            // Đã có đủ quyền -> Chạy luôn
+            isRunModeActive = true
+            onToggleService(true)
+        }
+    }
 
     LaunchedEffect(Unit) {
         if (!isPreview) isContentVisible = true
-
-        //mainViewModel.checkHealthConnectStatus()
     }
 
-    // Matching background animation
+    // Background Animation
     val infiniteTransition = rememberInfiniteTransition(label = "background")
     val floatAnim by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -95,9 +144,9 @@ fun HealthDashboardScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(colors.background) // Màu nền động
+            .background(colors.background)
     ) {
-        // 2. Consistent Dynamic Background
+        // 1. Dynamic Background Canvas
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawCircle(
                 brush = Brush.radialGradient(
@@ -118,6 +167,7 @@ fun HealthDashboardScreen(
             )
         }
 
+        // 2. Main Dashboard Content (Scaffold)
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
@@ -125,19 +175,19 @@ fun HealthDashboardScreen(
                     onProfileClick = onProfileClick,
                     onNotificationsClick = onNotificationsClick,
                     onSettingsClick = onSettingsClick,
-                    colors = colors // Truyền colors vào TopBar
+                    colors = colors
                 )
             }
-        )
-        { paddingValues ->
+        ) { paddingValues ->
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
+                    .padding(paddingValues)
+                    .padding(bottom = 80.dp), // Chừa chỗ cho FAB để không bị che nội dung cuối
                 contentPadding = PaddingValues(24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // 3. Welcome Section
+                // Welcome Section
                 item {
                     AnimatedVisibility(
                         visible = isContentVisible,
@@ -145,11 +195,11 @@ fun HealthDashboardScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Hello, ${user?.name?:"It'me"}!",
+                                text = "Hello, ${user?.name ?: "It's me"}!",
                                 style = TextStyle(
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.Black,
-                                    color = colors.textPrimary, // Màu chữ động
+                                    color = colors.textPrimary,
                                     shadow = if (isDarkTheme) Shadow(Color.Black.copy(0.3f), blurRadius = 8f) else null
                                 )
                             )
@@ -162,104 +212,120 @@ fun HealthDashboardScreen(
                     }
                 }
 
-                // 4. Main Stats Grid
+                // Stats Grid (Tim + Ngủ)
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                       HealthStatCard(
-                            modifier = Modifier.weight(1f)
-                                .clickable { onHeartDetailClick() }
-                                ,
+                        HealthStatCard(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onHeartDetailClick() },
                             title = "Nhịp Tim",
                             value = displayBpm.toString(),
                             unit = "BPM",
                             icon = Icons.Default.Favorite,
-                            accentColor = Color(0xFFEF4444), // Đỏ (Heart) giữ nguyên
+                            accentColor = Color(0xFFEF4444),
                             colors = colors,
                             visible = isContentVisible,
                             delay = 200
                         )
                         HealthStatCard(
-                            modifier = Modifier.weight(1f)
-                                .clickable{ onSleepDetailClick() },
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable { onSleepDetailClick() },
                             title = "Ngủ",
                             value = sleepViewModel.formatDuration(duration),
                             unit = "",
                             icon = Icons.Default.NightsStay,
-                            accentColor = Color(0xFF8B5CF6), // Tím (Sleep) giữ nguyên
+                            accentColor = Color(0xFF8B5CF6),
                             colors = colors,
                             visible = isContentVisible,
                             delay = 300
                         )
-
-
                     }
                 }
+
+                // BMI Card
                 item {
                     HealthStatCard(
                         modifier = Modifier.fillMaxWidth(),
                         title = "BMI",
-                        value = "${user?.bmi?:"non update"}",
+                        value = "${user?.bmi ?: "Updating..."}",
                         unit = "Kg/m²",
                         icon = Icons.Default.MonitorWeight,
-                        accentColor = Color(0xFF8B5CF6), // Tím (Sleep) giữ nguyên
+                        accentColor = Color(0xFF8B5CF6),
                         colors = colors,
                         visible = isContentVisible,
                         delay = 300
                     )
                 }
-                // 5. Large Activity Card
+
+                // Large Step Card
                 item {
                     HealthStatCard(
-                        modifier = Modifier.fillMaxWidth()
-                            .clickable{onStepDetailClick()},
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onStepDetailClick() },
                         title = "Bước Đếm",
                         value = steps.toString(),
                         unit = "steps today",
                         icon = Icons.Default.DirectionsRun,
-                        accentColor = Color(0xFF10B981), // Xanh lá (Steps) giữ nguyên
+                        accentColor = Color(0xFF10B981),
                         colors = colors,
                         visible = isContentVisible,
                         delay = 400,
                         isLarge = true
                     )
                 }
-
-                // 6. Static Chart Placeholder
-//                item {
-//                    AnimatedVisibility(
-//                        visible = isContentVisible,
-//                        enter = fadeIn(tween(800, 500)) + slideInVertically { 40 }
-//                    ) {
-//
-//                            // Gọi Composable Chart vừa tạo
-//                            Box(
-//                                modifier = Modifier
-//                                    .fillMaxWidth()
-//                                    .clip(RoundedCornerShape(24.dp))
-//                                    .background(colors.glassContainer)
-//                                    .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
-//                            ) {
-//                                HeartRateChart(data = weeklyHealth)
-//                            }
-//                    }
-//                }
-                item {
-                    Box(){
-                        Row(verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.End){
-                            FabMenuDemo()
-                        }
-                    }
-
-                }
             }
+        }
+
+        // 3. OVERLAY MỜ (Hiện khi mở Menu)
+        if (isFabExpanded) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.5f)) // Màn tối mờ
+                    .clickable { isFabExpanded = false } // Bấm ra ngoài để đóng
+            )
+        }
+
+        // 4. FAB MENU (Góc dưới phải)
+        FabMenu(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(24.dp),
+            expanded = isFabExpanded,
+            onExpandChange = { isFabExpanded = it },
+            onRunClick = {
+                onRunClick() // Gọi hàm xin quyền và mở màn hình chạy
+                isFabExpanded = false // Đóng menu sau khi chọn
+            },
+            colors = colors
+        )
+
+        // 5. RUN TRACKING SCREEN (Lớp phủ trên cùng)
+        AnimatedVisibility(
+            visible = isRunModeActive,
+            enter = slideInVertically(initialOffsetY = { it }), // Trượt từ dưới lên
+            exit = slideOutVertically(targetOffsetY = { it })   // Trượt xuống khi đóng
+        ) {
+            // Đảm bảo bạn đã tạo file RunTrackingScreen.kt như hướng dẫn trước
+            RunTrackingScreen(
+               stepViewModel = stepViewModel,
+                onClose = { isRunModeActive = false },
+                onToggleService = onToggleService,
+                isServiceRunning = isServiceRunning,
+                colors = colors,
+                mainViewModel = mainViewModel
+            )
         }
     }
 }
 
+// ... (Giữ nguyên các hàm DashboardTopBar và HealthStatCard như cũ)
 @Composable
 fun DashboardTopBar(
     onProfileClick: () -> Unit,
@@ -274,7 +340,6 @@ fun DashboardTopBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Nút Settings bên trái
         IconButton(
             onClick = onSettingsClick,
             modifier = Modifier.background(colors.glassContainer, CircleShape)
@@ -286,29 +351,17 @@ fun DashboardTopBar(
             IconButton(onClick = onNotificationsClick) {
                 Icon(Icons.Default.Notifications, null, tint = colors.textPrimary)
             }
-
             Spacer(modifier = Modifier.width(8.dp))
-
-            // Avatar Profile bên phải
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(
-                        Brush.linearGradient(
-                            listOf(colors.gradientOrb1, colors.gradientOrb2)
-                        )
-                    )
+                    .background(Brush.linearGradient(listOf(colors.gradientOrb1, colors.gradientOrb2)))
                     .border(1.dp, colors.glassBorder, CircleShape)
-                    .clickable { onProfileClick() }, // Thêm sự kiện click
+                    .clickable { onProfileClick() },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.Person,
-                    contentDescription = "Profile",
-                    tint = Color.White, // Icon avatar luôn trắng để nổi trên nền gradient
-                    modifier = Modifier.size(24.dp)
-                )
+                Icon(Icons.Default.Person, contentDescription = "Profile", tint = Color.White, modifier = Modifier.size(24.dp))
             }
         }
     }
@@ -321,64 +374,41 @@ fun HealthStatCard(
     value: String,
     unit: String,
     icon: ImageVector,
-    accentColor: Color, // Màu riêng của từng loại chỉ số (Tim, Ngủ, Bước chân)
-    colors: AestheticColors, // Màu chung của theme
+    accentColor: Color,
+    colors: AestheticColors,
     visible: Boolean,
     delay: Int,
     isLarge: Boolean = false
 ) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(800, delay)) + scaleIn(
-            initialScale = 0.9f,
-            animationSpec = tween(800, delay)
-        ),
+        enter = fadeIn(tween(800, delay)) + scaleIn(initialScale = 0.9f, animationSpec = tween(800, delay)),
         modifier = modifier
     ) {
         Column(
             modifier = Modifier
                 .clip(RoundedCornerShape(32.dp))
-                .background(colors.glassContainer) // Kính mờ
+                .background(colors.glassContainer)
                 .border(1.dp, colors.glassBorder, RoundedCornerShape(32.dp))
                 .padding(24.dp)
         ) {
             Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = accentColor, // Giữ màu đặc trưng (Đỏ/Tím/Xanh)
+                imageVector = icon, contentDescription = null, tint = accentColor,
                 modifier = Modifier.size(if (isLarge) 32.dp else 24.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(title, color = colors.textSecondary, fontSize = 14.sp)
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = value,
-                    color = colors.textPrimary,
-                    fontSize = if (isLarge) 42.sp else 28.sp,
-                    fontWeight = FontWeight.Black
+                    text = value, color = colors.textPrimary,
+                    fontSize = if (isLarge) 42.sp else 28.sp, fontWeight = FontWeight.Black
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = unit,
-                    color = accentColor.copy(alpha = 0.8f),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 6.dp)
+                    text = unit, color = accentColor.copy(alpha = 0.8f), fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp)
                 )
             }
         }
     }
 }
-
-//
-//@Preview(name = "Dark Dashboard")
-//@Composable
-//fun HealthDashboardDarkPreview() {
-//    HealthDashboardScreen(isDarkTheme = true)
-//}
-//
-//@Preview(name = "Light Dashboard")
-//@Composable
-//fun HealthDashboardLightPreview() {
-//    HealthDashboardScreen(isDarkTheme = false)
-//}

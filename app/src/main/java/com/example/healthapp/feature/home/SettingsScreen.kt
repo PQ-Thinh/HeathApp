@@ -45,13 +45,14 @@ fun SettingsScreen(
     onThemeChanged: (Boolean) -> Unit,
     isDarkTheme: Boolean,
     onChangePassword: () -> Unit = {},
-    isServiceRunning: Boolean,
-    onToggleService: (Boolean) -> Unit
+//    isServiceRunning: Boolean,
+//    onToggleService: (Boolean) -> Unit
 
 ) {
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
     var isVisible by remember { mutableStateOf(isPreview) }
+    var isServiceRunning by remember { mutableStateOf(false) }
 
     // State for demo purposes
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -124,20 +125,7 @@ fun SettingsScreen(
                             icon = Icons.Default.NotificationsActive,
                             title = "Đếm bước chạy nền", // Đổi tên cho sát nghĩa
                             checked = isServiceRunning,  // Dùng state từ bên ngoài
-                            onCheckedChange = { shouldEnable ->
-                                if (shouldEnable) {
-                                    // Logic xin quyền khi BẬT
-                                    if (Build.VERSION.SDK_INT >= 33 &&
-                                        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-                                    ) {
-                                        permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                                    } else {
-                                        onToggleService(true)
-                                    }
-                                } else {
-                                    // Tắt service
-                                    onToggleService(false)
-                                }
+                            onCheckedChange = { isServiceRunning = it
                             },
                             colors = colors
                         )
