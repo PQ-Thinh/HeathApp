@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,6 +39,8 @@ import androidx.compose.ui.unit.sp
 import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.SleepViewModel
 import com.example.healthapp.core.viewmodel.UserViewModel
+import com.example.healthapp.feature.componets.FabMenu
+import com.example.healthapp.feature.componets.FabMenuDemo
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
@@ -243,6 +246,15 @@ fun HealthDashboardScreen(
 //                            }
 //                    }
 //                }
+                item {
+                    Box(){
+                        Row(verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.End){
+                            FabMenuDemo()
+                        }
+                    }
+
+                }
             }
         }
     }
