@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.time.LocalDateTime
 import javax.inject.Inject
 
 @HiltViewModel
@@ -33,6 +34,10 @@ class StepViewModel @Inject constructor(
     private val _selectedTimeRange = MutableStateFlow(ChartTimeRange.WEEK)
     val selectedTimeRange = _selectedTimeRange.asStateFlow()
 
+    private var _startSessionSteps = 0 // Số bước tại thời điểm bấm Start
+    private val _sessionSteps = MutableStateFlow(0) // Số bước chạy được trong phiên
+    val sessionSteps = _sessionSteps.asStateFlow()
+    private val _sessionStartTime = MutableStateFlow<LocalDateTime?>(null)
     // Cân nặng user (Mặc định 70kg nếu chưa set)
     private var userWeight: Float = 70f
     private val CURRENT_USER_EMAIL_KEY = stringPreferencesKey("current_user_email")
@@ -68,7 +73,21 @@ class StepViewModel @Inject constructor(
             _chartData.value = data
         }
     }
+    // Gọi hàm này khi màn hình RunTracking mở lên
+    fun startRunSession(currentTotalSteps: Int) {
+        _startSessionSteps = currentTotalSteps
+        _sessionSteps.value = 0
+        _sessionStartTime.value = LocalDateTime.now()
+    }
 
+    // Gọi hàm này liên tục khi sensor cập nhật
+    fun updateSessionSteps(currentTotalSteps: Int) {
+        // Nếu sensor reset (ví dụ reboot máy), cần reset mốc start
+        if (currentTotalSteps < _startSessionSteps) {
+            _startSessionSteps = 0
+        }
+        _sessionSteps.value = (currentTotalSteps - _startSessionSteps).coerceAtLeast(0)
+    }
     // Công thức tính Calories cho Chart: 0.04 * steps * weight / 70
     fun calculateCalories(steps: Long): Int {
         return (0.04 * steps * userWeight / 70).toInt()

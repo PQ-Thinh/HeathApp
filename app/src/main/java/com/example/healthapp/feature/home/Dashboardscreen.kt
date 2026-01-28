@@ -45,6 +45,7 @@ import com.example.healthapp.core.viewmodel.SleepViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.core.viewmodel.UserViewModel
 import com.example.healthapp.feature.components.FabMenu
+import com.example.healthapp.feature.detail.StepRunDetail
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
@@ -83,6 +84,11 @@ fun HealthDashboardScreen(
     // --- STATE QUẢN LÝ UI MỚI ---
     var isFabExpanded by remember { mutableStateOf(false) }
     var isRunModeActive by remember { mutableStateOf(false) } // Trạng thái màn hình chạy bộ
+
+    var showResultScreen by remember { mutableStateOf(false) }
+    var resultSteps by remember { mutableIntStateOf(0) }
+    var resultCalories by remember { mutableIntStateOf(0) }
+    var resultTime by remember { mutableLongStateOf(0L) }
 
     // --- PERMISSION LAUNCHER (Quyền Thông báo + Vị trí) ---
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -318,7 +324,26 @@ fun HealthDashboardScreen(
                 onToggleService = onToggleService,
                 isServiceRunning = isServiceRunning,
                 colors = colors,
-                mainViewModel = mainViewModel
+                mainViewModel = mainViewModel,
+                onFinishRun = { s, c, t ->
+                    resultSteps = s
+                    resultCalories = c
+                    resultTime = t
+                    showResultScreen = true
+                },
+            )
+        }
+        AnimatedVisibility(
+            visible = showResultScreen,
+            enter = fadeIn() + scaleIn(),
+            exit = fadeOut() + scaleOut()
+        ) {
+            StepRunDetail(
+                steps = resultSteps,
+                calories = resultCalories,
+                timeSeconds = resultTime,
+                onBackClick = { showResultScreen = false },
+                colors = colors
             )
         }
     }
