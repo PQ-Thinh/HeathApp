@@ -57,9 +57,9 @@ fun SettingsScreen(
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
-            if (isGranted) {
-                onToggleService(true) // Có quyền -> Bật service
-            }
+//            if (isGranted) {
+//                onToggleService(true) // Có quyền -> Bật service
+//            }
         }
     )
     var biometricEnabled by remember { mutableStateOf(false) }

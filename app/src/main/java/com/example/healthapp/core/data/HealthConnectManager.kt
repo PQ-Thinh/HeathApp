@@ -111,6 +111,7 @@ class HealthConnectManager(private val context: Context) {
             return response.map { bucket ->
                 StepBucket(
                     startTime = bucket.startTime,
+                    endTime = bucket.endTime,
                     totalSteps = bucket.result[StepsRecord.COUNT_TOTAL] ?: 0
                 )
             }.filter { it.totalSteps > 0 } // Chỉ lấy ngày nào có đi bộ
@@ -241,11 +242,12 @@ class HealthConnectManager(private val context: Context) {
 
     suspend fun writeSleepSession(start: LocalDateTime, end: LocalDateTime) {
         try {
+            val zoneOffset = ZoneId.systemDefault().rules.getOffset(start)
             val record = SleepSessionRecord(
-                startTime = start.toInstant(ZoneOffset.UTC),
-                startZoneOffset = ZoneOffset.UTC,
-                endTime = end.toInstant(ZoneOffset.UTC),
-                endZoneOffset = ZoneOffset.UTC,
+                startTime = start.toInstant(zoneOffset),
+                startZoneOffset = zoneOffset,
+                endTime = end.toInstant(zoneOffset),
+                endZoneOffset = zoneOffset,
                 metadata = Metadata.manualEntry()
             )
             healthConnectClient.insertRecords(listOf(record))
@@ -297,5 +299,6 @@ data class SleepBucket(
 )
 data class StepBucket(
     val startTime: LocalDateTime,
+    val endTime: LocalDateTime,
     val totalSteps: Long
 )

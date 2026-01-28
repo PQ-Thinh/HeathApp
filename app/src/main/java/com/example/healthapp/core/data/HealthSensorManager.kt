@@ -51,54 +51,49 @@ class HealthSensorManager @Inject constructor(
             private val alpha = 0.8f
 
             override fun onSensorChanged(event: SensorEvent?) {
-                if (!_isPaused && event != null) {
-                    trySend(event.values[0].toInt())
-                }
-                event?.let {
+                // Kiểm tra biến Paused ngay đầu. Nếu đang Pause thì KHÔNG LÀM GÌ CẢ.
+                if (_isPaused || event == null) return
+                Log.d("HealthSensor", "Sensor Changed $_isPaused")
+
+                event.let {
+                    // TRƯỜNG HỢP 1: Máy có sẵn cảm biến đếm bước (Hardware Step Counter)
                     if (it.sensor.type == Sensor.TYPE_STEP_COUNTER) {
-                        //có sẵn cảm biến đếm
                         val totalSteps = it.values[0].toInt()
+                        // Chỉ gửi khi là dữ liệu bước chân thực sự
                         trySend(totalSteps)
-                        Log.d("HealthSensor", "Nhận dữ liệu từ Cảm biến gốc: $totalSteps")
-                    } else
-                    if (it.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+                        Log.d("HealthSensor", "Hardware Step: $totalSteps")
+                    }
+
+                    // TRƯỜNG HỢP 2: Dùng gia tốc kế (Accelerometer) để tự tính
+                    else if (it.sensor.type == Sensor.TYPE_ACCELEROMETER) {
                         val xRaw = it.values[0]
                         val yRaw = it.values[1]
                         val zRaw = it.values[2]
 
-                        // --- BƯỚC 1: Lọc bỏ trọng lực (Gravity Filter) ---
-                        // Mục đích: Chỉ lấy gia tốc thực sự do di chuyển tạo ra (Linear Acceleration)
+                        // Lọc trọng lực
                         gravity[0] = alpha * gravity[0] + (1 - alpha) * xRaw
                         gravity[1] = alpha * gravity[1] + (1 - alpha) * yRaw
                         gravity[2] = alpha * gravity[2] + (1 - alpha) * zRaw
 
+                        val x = xRaw - gravity[0]
+                        val y = yRaw - gravity[1]
+                        val z = zRaw - gravity[2]
 
-
-
-                        val magnitudeOld = sqrt((xRaw * xRaw + yRaw * yRaw + zRaw * zRaw).toDouble()).toFloat()
-
-                        //  Kiểm tra điều kiện đếm bước ---
-                        // Lấy thời gian hiện tại
+                        val magnitudeOld = sqrt((x * x + y * y + z * z).toDouble()).toFloat()
                         val currentTimeNs = System.nanoTime()
 
-                        // Quy tắc A: Độ lớn phải vượt ngưỡng (lực dậm chân)
-                        // Quy tắc B: Phải cách bước trước ít nhất 350ms ( ~3 bước/giây là max của con người)
-                        // 350ms = 350_000_000 nanoseconds
-                        val minTimeBetweenSteps = 350_000_000
+                        val minTimeBetweenSteps = 350_000_000 // 350ms
 
-                        if (magnitudeOld > threshold &&
-                            (currentTimeNs - lastStepTimeNs) > minTimeBetweenSteps) {
-
+                        // Kiểm tra ngưỡng rung lắc
+                        if (magnitudeOld > threshold && (currentTimeNs - lastStepTimeNs) > minTimeBetweenSteps) {
                             steps++
-                            lastStepTimeNs = currentTimeNs // Cập nhật thời gian bước vừa đi
-
-                            Log.d("HealthSensor", "Phát hiện bước chân: $steps (Lực: $magnitudeOld)")
+                            lastStepTimeNs = currentTimeNs
+                            Log.d("HealthSensor", "Software Step: $steps (Lực: $magnitudeOld)")
                             trySend(steps)
                         }
                     }
                 }
             }
-
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
         }
         try {

@@ -1,15 +1,24 @@
 package com.example.healthapp.core.data.responsitory
 
 import android.util.Log
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.healthapp.core.data.HealthConnectManager
 import com.example.healthapp.core.data.HeartRateBucket
 import com.example.healthapp.core.data.SleepBucket
 import com.example.healthapp.core.data.StepBucket
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
+import com.example.healthapp.core.viewmodel.StepViewModel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.Period
@@ -17,8 +26,11 @@ import javax.inject.Inject
 
 class HealthRepository @Inject constructor(
     private val healthDao: HealthDao,
-    private val healthConnectManager: HealthConnectManager
+    private val healthConnectManager: HealthConnectManager,
+    private val dataStore: DataStore<Preferences>
 ) {
+    private val CURRENT_USER_EMAIL_KEY = stringPreferencesKey("current_user_email")
+
     // Lấy dữ liệu để hiển thị lên UI (Luôn lấy từ Local Cache cho nhanh)
     fun getDailyHealth(date: String, userId: Int): Flow<DailyHealthEntity?> {
         return healthDao.getDailyHealth(date, userId)
@@ -122,17 +134,17 @@ class HealthRepository @Inject constructor(
             healthDao.updateSleepDuration(today, userId, durationMinutes)
         }
     }
-    // Thêm hàm này
+    // Lấy dữ liệu giấc ngủ
     suspend fun getSleepChartData(range: ChartTimeRange): List<SleepBucket> {
-        val now = LocalDateTime.now()
-        val end = now.toLocalDate().plusDays(1).atStartOfDay()
+        val today = LocalDate.now()
+        val end = today.plusDays(1).atStartOfDay()
 
         // Xác định thời gian bắt đầu (Start)
         val start = when (range) {
-            ChartTimeRange.WEEK -> now.minusDays(6) // 7 ngày gần nhất
-            ChartTimeRange.MONTH -> now.minusDays(30)
-            ChartTimeRange.YEAR -> now.minusYears(1).withDayOfMonth(1) // Lấy từ tháng này năm ngoái
-            else -> now.minusDays(6)
+            ChartTimeRange.WEEK -> today.minusDays(6).atStartOfDay() // 7 ngày gần nhất
+            ChartTimeRange.MONTH -> today.minusDays(30).atStartOfDay()
+            ChartTimeRange.YEAR -> today.minusYears(1).withDayOfMonth(1).atStartOfDay() // Lấy từ tháng này năm ngoái
+            else -> today.minusDays(6).atStartOfDay()
         }
 
         // Xác định lát cắt (Slicer)
@@ -175,23 +187,72 @@ class HealthRepository @Inject constructor(
 
     // Hàm lấy dữ liệu chart bước chân
     suspend fun getStepChartData(range: ChartTimeRange): List<StepBucket> {
+        // Lấy dữ liệu gốc từ Health Connect (Thường bị trễ 15p so với thực tế)
         val now = LocalDateTime.now()
-        //Lấy hết ngày hôm nay
         val end = now.toLocalDate().plusDays(1).atStartOfDay()
         val start = when (range) {
-            ChartTimeRange.WEEK -> LocalDate.now().minusDays(6).atStartOfDay() // 00:00 6 ngày trước
+            ChartTimeRange.WEEK -> LocalDate.now().minusDays(6).atStartOfDay()
             ChartTimeRange.MONTH -> LocalDate.now().minusDays(30).atStartOfDay()
             ChartTimeRange.YEAR -> LocalDate.now().minusYears(1).withDayOfMonth(1).atStartOfDay()
-            else -> LocalDate.now().minusDays(6).atStartOfDay()
+            else -> LocalDate.now().minusDays(6).atStartOfDay() // Default WEEK
         }
 
-        val period = if (range == ChartTimeRange.YEAR) {
-            Period.ofMonths(1)
-        } else {
-            Period.ofDays(1)
+        val period = if (range == ChartTimeRange.YEAR) Period.ofMonths(1) else Period.ofDays(1)
+
+        // Lấy list từ Health Connect (Đây là list Mutable để có thể sửa đổi)
+        // Lưu ý: Nếu hàm readStepChartData trả về List tĩnh, bạn cần .toMutableList()
+        val hcDataList = healthConnectManager.readStepChartData(start, end, period).toMutableList()
+
+        //"Vá" dữ liệu ngày hôm nay từ Room (Real-time)
+        // Chỉ cần xử lý nếu Range không phải là YEAR (vì YEAR gom theo tháng)
+        if (range != ChartTimeRange.YEAR) {
+            val todayStr = LocalDate.now().toString()
+
+            // Lấy User hiện tại (Cần đảm bảo bạn có userId, có thể truyền vào hàm hoặc lấy từ session)
+            // Giả sử lấy user mặc định hoặc truyền userId vào hàm này
+            val currentUserInfo = dataStore.data
+                .map { prefs -> prefs[CURRENT_USER_EMAIL_KEY] }
+                .flatMapLatest { email ->
+                    if (email != null) healthDao.getUserFlowByEmail(email) else flowOf(null)
+                }
+            val currentUser = currentUserInfo.filterNotNull().first()
+            val userId = currentUser?.id?:1
+
+            // Lấy số bước real-time từ Room
+            val localTodayData = healthDao.getDailyHealth(todayStr, userId).firstOrNull()
+            val realTimeSteps = localTodayData?.steps ?: 0
+
+            // Tìm xem trong list Health Connect đã có bucket của ngày hôm nay chưa
+            val todayIndex = hcDataList.indexOfFirst {
+                it.startTime.toLocalDate().isEqual(LocalDate.now())
+            }
+
+            if (todayIndex != -1) {
+                // Trường hợp 1: Đã có bucket hôm nay -> Ghi đè bằng số bước từ Room (lớn hơn hoặc bằng)
+                val currentBucket = hcDataList[todayIndex]
+                if (realTimeSteps > currentBucket.totalSteps) {
+                    // Tạo bucket mới với số bước real-time
+                    hcDataList[todayIndex] = StepBucket(
+                        startTime = currentBucket.startTime,
+                        endTime = currentBucket.endTime,
+                        totalSteps = realTimeSteps.toLong() // Ép kiểu về Long nếu model yêu cầu
+                    )
+                }
+            } else {
+                // Trường hợp 2: Health Connect chưa có dữ liệu hôm nay (VD: Mới cài app, chưa sync lần nào)
+                // Tự tạo bucket giả cho ngày hôm nay để hiển thị
+                if (realTimeSteps > 0) {
+                    hcDataList.add(StepBucket(
+                        startTime = LocalDate.now().atStartOfDay(), // 00:00 hôm nay
+                        endTime = now,
+                        totalSteps = realTimeSteps.toLong()
+                    ))
+                }
+            }
         }
 
-        return healthConnectManager.readStepChartData(start, end, period)
+        // Sắp xếp lại theo thời gian cho chắc chắn
+        return hcDataList.sortedBy { it.startTime }
     }
 }
 enum class ChartTimeRange { DAY, WEEK, MONTH, YEAR}

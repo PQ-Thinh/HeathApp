@@ -14,6 +14,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -32,6 +35,12 @@ class StepViewModel @Inject constructor(
 
     // Cân nặng user (Mặc định 70kg nếu chưa set)
     private var userWeight: Float = 70f
+    private val CURRENT_USER_EMAIL_KEY = stringPreferencesKey("current_user_email")
+    val currentUserInfo = dataStore.data
+        .map { prefs -> prefs[CURRENT_USER_EMAIL_KEY] }
+        .flatMapLatest { email ->
+            if (email != null) healthDao.getUserFlowByEmail(email) else flowOf(null)
+        }
 
     init {
         loadUserProfile()
