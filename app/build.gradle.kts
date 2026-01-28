@@ -97,4 +97,10 @@ dependencies {
     implementation("io.reactivex.rxjava2:rxandroid:2.1.1")
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     implementation("org.osmdroid:osmdroid-android:6.1.18")
+    // Import Firebase BoM (Bill of Materials) để tự quản lý version các thư viện con
+    implementation(platform(libs.firebase.bom))
+
+    // Thêm Auth và Firestore (Không cần ghi version vì BoM đã lo)
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
 }
