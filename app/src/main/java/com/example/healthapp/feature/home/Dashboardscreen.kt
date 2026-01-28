@@ -312,7 +312,6 @@ fun HealthDashboardScreen(
             enter = slideInVertically(initialOffsetY = { it }), // Trượt từ dưới lên
             exit = slideOutVertically(targetOffsetY = { it })   // Trượt xuống khi đóng
         ) {
-            // Đảm bảo bạn đã tạo file RunTrackingScreen.kt như hướng dẫn trước
             RunTrackingScreen(
                stepViewModel = stepViewModel,
                 onClose = { isRunModeActive = false },

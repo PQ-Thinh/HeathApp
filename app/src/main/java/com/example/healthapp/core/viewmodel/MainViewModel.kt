@@ -1,9 +1,7 @@
 package com.example.healthapp.core.viewmodel
 
-import android.app.ActivityManager
-import android.content.Context
+
 import android.util.Log
-import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
