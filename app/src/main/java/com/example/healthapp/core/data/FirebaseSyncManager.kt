@@ -5,6 +5,7 @@ import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
 import com.example.healthapp.core.model.entity.InvitationEntity
 import com.example.healthapp.core.model.entity.NotificationEntity
+import com.example.healthapp.core.model.entity.SleepSessionEntity
 import com.example.healthapp.core.model.entity.UserEntity
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -33,13 +34,13 @@ class FirebaseSyncManager @Inject constructor(
                 healthDao.saveUser(user.copy(id = uid))
             }
 
-            // B. Sức khỏe
+            // Sức khỏe
             val healthDocs = firestore.collection("users").document(uid)
                 .collection("daily_health").get().await()
             val listHealth = healthDocs.toObjects(DailyHealthEntity::class.java)
             listHealth.forEach { healthDao.insertOrUpdateDailyHealth(it) }
 
-            // [MỚI] C. Kéo Thông báo cũ về
+            // Kéo Thông báo cũ về
             val notifDocs = firestore.collection("users").document(uid)
                 .collection("notifications").get().await()
             val listNotifs = notifDocs.toObjects(NotificationEntity::class.java)
@@ -54,7 +55,7 @@ class FirebaseSyncManager @Inject constructor(
         }
     }
 
-    // 2. Đẩy dữ liệu Profile
+    // Đẩy dữ liệu Profile
     suspend fun pushUserProfile(user: UserEntity) {
         try {
             firestore.collection("users").document(user.id)
@@ -64,7 +65,7 @@ class FirebaseSyncManager @Inject constructor(
         }
     }
 
-    // 3. Đẩy dữ liệu Sức khỏe
+    // Đẩy dữ liệu Sức khỏe
     suspend fun pushDailyHealth(data: DailyHealthEntity) {
         try {
             firestore.collection("users").document(data.userId)
@@ -74,8 +75,22 @@ class FirebaseSyncManager @Inject constructor(
             Log.e("Sync", "Lỗi pushDailyHealth: ${e.message}")
         }
     }
+    // Hàm đẩy 1 bản ghi Sleep Session (hoặc Stage) lên Firebase
+    suspend fun pushSleepSession(sleepSession: SleepSessionEntity) {
+        try {
+            // Lưu vào: users/{uid}/sleep_sessions/{id_random}
+            firestore.collection("users").document(sleepSession.userId)
+                .collection("sleep_sessions")
+                .document(sleepSession.id) // Dùng ID của entity làm ID document
+                .set(sleepSession, SetOptions.merge())
 
-    // [MỚI] 4. Đẩy Thông báo lên Cloud (Backup)
+            Log.d("Sync", "Đã đẩy SleepSession: ${sleepSession.type} - ${sleepSession.startTime}")
+        } catch (e: Exception) {
+            Log.e("Sync", "Lỗi pushSleepSession: ${e.message}")
+        }
+    }
+
+    // Đẩy Thông báo lên Cloud (Backup)
     suspend fun pushNotification(uid: String, notification: NotificationEntity) {
         try {
             // Lưu vào sub-collection "notifications" của user đó
@@ -87,7 +102,7 @@ class FirebaseSyncManager @Inject constructor(
         }
     }
 
-    // 5. Gửi lời mời kết bạn
+    //  Gửi lời mời kết bạn
     suspend fun sendInvitation(senderUid: String, senderName: String, receiverEmail: String): Boolean {
         return try {
             val querySnapshot = firestore.collection("users")

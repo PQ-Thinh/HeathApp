@@ -1,180 +1,263 @@
-package com.example.healthapp.feature.detail
+package com.example.healthapp.feature.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.EditCalendar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.TimeInput
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.TimePickerColors
-import androidx.compose.material3.TimePickerDefaults
-import androidx.compose.material3.TimePickerDefaults.colors
-import androidx.compose.material3.rememberTimePickerState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.example.healthapp.R
-import java.util.Calendar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SleepSettingDialog(
     onDismiss: () -> Unit,
+    // Callback trả về 4 giá trị để ViewModel xử lý
     onSave: (startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) -> Unit
 ) {
-    val currentTime = Calendar.getInstance()
-    val purple: Color = Color(0xFF8B5CF6)
-    // State quản lý thời gian
+    // 1. Khởi tạo giá trị mặc định (Ví dụ: 22:00 đi ngủ, 07:00 dậy)
+    var startHour by remember { mutableIntStateOf(22) }
+    var startMinute by remember { mutableIntStateOf(0) }
+    var endHour by remember { mutableIntStateOf(7) }
+    var endMinute by remember { mutableIntStateOf(0) }
+
+    // 2. State quản lý việc hiện TimePicker
+    var showTimePicker by remember { mutableStateOf(false) }
+    var isEditingStartTime by remember { mutableStateOf(true) } // True: Sửa giờ ngủ, False: Sửa giờ dậy
+
     val timePickerState = rememberTimePickerState(
-        initialHour = currentTime.get(Calendar.HOUR_OF_DAY),
-        initialMinute = currentTime.get(Calendar.MINUTE),
-        is24Hour = true,
+        initialHour = if (isEditingStartTime) startHour else endHour,
+        initialMinute = if (isEditingStartTime) startMinute else endMinute,
+        is24Hour = true
     )
 
-    // State quản lý luồng: True = Đang chọn giờ ngủ, False = Đang chọn giờ dậy
-    var isPickingStartTime by remember { mutableStateOf(true) }
-
-    // Biến tạm để lưu giờ ngủ sau khi chọn xong bước 1
-    var tempStartHour by remember { mutableIntStateOf(0) }
-    var tempStartMinute by remember { mutableIntStateOf(0) }
-
-    /** Determines whether the time picker is dial or input */
-    var showDial by remember { mutableStateOf(true) }
-
-    val toggleIcon = if (showDial) {
-        Icons.Filled.EditCalendar
-    } else {
-        Icons.Filled.AccessTime
-    }
-
-    // Tiêu đề thay đổi theo bước
-    val dialogTitle = if (isPickingStartTime) "Bạn bắt đầu ngủ lúc mấy giờ?" else "Bạn thức dậy lúc mấy giờ?"
-
-    AdvancedTimePickerDialog(
-        title = dialogTitle,
-        onDismiss = { onDismiss() },
-        onConfirm = {
-            if (isPickingStartTime) {
-                // Xong bước 1: Lưu giờ ngủ tạm thời -> Chuyển sang bước 2
-                tempStartHour = timePickerState.hour
-                tempStartMinute = timePickerState.minute
-                isPickingStartTime = false
+    // Reset state picker khi chuyển đổi giữa giờ ngủ/dậy
+    LaunchedEffect(showTimePicker) {
+        if (showTimePicker) {
+            if (isEditingStartTime) {
+                timePickerState.hour = startHour
+                timePickerState.minute = startMinute
             } else {
-                // Xong bước 2: Gọi callback trả về cả 4 giá trị
-                onSave(
-                    tempStartHour,
-                    tempStartMinute,
-                    timePickerState.hour,
-                    timePickerState.minute
-                )
+                timePickerState.hour = endHour
+                timePickerState.minute = endMinute
             }
-        },
-        toggle = {
-            IconButton(onClick = { showDial = !showDial }) {
-                Icon(
-                    imageVector = toggleIcon,
-                    contentDescription = "Time picker type toggle",
-                )
-            }
-        },
-    ) {
-        if (showDial) {
-            TimePicker(
-                state = timePickerState,
-                colors = TimePickerDefaults.colors(
-                   selectorColor = purple
-                )
-
-            )
-        } else {
-            TimeInput(
-                state = timePickerState,
-            )
         }
     }
-}
 
-@Composable
-fun AdvancedTimePickerDialog(
-    title: String = "Select Time",
-    onDismiss: () -> Unit,
-    onConfirm: () -> Unit,
-    toggle: @Composable () -> Unit = {},
-    content: @Composable () -> Unit,
-) {
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
             shape = MaterialTheme.shapes.extraLarge,
             tonalElevation = 6.dp,
-            modifier =
-                Modifier
-                    .width(IntrinsicSize.Min)
-                    .height(IntrinsicSize.Min)
-                    .background(
-                        shape = MaterialTheme.shapes.extraLarge,
-                        color = MaterialTheme.colorScheme.surface
-                    ),
+            modifier = Modifier
+                //.width(IntrinsicSize.Min)
+                .size(330.dp)
+                //.padding(8.dp)
+                .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.extraLarge)
+                .padding(8.dp)
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(6.dp)
+            ) {
+                Text(
+                    "Thiết lập giấc ngủ",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // --- Hàng 1: Giờ đi ngủ ---
+                TimeDisplayRow(
+                    label = "Đi ngủ",
+                    hour = startHour,
+                    minute = startMinute,
+                    icon = Icons.Default.Bedtime,
+                    iconColor = Color(0xFF6366F1), // Màu tím/indigo
+                    onClick = {
+                        isEditingStartTime = true
+                        showTimePicker = true
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // --- Hàng 2: Giờ thức dậy ---
+                TimeDisplayRow(
+                    label = "Thức dậy",
+                    hour = endHour,
+                    minute = endMinute,
+                    icon = Icons.Default.WbSunny,
+                    iconColor = Color(0xFFF59E0B), // Màu vàng cam
+                    onClick = {
+                        isEditingStartTime = false
+                        showTimePicker = true
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // --- Tính tổng thời gian ngủ dự kiến ---
+                val durationText = calculateDuration(startHour, startMinute, endHour, endMinute)
+                Text(
+                    text = "Tổng thời gian: $durationText",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // --- Buttons ---
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Hủy")
+                    }
+                    Button(
+                        onClick = { onSave(startHour, startMinute, endHour, endMinute) },
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Text("Lưu")
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Dialog con: Time Picker (chỉ hiện khi showTimePicker = true) ---
+    if (showTimePicker) {
+        AdvancedTimePickerDialog(
+            title = if (isEditingStartTime) "Chọn giờ đi ngủ" else "Chọn giờ thức dậy",
+            onDismiss = { showTimePicker = false },
+            onConfirm = {
+                if (isEditingStartTime) {
+                    startHour = timePickerState.hour
+                    startMinute = timePickerState.minute
+                } else {
+                    endHour = timePickerState.hour
+                    endMinute = timePickerState.minute
+                }
+                showTimePicker = false
+            }
+        ) {
+            TimePicker(state = timePickerState)
+        }
+    }
+}
+
+// Component hiển thị 1 dòng thời gian (Icon + Text + Time)
+@Composable
+fun TimeDisplayRow(
+    label: String,
+    hour: Int,
+    minute: Int,
+    icon: ImageVector,
+    iconColor: Color,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(24.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        // Hiển thị giờ định dạng HH:mm
+        Text(
+            text = String.format("%02d:%02d", hour, minute),
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+// Logic tính khoảng thời gian (xử lý qua đêm)
+fun calculateDuration(sH: Int, sM: Int, eH: Int, eM: Int): String {
+    var startMinutes = sH * 60 + sM
+    var endMinutes = eH * 60 + eM
+
+    // Nếu giờ dậy nhỏ hơn giờ ngủ -> Đã qua ngày mới (cộng thêm 24h)
+    if (endMinutes < startMinutes) {
+        endMinutes += 24 * 60
+    }
+
+    val diff = endMinutes - startMinutes
+    val hours = diff / 60
+    val minutes = diff % 60
+    return "${hours}h ${minutes}p"
+}
+
+// Tái sử dụng Wrapper Dialog cũ của bạn (giữ nguyên hoặc chỉnh sửa nhẹ)
+@Composable
+fun AdvancedTimePickerDialog(
+    title: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            tonalElevation = 6.dp,
+            modifier = Modifier
+                .width(IntrinsicSize.Min)
+                .height(IntrinsicSize.Min)
+                .background(MaterialTheme.colorScheme.surface, MaterialTheme.shapes.extraLarge)
+               ,
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 20.dp),
                     text = title,
-                    style = MaterialTheme.typography.labelMedium
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(bottom = 20.dp)
                 )
                 content()
                 Row(
-                    modifier = Modifier
-                        .height(40.dp)
-                        .fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().padding(top = 20.dp),
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    toggle()
-                    Spacer(modifier = Modifier.weight(1f))
-                    TextButton(onClick = onDismiss) { Text("Hủy", color = Color.Black) }
-                    TextButton(onClick = onConfirm) { Text(if (title.contains("ngủ")) "Tiếp tục" else "Lưu", color = Color.Black) }
+                    TextButton(onClick = onDismiss) { Text("Hủy") }
+                    TextButton(onClick = onConfirm) { Text("OK") }
                 }
             }
         }
     }
-}
-
-@Preview
-@Composable
-fun SleepSettingPreview() {
-    SleepSettingDialog(
-        onDismiss = {},
-        onSave = { _, _, _, _ -> }
-    )
 }

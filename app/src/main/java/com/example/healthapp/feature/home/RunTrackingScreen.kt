@@ -86,10 +86,10 @@ fun RunTrackingScreen(
         topBar = { RunTrackingTopBar(onBackClick = onClose, colors = colors) }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
-            // 1. BẢN ĐỒ OSM (Nền dưới cùng)
+            // BẢN ĐỒ OSM (Nền dưới cùng)
             OsmMapView(modifier = Modifier.fillMaxSize())
 
-            // 2. LỚP PHỦ THÔNG TIN (Overlay phía dưới)
+            // LỚP PHỦ THÔNG TIN (Overlay phía dưới)
             // Dùng Surface kính mờ hoặc Card bo tròn
             Column(
                 modifier = Modifier

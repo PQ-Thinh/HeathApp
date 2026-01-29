@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.UserEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -20,7 +21,8 @@ import kotlin.math.roundToInt
 @HiltViewModel
 class UserViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
-    private val healthDao: HealthDao
+    private val healthDao: HealthDao,
+    private val repository: HealthRepository
 ) : ViewModel() {
 
     private val THEME_KEY = booleanPreferencesKey("is_dark_mode")
@@ -52,6 +54,10 @@ class UserViewModel @Inject constructor(
                 Log.e("UserViewModel", "LỖI: Chưa tải xong UserInfo, không thể lưu tên!")
                 // Mẹo: Nếu null, có thể thử delay 500ms rồi thử lại
             }
+            val updatedUser = healthDao.getUserById(user.id)
+            if (updatedUser != null) {
+                repository.syncUserToCloud(updatedUser)
+            }
         }
     }
 
@@ -61,6 +67,11 @@ class UserViewModel @Inject constructor(
             user?.id?.let { id ->
                 healthDao.updateHeight(id, height.toFloat())
                 calculateAndSaveBMI(id)
+                val updatedUser = healthDao.getUserById(id)
+
+                if (updatedUser != null) {
+                    repository.syncUserToCloud(updatedUser)
+                }
             }
         }
     }
@@ -71,7 +82,13 @@ class UserViewModel @Inject constructor(
             user?.id?.let { id ->
                 healthDao.updateWeight(id, weight)
                 calculateAndSaveBMI(id)
+                val updatedUser = healthDao.getUserById(id)
+
+                if (updatedUser != null) {
+                    repository.syncUserToCloud(updatedUser)
+                }
             }
+
         }
     }
 

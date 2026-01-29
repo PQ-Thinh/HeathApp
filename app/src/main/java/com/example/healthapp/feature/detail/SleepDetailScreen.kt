@@ -33,6 +33,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.example.healthapp.core.viewmodel.SleepViewModel
 import com.example.healthapp.feature.chart.SleepChart
+import com.example.healthapp.feature.components.SleepSettingDialog
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
@@ -49,7 +50,6 @@ fun SleepDetailScreen(
     val chartData by sleepViewModel.chartData.collectAsState()
     var showSleepDialog by remember { mutableStateOf(false) }
     val selectedTimeRange by sleepViewModel.selectedTimeRange.collectAsState()
-
     // Lấy bộ màu dựa trên Theme hiện tại
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
 

@@ -125,4 +125,39 @@ class SleepViewModel @Inject constructor(
             _chartData.value = data
         }
     }
+
+    fun saveManualSleepSession(
+        startHour: Int, startMinute: Int,
+        endHour: Int, endMinute: Int
+    ) {
+        viewModelScope.launch {
+            //Xác định ngày giờ hiện tại
+            val now = LocalDateTime.now()
+
+            // Tạo đối tượng LocalDateTime cho giờ đi ngủ
+            // Mặc định là hôm nay
+            var startTime = now.withHour(startHour).withMinute(startMinute).withSecond(0).withNano(0)
+
+            // Tạo đối tượng cho giờ thức dậy
+            var endTime = now.withHour(endHour).withMinute(endMinute).withSecond(0).withNano(0)
+
+            // Xử lý logic qua đêm
+            // Nếu giờ ngủ > giờ thức (VD: ngủ 23:00, dậy 07:00), ta hiểu là dậy vào ngày mai
+            if (endTime.isBefore(startTime)) {
+                endTime = endTime.plusDays(1)
+            }
+
+            // Logic phụ: Nếu người dùng đang nhập lúc 10h sáng, mà chọn ngủ 23h đêm
+            // thì ý họ là 23h đêm hôm qua. (Tùy logic app bạn muốn thế nào)
+            // Ở đây tạm thời để logic đơn giản: End luôn sau Start.
+
+            //Lấy User ID (Giả sử bạn đã có logic lấy current user trong ViewModel hoặc truyền vào)
+            // Nếu chưa có, bạn cần lấy từ DataStore hoặc UserViewModel
+            val user = currentUserInfo.filterNotNull().first()
+
+            if (user.id.isNotEmpty()) {
+                repository.saveSleepSession(user.id, startTime, endTime)
+            }
+        }
+    }
 }

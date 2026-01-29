@@ -18,7 +18,7 @@ import java.time.Duration
 import java.time.LocalDateTime
 import java.time.Period
 import java.time.ZoneId
-import java.time.ZoneOffset
+//import androidx.health.connect.client.records.SleepStageRecord
 
 class HealthConnectManager(private val context: Context) {
 
@@ -34,7 +34,8 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getReadPermission(HeartRateRecord::class),
         HealthPermission.getWritePermission(HeartRateRecord::class),
         HealthPermission.getReadPermission(SleepSessionRecord::class),
-        HealthPermission.getWritePermission(SleepSessionRecord::class)
+        HealthPermission.getWritePermission(SleepSessionRecord::class),
+       // HealthPermission.getReadPermission(SleepStageRecord::class)
     )
 
     suspend fun hasAllPermissions(): Boolean {
@@ -282,6 +283,36 @@ class HealthConnectManager(private val context: Context) {
             return emptyList()
         }
     }
+    // Hàm đọc chi tiết các giai đoạn ngủ
+//    suspend fun readSleepStages(start: LocalDateTime, end: LocalDateTime): List<SleepSessionEntity> {
+//        // 1 Tạo request đọc SleepStageRecord
+//        val request = ReadRecordsRequest(
+//            recordType = SleepStageRecord::class,
+//            timeRangeFilter = TimeRangeFilter.between(start, end)
+//        )
+//
+//        val response = healthConnectClient.readRecords(request)
+//
+//        // 2. Map dữ liệu sang Entity của bạn
+//        return response.records.map { stageRecord ->
+//            // Ánh xạ Type từ Health Connect sang String của bạn
+//            val typeString = when (stageRecord.stage) {
+//                SleepStageRecord.STAGE_TYPE_AWAKE -> "Awake"
+//                SleepStageRecord.STAGE_TYPE_LIGHT -> "Light"
+//                SleepStageRecord.STAGE_TYPE_DEEP -> "Deep"
+//                SleepStageRecord.STAGE_TYPE_REM -> "REM"
+//                else -> "Unknown"
+//            }
+//
+//            SleepSessionEntity(
+//                id = UUID.randomUUID().toString(), // Tạo ID mới
+//                userId = "",
+//                startTime = stageRecord.startTime.toEpochMilli(),
+//                endTime = stageRecord.endTime.toEpochMilli(),
+//                type = typeString
+//            )
+//        }
+//    }
 }
 
 // --- DATA CLASSES (Đã chuẩn hóa dùng LocalDateTime) ---
