@@ -75,32 +75,35 @@ class MainViewModel @Inject constructor(
     }
     private fun initializeData() {
         viewModelScope.launch {
-            // 1. Lấy User ID
-            val email = dataStore.data.first()[CURRENT_USER_EMAIL_KEY]
-            if (email != null) {
-                val user = healthDao.getUserByEmail(email)
-                currentUserId = user?.id?:""
-            } else {
-                currentUserId = "" // Hoặc xử lý mặc định
-            }
+            try{// 1. Lấy User ID
+                val email = dataStore.data.first()[CURRENT_USER_EMAIL_KEY]
+                if (email != null) {
+                    val user = healthDao.getUserByEmail(email)
+                    currentUserId = user?.id?:""
+                } else {
+                    currentUserId = null
+                }
 
-            // 2. Bắt đầu lắng nghe Database ngay sau khi có User ID
-            // Logic này thay thế cho observeDatabase cũ và cả snapshotFlow
-            currentUserId?.let { userId ->
-                val today = LocalDate.now().toString()
-                repository.getDailyHealth(today, userId).collect { data ->
-                    // Cập nhật StateFlow nội bộ
-                    _todayHealthData.value = data
+                // 2. Bắt đầu lắng nghe Database ngay sau khi có User ID
+                // Logic này thay thế cho observeDatabase cũ và cả snapshotFlow
+                currentUserId?.let { userId ->
+                    val today = LocalDate.now().toString()
+                    repository.getDailyHealth(today, userId).collect { data ->
+                        // Cập nhật StateFlow nội bộ
+                        _todayHealthData.value = data
 
-                    // Cập nhật UI State (Logic cũ của observeDatabase)
-                    if (data != null) {
-                        _realtimeSteps.value = data.steps
-                        _realtimeCalories.value = data.caloriesBurned
-                        if (data.heartRateAvg > 0) {
-                            _realtimeHeartRate.value = data.heartRateAvg
+                        // Cập nhật UI State (Logic cũ của observeDatabase)
+                        if (data != null) {
+                            _realtimeSteps.value = data.steps
+                            _realtimeCalories.value = data.caloriesBurned
+                            if (data.heartRateAvg > 0) {
+                                _realtimeHeartRate.value = data.heartRateAvg
+                            }
                         }
                     }
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
@@ -254,9 +257,15 @@ class MainViewModel @Inject constructor(
 
 
     fun syncData() {
+        val userId = currentUserId
+        if (userId.isNullOrEmpty()) return
+
         viewModelScope.launch {
-            // Đồng bộ dữ liệu cho User hiện tại
-            repository.syncHealthData(currentUserId)
+            try {
+                repository.syncHealthData(userId)
+            } catch (e: Exception) {
+                Log.e("MainViewModel", "Sync error: ${e.message}")
+            }
         }
     }
     // Hàm này để cập nhật giá trị hiển thị Realtime lên Dashboard

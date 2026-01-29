@@ -40,7 +40,7 @@ class HealthRepository @Inject constructor(
 
     //Đồng bộ từ Health Connect về Room
     suspend fun syncHealthData(userId: String?) {
-        if (userId == null) return // Không có User ID thì không làm gì cả
+        if (userId.isNullOrEmpty()) return
 
         val now = LocalDateTime.now()
         val startOfDay = now.toLocalDate().atStartOfDay()

@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.datastore.core.DataStore
@@ -58,7 +59,8 @@ class StepForegroundService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
+        val action = intent?.action ?: ACTION_START
+        when (action) {
             ACTION_START -> startTracking()
             ACTION_PAUSE -> {
                 sensorManager.pauseTracking()
@@ -73,7 +75,7 @@ class StepForegroundService : Service() {
                 stopSelf()
             }
             ACTION_SWITCH_MODE -> {
-                val newMode = intent.getStringExtra(EXTRA_MODE) ?: "Chạy Bộ"
+                val newMode = intent?.getStringExtra(EXTRA_MODE) ?: "Chạy Bộ"
                 currentMode = newMode
 
                 //Lưu vào DataStore để UI cập nhật theo
@@ -104,6 +106,7 @@ class StepForegroundService : Service() {
         startForegroundServiceCompact()
 
         serviceScope.launch {
+        try{
             //ĐỌC DỮ LIỆU CŨ (QUAN TRỌNG: Phải làm trong Coroutine)
             val prefs = dataStore.data.first()
             val savedDate = prefs[LAST_SAVED_DATE_KEY] ?: ""
@@ -135,60 +138,65 @@ class StepForegroundService : Service() {
                 }
             }
 
-            // 2. LẮNG NGHE CẢM BIẾN
-            sensorManager.stepFlow.collect { totalStepsSinceBoot ->
 
-                // --- LOGIC 1: Xử lý Reboot máy (Cảm biến bị reset về 0) ---
-                // Nếu tổng bước từ sensor nhỏ hơn mốc đầu ngày -> Chắc chắn máy đã khởi động lại
-                if (totalStepsSinceBoot < startOfDaySteps) {
-                    startOfDaySteps = 0
-                    dataStore.edit { it[START_OF_DAY_STEPS_KEY] = 0 }
-                }
+                // 2. LẮNG NGHE CẢM BIẾN
+                sensorManager.stepFlow.collect { totalStepsSinceBoot ->
 
-                // --- LOGIC 2: Xử lý lần chạy đầu tiên trong ngày ---
-                // Nếu chưa có mốc (0) VÀ sensor báo về số lớn (ví dụ 5000),
-                // ta coi 5000 đó là mốc bắt đầu tính (để realSteps = 0)
-                if (startOfDaySteps == 0) {
-                    startOfDaySteps = totalStepsSinceBoot
-                    dataStore.edit { it[START_OF_DAY_STEPS_KEY] = startOfDaySteps }
-                }
-
-                // --- LOGIC 3: Tính toán ---
-                // Số bước thực = Tổng sensor - Mốc đầu ngày
-                // Update app: startOfDaySteps được load lại (VD: 2000), Sensor vẫn chạy (VD: 2100) -> 100 bước. KHÔNG MẤT.
-                val realSteps = (totalStepsSinceBoot - startOfDaySteps).coerceAtLeast(0)
-                currentSteps = realSteps
-                currentCalories = (realSteps * 0.04).toInt()
-
-                if (!sensorManager.isPaused) {
-                    updateNotification(isPaused = false)
-
-                    // A. Update DB Local (liên tục để UI mượt)
-                    if (userId != null) {
-                        repository.updateLocalSteps(userId, currentSteps, currentCalories.toFloat())
+                    // --- LOGIC 1: Xử lý Reboot máy (Cảm biến bị reset về 0) ---
+                    // Nếu tổng bước từ sensor nhỏ hơn mốc đầu ngày -> Chắc chắn máy đã khởi động lại
+                    if (totalStepsSinceBoot < startOfDaySteps) {
+                        startOfDaySteps = 0
+                        dataStore.edit { it[START_OF_DAY_STEPS_KEY] = 0 }
                     }
 
-                    // B. Sync Health Connect (15 phút/lần)
-                    val now = LocalDateTime.now()
-                    val lastSyncTime = try {
-                        LocalDateTime.parse(lastSyncTimeStr)
-                    } catch (e: Exception) { now.minusMinutes(16) }
+                    // --- LOGIC 2: Xử lý lần chạy đầu tiên trong ngày ---
+                    // Nếu chưa có mốc (0) VÀ sensor báo về số lớn (ví dụ 5000),
+                    // ta coi 5000 đó là mốc bắt đầu tính (để realSteps = 0)
+                    if (startOfDaySteps == 0) {
+                        startOfDaySteps = totalStepsSinceBoot
+                        dataStore.edit { it[START_OF_DAY_STEPS_KEY] = startOfDaySteps }
+                    }
 
-                    val stepsToAdd = currentSteps - lastSyncedStepsTotal
-                    val timeDiff = Duration.between(lastSyncTime, now).toMinutes()
+                    // --- LOGIC 3: Tính toán ---
+                    // Số bước thực = Tổng sensor - Mốc đầu ngày
+                    // Update app: startOfDaySteps được load lại (VD: 2000), Sensor vẫn chạy (VD: 2100) -> 100 bước. KHÔNG MẤT.
+                    val realSteps = (totalStepsSinceBoot - startOfDaySteps).coerceAtLeast(0)
+                    currentSteps = realSteps
+                    currentCalories = (realSteps * 0.04).toInt()
 
-                    if (stepsToAdd > 0 && timeDiff >= 15) {
-                        repository.writeStepsToHealthConnect(lastSyncTime, now, stepsToAdd)
+                    if (!sensorManager.isPaused) {
+                        updateNotification(isPaused = false)
 
-                        lastSyncedStepsTotal = currentSteps
-                        lastSyncTimeStr = now.toString()
+                        // A. Update DB Local (liên tục để UI mượt)
+                        if (userId != null) {
+                            repository.updateLocalSteps(userId, currentSteps, currentCalories.toFloat())
+                        }
 
-                        dataStore.edit {
-                            it[LAST_SYNCED_STEPS_KEY] = lastSyncedStepsTotal
-                            it[LAST_SYNC_TIME_KEY] = lastSyncTimeStr
+                        // B. Sync Health Connect (15 phút/lần)
+                        val now = LocalDateTime.now()
+                        val lastSyncTime = try {
+                            LocalDateTime.parse(lastSyncTimeStr)
+                        } catch (e: Exception) { now.minusMinutes(16) }
+
+                        val stepsToAdd = currentSteps - lastSyncedStepsTotal
+                        val timeDiff = Duration.between(lastSyncTime, now).toMinutes()
+
+                        if (stepsToAdd > 0 && timeDiff >= 15) {
+                            repository.writeStepsToHealthConnect(lastSyncTime, now, stepsToAdd)
+
+                            lastSyncedStepsTotal = currentSteps
+                            lastSyncTimeStr = now.toString()
+
+                            dataStore.edit {
+                                it[LAST_SYNCED_STEPS_KEY] = lastSyncedStepsTotal
+                                it[LAST_SYNC_TIME_KEY] = lastSyncTimeStr
+                            }
                         }
                     }
                 }
+            } catch (e: Exception) { // <--- THÊM CATCH ĐỂ BẮT LỖI NGẦM
+                Log.e("StepService", "Lỗi nghiêm trọng trong Service: ${e.message}")
+                e.printStackTrace()
             }
         }
     }
