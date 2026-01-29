@@ -5,10 +5,13 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.room.Room
+import com.example.healthapp.core.data.FirebaseSyncManager
 import com.example.healthapp.core.data.HealthConnectManager
 import com.example.healthapp.core.data.HealthSensorManager
 import com.example.healthapp.core.model.AppDb
 import com.example.healthapp.core.model.dao.HealthDao
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -56,5 +59,25 @@ object AppModule {
     @Singleton
     fun provideHealthConnectManager(@ApplicationContext context: Context): HealthConnectManager {
         return HealthConnectManager(context)
+    }
+    @Provides
+    @Singleton
+    fun provideFirebaseAuth(): FirebaseAuth {
+        return FirebaseAuth.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirebaseFirestore(): FirebaseFirestore {
+        return FirebaseFirestore.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideFirebaseSyncManager(
+        healthDao: HealthDao,
+        firestore: FirebaseFirestore
+    ): FirebaseSyncManager {
+        return FirebaseSyncManager(healthDao, firestore)
     }
 }

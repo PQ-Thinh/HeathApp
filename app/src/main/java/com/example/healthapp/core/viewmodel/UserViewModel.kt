@@ -75,7 +75,7 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    private suspend fun calculateAndSaveBMI(userId: Int) {
+    private suspend fun calculateAndSaveBMI(userId: String) {
         val user = healthDao.getUserById(userId)
         if (user != null && user.height != null && user.weight != null && user.height > 0) {
             val heightInMeter = user.height / 100f

@@ -6,14 +6,17 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "users")
 data class UserEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int? = null,
+    @PrimaryKey(autoGenerate = false)
+    val id: String,
     @ColumnInfo(name = "name") val name: String?,
     @ColumnInfo(name = "email") val email: String,
-    @ColumnInfo(name = "password") val password: String,
-    @ColumnInfo(name = "age") val age: Int?,
-    @ColumnInfo(name = "gender") val gender: String,
-    @ColumnInfo(name = "height") val height: Float?, // cm
-    @ColumnInfo(name = "weight") val weight: Float?, // kg
-    @ColumnInfo(name = "bmi") val bmi: Float?,
+    @ColumnInfo(name = "age") val age: Int? = null,
+    @ColumnInfo(name = "gender") val gender: String = "Male",
+    @ColumnInfo(name = "height") val height: Float? = null,
+    @ColumnInfo(name = "weight") val weight: Float? = null,
+    @ColumnInfo(name = "bmi") val bmi: Float? = null,
     @ColumnInfo(name = "target_steps") val targetSteps: Int = 10000
-)
+) {
+
+    constructor() : this("", null, "", null, "Male", null, null, null, 10000)
+}

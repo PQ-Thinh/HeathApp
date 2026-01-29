@@ -4,13 +4,14 @@ import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.example.healthapp.core.data.FirebaseSyncManager
 import com.example.healthapp.core.data.HealthConnectManager
 import com.example.healthapp.core.data.HeartRateBucket
 import com.example.healthapp.core.data.SleepBucket
 import com.example.healthapp.core.data.StepBucket
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
-import com.example.healthapp.core.viewmodel.StepViewModel
+import com.example.healthapp.core.model.entity.UserEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -27,48 +28,57 @@ import javax.inject.Inject
 class HealthRepository @Inject constructor(
     private val healthDao: HealthDao,
     private val healthConnectManager: HealthConnectManager,
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    private val syncManager: FirebaseSyncManager // <-- [MỚI] Thêm SyncManager
 ) {
     private val CURRENT_USER_EMAIL_KEY = stringPreferencesKey("current_user_email")
 
     // Lấy dữ liệu để hiển thị lên UI (Luôn lấy từ Local Cache cho nhanh)
-    fun getDailyHealth(date: String, userId: Int): Flow<DailyHealthEntity?> {
+    fun getDailyHealth(date: String, userId: String): Flow<DailyHealthEntity?> {
         return healthDao.getDailyHealth(date, userId)
     }
 
-    // HÀM QUAN TRỌNG: Đồng bộ từ Health Connect về Room
-    suspend fun syncHealthData(userId: Int?) {
+    //Đồng bộ từ Health Connect về Room
+    suspend fun syncHealthData(userId: String?) {
+        if (userId == null) return // Không có User ID thì không làm gì cả
+
         val now = LocalDateTime.now()
         val startOfDay = now.toLocalDate().atStartOfDay()
         val todayStr = now.toLocalDate().toString()
 
         // Lấy dữ liệu từ Health Connect
         val hcSteps = healthConnectManager.readSteps(startOfDay, now)
-        val hcHeartRate = healthConnectManager.readHeartRate(startOfDay, now)
+        // val hcHeartRate = healthConnectManager.readHeartRate(startOfDay, now)
 
         // Lấy dữ liệu Local hiện tại (để so sánh)
-        val currentLocalData = if (userId != null) {
-            healthDao.getDailyHealth(todayStr, userId).firstOrNull()
-        } else null
+        val currentLocalData = healthDao.getDailyHealth(todayStr, userId).firstOrNull()
 
-        //Chỉ ghi đè nếu Health Connect có nhiều bước hơn (VD: đi bộ từ thiết bị khác)
+        // Chỉ ghi đè nếu Health Connect có nhiều bước hơn (VD: đi bộ từ thiết bị khác)
         // Nếu Local đang lớn hơn (do Service đang chạy), thì GIỮ NGUYÊN Local.
         val currentLocalSteps = currentLocalData?.steps ?: 0
 
         if (hcSteps > currentLocalSteps) {
             val entity = DailyHealthEntity(
                 date = todayStr,
-                userId = userId ?: 0,
+                userId = userId, // String ID
                 steps = hcSteps,
             )
             healthDao.insertOrUpdateDailyHealth(entity)
             Log.d("HealthRepo", "Synced from HC: Updated local to $hcSteps")
+
+            // [MỚI]: Đẩy cập nhật mới lên Cloud
+            syncManager.pushDailyHealth(entity)
         } else {
             Log.d("HealthRepo", "Synced from HC: Ignored because Local ($currentLocalSteps) >= HC ($hcSteps)")
         }
     }
-    // 2. Hàm Lưu dữ liệu (Gọi liên tục khi đi bộ để update Room)
-    suspend fun updateLocalSteps(userId: Int?, steps: Int, calories: Float) {
+    suspend fun syncUserToCloud(user: UserEntity) {
+        // Gọi sang FirebaseSyncManager để đẩy lên
+        // Lưu ý: UserEntity đã có id = UID (do ta gán lúc tạo)
+        syncManager.pushUserProfile(user)
+    }
+    //  Hàm Lưu dữ liệu (Gọi liên tục khi đi bộ để update Room)
+    suspend fun updateLocalSteps(userId: String?, steps: Int, calories: Float) {
         if (userId == null) {
             Log.w("HealthRepository", "Chưa có User ID, bỏ qua việc lưu bước chân.")
             return
@@ -81,35 +91,48 @@ class HealthRepository @Inject constructor(
             // Tạo mới ngày hôm nay
             val newData = DailyHealthEntity(
                 date = today,
-                userId = userId?:1,
+                userId = userId,
                 steps = steps,
                 caloriesBurned = calories
             )
             healthDao.insertOrUpdateDailyHealth(newData)
+            // [MỚI]: Đẩy lên Cloud
+            syncManager.pushDailyHealth(newData)
         } else {
             // Cập nhật số bước (Ghi đè số mới nhất)
             healthDao.updateSteps(today, userId, steps, calories)
+
+            // [MỚI]: Đẩy lên Cloud (Tạo bản copy mới nhất để đẩy)
+            val updatedData = currentData.copy(steps = steps, caloriesBurned = calories)
+            syncManager.pushDailyHealth(updatedData)
         }
     }
 
-    // 3. Hàm "Chốt sổ" cuối ngày: Đẩy lên Health Connect
+    // Hàm "Chốt sổ" cuối ngày: Đẩy lên Health Connect
     suspend fun writeStepsToHealthConnect(start: LocalDateTime, end: LocalDateTime, stepsDelta: Int) {
-        // Gọi hàm writeSteps mới đã sửa ở Bước 1
+        // Gọi hàm writeSteps mới đã sửa ở Bước
         healthConnectManager.writeSteps(start, end, stepsDelta)
     }
-    suspend fun saveHeartRate(userId: Int, bpm: Int) {
+
+    suspend fun saveHeartRate(userId: String, bpm: Int) {
         val now = LocalDateTime.now()
 
-        //Ghi vào Health Connect (Source of Truth)
+        // Ghi vào Health Connect (Source of Truth)
         val success = healthConnectManager.writeHeartRate(bpm, now)
         Log.d("HealthRepository", "Write to Health Connect: $success")
 
         if (success) {
-            //Chỉ lưu giá trị mới nhất vào Room để hiển thị ở Dashboard (Realtime)
+            // Chỉ lưu giá trị mới nhất vào Room để hiển thị ở Dashboard (Realtime)
             healthDao.updateHeartRate(now.toLocalDate().toString(), userId, bpm)
+
+            // Có thể đẩy lên Cloud nếu muốn (tùy chọn)
+            // Nhưng hiện tại hàm pushDailyHealth chưa hỗ trợ field heartRate riêng lẻ update
+            // Nếu muốn chuẩn thì lấy full object -> update -> push.
+            // Để đơn giản, ta tạm bỏ qua push heart rate realtime liên tục (tốn quota)
         }
     }
-    suspend fun saveSleepSession(userId: Int, start: LocalDateTime, end: LocalDateTime) {
+
+    suspend fun saveSleepSession(userId: String, start: LocalDateTime, end: LocalDateTime) {
         // 1. Đẩy lên Health Connect
         healthConnectManager.writeSleepSession(start, end)
 
@@ -120,21 +143,26 @@ class HealthRepository @Inject constructor(
         val today = LocalDate.now().toString()
         // Kiểm tra xem record hôm nay có chưa, nếu chưa thì tạo, có rồi thì update
         val currentData = healthDao.getDailyHealth(today, userId).firstOrNull()
-        if (currentData == null) {
-            val newData = DailyHealthEntity(
+
+        val finalData = if (currentData == null) {
+            DailyHealthEntity(
                 date = today,
                 userId = userId,
                 sleepHours = durationMinutes,
-
-
             )
-            healthDao.insertOrUpdateDailyHealth(newData)
         } else {
-            //val updatedData = currentData.copy( sleepHours = durationMinutes )// giữ nguyên steps, heartRateAvg, caloriesBurned... )
-            healthDao.updateSleepDuration(today, userId, durationMinutes)
+            // healthDao.updateSleepDuration(today, userId, durationMinutes) -> Hàm này chỉ update DB
+            // Chúng ta cần object để push lên Cloud
+            currentData.copy(sleepHours = durationMinutes)
         }
+
+        healthDao.insertOrUpdateDailyHealth(finalData)
+
+        // [MỚI]: Backup giấc ngủ lên Cloud
+        syncManager.pushDailyHealth(finalData)
     }
-    // Lấy dữ liệu giấc ngủ
+
+    // Lấy dữ liệu biểu đồ giấc ngủ (Từ Health Connect - Không đổi)
     suspend fun getSleepChartData(range: ChartTimeRange): List<SleepBucket> {
         val today = LocalDate.now()
         val end = today.plusDays(1).atStartOfDay()
@@ -157,28 +185,24 @@ class HealthRepository @Inject constructor(
         return healthConnectManager.readSleepChartData(start, end, period)
     }
 
-    // 2. Lấy dữ liệu biểu đồ (Trực tiếp từ Health Connect)
+    // Lấy dữ liệu biểu đồ nhịp tim (Từ Health Connect - Không đổi)
     suspend fun getHeartRateChartData(range: ChartTimeRange): List<HeartRateBucket> {
         val now = LocalDateTime.now()
         val end = now.toLocalDate().plusDays(1).atStartOfDay()
         return when (range) {
             ChartTimeRange.DAY -> {
-                // Xem trong 24h qua, chia mỗi 1 giờ
                 val start = LocalDate.now().atStartOfDay()
                 healthConnectManager.readHeartRateAggregationByDuration(start, end, Duration.ofHours(1))
             }
             ChartTimeRange.WEEK -> {
-                // Xem 7 ngày qua, chia mỗi 1 ngày
-                val start = now.minusDays(6)// 7 ngày bao gồm hôm nay
+                val start = now.minusDays(6)
                 healthConnectManager.readHeartRateAggregation(start, end, Period.ofDays(1))
             }
             ChartTimeRange.MONTH -> {
-                // Xem 30 ngày qua, chia mỗi 1 ngày
                 val start = now.minusDays(30)
                 healthConnectManager.readHeartRateAggregation(start, end, Period.ofDays(1))
             }
             ChartTimeRange.YEAR -> {
-                // Xem 1 năm qua, chia mỗi 1 tháng
                 val start = now.minusYears(1)
                 healthConnectManager.readHeartRateAggregation(start, end, Period.ofMonths(1))
             }
@@ -199,24 +223,21 @@ class HealthRepository @Inject constructor(
 
         val period = if (range == ChartTimeRange.YEAR) Period.ofMonths(1) else Period.ofDays(1)
 
-        // Lấy list từ Health Connect (Đây là list Mutable để có thể sửa đổi)
-        // Lưu ý: Nếu hàm readStepChartData trả về List tĩnh, bạn cần .toMutableList()
         val hcDataList = healthConnectManager.readStepChartData(start, end, period).toMutableList()
 
         //"Vá" dữ liệu ngày hôm nay từ Room (Real-time)
-        // Chỉ cần xử lý nếu Range không phải là YEAR (vì YEAR gom theo tháng)
         if (range != ChartTimeRange.YEAR) {
             val todayStr = LocalDate.now().toString()
 
-            // Lấy User hiện tại (Cần đảm bảo bạn có userId, có thể truyền vào hàm hoặc lấy từ session)
-            // Giả sử lấy user mặc định hoặc truyền userId vào hàm này
             val currentUserInfo = dataStore.data
                 .map { prefs -> prefs[CURRENT_USER_EMAIL_KEY] }
                 .flatMapLatest { email ->
                     if (email != null) healthDao.getUserFlowByEmail(email) else flowOf(null)
                 }
             val currentUser = currentUserInfo.filterNotNull().first()
-            val userId = currentUser?.id?:1
+
+            // [SỬA]: userId: String (Default rỗng nếu null, nhưng logic trên đã filterNotNull)
+            val userId = currentUser.id
 
             // Lấy số bước real-time từ Room
             val localTodayData = healthDao.getDailyHealth(todayStr, userId).firstOrNull()
@@ -231,19 +252,17 @@ class HealthRepository @Inject constructor(
                 // Trường hợp 1: Đã có bucket hôm nay -> Ghi đè bằng số bước từ Room (lớn hơn hoặc bằng)
                 val currentBucket = hcDataList[todayIndex]
                 if (realTimeSteps > currentBucket.totalSteps) {
-                    // Tạo bucket mới với số bước real-time
                     hcDataList[todayIndex] = StepBucket(
                         startTime = currentBucket.startTime,
                         endTime = currentBucket.endTime,
-                        totalSteps = realTimeSteps.toLong() // Ép kiểu về Long nếu model yêu cầu
+                        totalSteps = realTimeSteps.toLong()
                     )
                 }
             } else {
-                // Trường hợp 2: Health Connect chưa có dữ liệu hôm nay (VD: Mới cài app, chưa sync lần nào)
-                // Tự tạo bucket giả cho ngày hôm nay để hiển thị
+                // Trường hợp 2: Health Connect chưa có dữ liệu hôm nay
                 if (realTimeSteps > 0) {
                     hcDataList.add(StepBucket(
-                        startTime = LocalDate.now().atStartOfDay(), // 00:00 hôm nay
+                        startTime = LocalDate.now().atStartOfDay(),
                         endTime = now,
                         totalSteps = realTimeSteps.toLong()
                     ))
@@ -251,8 +270,14 @@ class HealthRepository @Inject constructor(
             }
         }
 
-        // Sắp xếp lại theo thời gian cho chắc chắn
         return hcDataList.sortedBy { it.startTime }
     }
+
+    // Hàm này gọi khi User vừa đăng nhập thành công
+    // Nó kéo dữ liệu cũ từ Cloud về Room
+    suspend fun initialSync(uid: String) {
+        syncManager.pullUserData(uid)
+    }
 }
+
 enum class ChartTimeRange { DAY, WEEK, MONTH, YEAR}

@@ -1,6 +1,5 @@
 package com.example.healthapp.core.viewmodel
 
-
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,6 +18,7 @@ import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
 import com.example.healthapp.core.model.entity.UserEntity
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -61,7 +61,7 @@ class MainViewModel @Inject constructor(
     val isServiceRunning = _isServiceRunning.asStateFlow()
     // Biến nội bộ
     private var startOfDaySteps = 0
-    private var currentUserId: Int? = null // Default ID
+    private var currentUserId: String? = null // Default ID
     // Thêm State để báo lỗi ra UI
     private val _healthConnectState = MutableStateFlow<Int>(0)
     // 0: Init, 1: Available, 2: Update Required, 3: Not Supported
@@ -79,9 +79,9 @@ class MainViewModel @Inject constructor(
             val email = dataStore.data.first()[CURRENT_USER_EMAIL_KEY]
             if (email != null) {
                 val user = healthDao.getUserByEmail(email)
-                currentUserId = user?.id ?: 1
+                currentUserId = user?.id?:""
             } else {
-                currentUserId = 1 // Hoặc xử lý mặc định
+                currentUserId = "" // Hoặc xử lý mặc định
             }
 
             // 2. Bắt đầu lắng nghe Database ngay sau khi có User ID
@@ -173,66 +173,83 @@ class MainViewModel @Inject constructor(
         onSuccess: () -> Unit,
         onError: (String) -> Unit
     ) {
-        viewModelScope.launch {
-            val existingUser = healthDao.getUserByEmail(email)
-            if (existingUser != null) {
-                onError("Email này đã được sử dụng!")
-                return@launch
+        val auth = FirebaseAuth.getInstance()
+        auth.createUserWithEmailAndPassword(email, pass)
+            .addOnSuccessListener { result ->
+                val firebaseUser = result.user
+                if (firebaseUser != null) {
+                    val uid = firebaseUser.uid // Lấy UID từ Firebase
+                    val newUser = UserEntity(
+                        id = uid, // Dùng UID làm khóa chính
+                        name = "New User",
+                        email = email,
+                        targetSteps = 10000,
+                        gender = "Male",
+                        bmi = 0f,
+                        height = null,
+                        weight = null,
+                        age = null,
+                    )
+
+                    // Lưu vào Room
+                    viewModelScope.launch {
+                        healthDao.saveUser(newUser)
+
+                        // Đẩy Profile lên Cloud ngay lập tức
+                        repository.initialSync(uid)
+                        repository.syncUserToCloud(newUser)
+
+                        currentUserId = uid
+                        setIsLoggedIn(true, email)
+
+                        startOfDaySteps = 0
+                        _realtimeSteps.value = 0
+                        _realtimeCalories.value = 0f
+                        saveDayOffset(0)
+
+                        initializeData() // Refresh flow lắng nghe
+                        onSuccess()
+                    }
+                } else {
+                    onError("Lỗi không xác định từ Firebase.")
+                }
             }
-            val newUser = UserEntity(
-                name = "New User",
-                email = email,
-                password = pass,
-                targetSteps = 10000,
-                gender = "Male",
-                bmi = 0f,
-                height = null,
-                weight = null,
-                age = null
-
-            )
-            healthDao.saveUser(newUser)
-
-            //  Lấy lại User vừa tạo để có ID chính xác (vì ID tự tăng)
-            val createdUser = healthDao.getUserByEmail(email)
-
-            if (createdUser != null) {
-                currentUserId = createdUser.id
-
-                setIsLoggedIn(true, email)
-
-                // Reset biến đếm bước chân về 0 cho user mới
-                startOfDaySteps = 0
-                _realtimeSteps.value = 0
-                _realtimeCalories.value = 0f
-
-                // Xóa mốc cũ trong DataStore để tránh nó trừ đi số bước của user cũ
-                saveDayOffset(0)
-
-                // Gọi lại initializeData để thiết lập lại từ đầu
-               // initializeData()
-
-                onSuccess()
-            } else {
-                onError("Lỗi tạo tài khoản")
+            .addOnFailureListener { e ->
+                onError("Đăng ký thất bại: ${e.message}")
             }
-        }
     }
 
     fun loginUser(email: String, pass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
-        viewModelScope.launch {
-            val user = healthDao.getUserByEmail(email)
-            if (user != null && user.password == pass) {
-                setIsLoggedIn(true, email)
-                currentUserId = user.id
-                // Load lại dữ liệu sensor của user này
-                initializeData()
-                onSuccess()
-            } else {
-                setIsLoggedIn(false)
-                onError("Email hoặc mật khẩu không đúng!")
+        val auth = FirebaseAuth.getInstance()
+        auth.signInWithEmailAndPassword(email, pass)
+            .addOnSuccessListener { result ->
+                val firebaseUser = result.user
+                if (firebaseUser != null) {
+                    val uid = firebaseUser.uid
+                    viewModelScope.launch {
+                        setIsLoggedIn(true, email)
+                        currentUserId = uid
+
+                        // Kéo dữ liệu cũ từ Cloud về Room
+                        repository.initialSync(uid)
+
+                        // Nếu user chưa có trong Room (mới cài lại app), tạo record tạm
+                        val localUser = healthDao.getUserById(uid)
+                        if (localUser == null) {
+                            val newUser = UserEntity(
+                                id = uid,
+                                email = email,
+                                name = firebaseUser.displayName ?: "User",
+                                // Các thông số khác sẽ được update sau khi sync về
+                            )
+                            healthDao.saveUser(newUser)
+                        }
+
+                        initializeData() // Refresh flow lắng nghe
+                        onSuccess()
+                    }
+                }
             }
-        }
     }
 
 
@@ -248,19 +265,7 @@ class MainViewModel @Inject constructor(
 
     }
 
-//    //Biểu đồ
-//    //Luồng dữ liệu cho NGÀY HÔM NAY (Tự động cập nhật khi DB thay đổi)
-//    // Dùng flatMapLatest để khi currentUserId thay đổi, nó tự lấy data của user mới
-//    val todayHealthData: StateFlow<DailyHealthEntity?> = snapshotFlow { currentUserId }
-//        .flatMapLatest { userId ->
-//            if (userId != null) {
-//                val today = LocalDate.now().toString()
-//                repository.getDailyHealth(today, userId)
-//            } else {
-//                flowOf(null)
-//            }
-//        }
-//        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
 
     fun setServiceRunningStatus(isRunning: Boolean) {
         _isServiceRunning.value = isRunning

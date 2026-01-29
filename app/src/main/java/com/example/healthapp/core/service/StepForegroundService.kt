@@ -118,7 +118,7 @@ class StepForegroundService : Service() {
 
             // Lấy User
             val email = prefs[CURRENT_USER_EMAIL_KEY]
-            var userId: Int? = null
+            var userId: String? = null
             if (email != null) {
                 val user = healthDao.getUserByEmail(email)
                 userId = user?.id

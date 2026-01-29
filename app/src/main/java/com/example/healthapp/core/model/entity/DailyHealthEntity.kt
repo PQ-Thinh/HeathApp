@@ -18,10 +18,12 @@ import androidx.room.PrimaryKey
     ]
 )
 data class DailyHealthEntity(
-    val date: String, // Format: YYYY-MM-DD
-    val userId: Int,
+    val date: String,
+    val userId: String,
     @ColumnInfo(name = "steps") val steps: Int = 0,
     @ColumnInfo(name = "heart_rate_avg") val heartRateAvg: Int = 0,
     @ColumnInfo(name = "calories_burned") val caloriesBurned: Float = 0f,
     @ColumnInfo(name = "sleep_hours") val sleepHours: Long = 0
-)
+) {
+    constructor() : this("", "", 0, 0, 0f, 0)
+}
