@@ -14,6 +14,7 @@ data class NotificationEntity(
     @ColumnInfo(name = "type") val type: String,
     @ColumnInfo(name = "is_read") val isRead: Boolean = false,
 
+    // ID của đối tượng liên quan (VD: ID lời mời)
     @ColumnInfo(name = "related_id") val relatedId: String? = null
 ) {
     constructor() : this(null, "", "", 0, "", false, null)

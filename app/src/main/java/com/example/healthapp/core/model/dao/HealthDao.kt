@@ -5,8 +5,11 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.example.healthapp.core.model.entity.DailyHealthEntity
+import com.example.healthapp.core.model.entity.HeartRateRecordEntity
 import com.example.healthapp.core.model.entity.InvitationEntity
 import com.example.healthapp.core.model.entity.NotificationEntity
+import com.example.healthapp.core.model.entity.SleepSessionEntity
+import com.example.healthapp.core.model.entity.StepRecordEntity
 import com.example.healthapp.core.model.entity.UserEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -111,4 +114,28 @@ interface HealthDao {
 
     @Query("UPDATE invitations SET status = :status WHERE id = :id")
     suspend fun updateInvitationStatus(id: String, status: String)
+
+    // ... trong interface HealthDao
+
+    // --- STEPS RECORDS ---
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertStepRecords(records: List<StepRecordEntity>)
+
+    // Lấy dữ liệu bước chân trong 1 khoảng thời gian (VD: Từ 00:00 đến 23:59 hôm nay)
+    @Query("SELECT * FROM step_records WHERE userId = :userId AND startTime >= :start AND endTime <= :end ORDER BY startTime ASC")
+    fun getStepRecordsInRange(userId: String, start: Long, end: Long): Flow<List<StepRecordEntity>>
+
+    // --- HEART RATE RECORDS ---
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertHeartRateRecords(records: List<HeartRateRecordEntity>)
+
+    @Query("SELECT * FROM heart_rate_records WHERE userId = :userId AND time >= :start AND time <= :end ORDER BY time ASC")
+    fun getHeartRatesInRange(userId: String, start: Long, end: Long): Flow<List<HeartRateRecordEntity>>
+
+    // --- SLEEP SESSIONS ---
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertSleepSessions(sessions: List<SleepSessionEntity>)
+
+    @Query("SELECT * FROM sleep_sessions WHERE userId = :userId AND startTime >= :start ORDER BY startTime DESC")
+    fun getSleepSessions(userId: String, start: Long): Flow<List<SleepSessionEntity>>
 }

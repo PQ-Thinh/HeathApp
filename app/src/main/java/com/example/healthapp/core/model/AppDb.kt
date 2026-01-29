@@ -7,15 +7,24 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
+import com.example.healthapp.core.model.entity.HeartRateRecordEntity
 import com.example.healthapp.core.model.entity.InvitationEntity
 import com.example.healthapp.core.model.entity.NotificationEntity
+import com.example.healthapp.core.model.entity.SleepSessionEntity
+import com.example.healthapp.core.model.entity.StepRecordEntity
 import com.example.healthapp.core.model.entity.UserEntity
 
 
 private const val DATABASE_NAME ="app_db"
-private const val DATABASE_VERSION =3
+private const val DATABASE_VERSION = 4
 @Database(
-    entities = [UserEntity::class, DailyHealthEntity::class, NotificationEntity::class, InvitationEntity::class],
+    entities = [UserEntity::class,
+        DailyHealthEntity::class,
+        NotificationEntity::class,
+        InvitationEntity::class,
+        StepRecordEntity::class,
+        HeartRateRecordEntity::class,
+        SleepSessionEntity::class],
     version = DATABASE_VERSION
 )
 abstract class AppDb: RoomDatabase(){
