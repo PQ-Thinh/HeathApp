@@ -1,5 +1,6 @@
 package com.example.healthapp.core.model.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
@@ -11,7 +12,9 @@ data class SleepSessionEntity(
     val userId: String,
     val startTime: Long,
     val endTime: Long,
-    val type: String // Ví dụ: "Light", "Deep", "REM", "Awake"
+    val type: String, // Ví dụ: "Light", "Deep", "REM", "Awake"
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: Long = System.currentTimeMillis()
 ) {
-    constructor() : this("", "", 0, 0, "")
+    constructor() : this("", "", 0, 0, "",0)
 }

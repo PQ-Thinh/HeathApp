@@ -1,5 +1,6 @@
 package com.example.healthapp.core.model.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 import java.util.UUID
@@ -11,7 +12,7 @@ data class StepRecordEntity(
     val userId: String,
     val startTime: Long,
     val endTime: Long,
-    val count: Int
+    val count: Int,
 ) {
     constructor() : this("", "", 0, 0, 0)
 }

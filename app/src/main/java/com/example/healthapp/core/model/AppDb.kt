@@ -16,7 +16,7 @@ import com.example.healthapp.core.model.entity.UserEntity
 
 
 private const val DATABASE_NAME ="app_db"
-private const val DATABASE_VERSION = 4
+private const val DATABASE_VERSION = 5
 @Database(
     entities = [UserEntity::class,
         DailyHealthEntity::class,

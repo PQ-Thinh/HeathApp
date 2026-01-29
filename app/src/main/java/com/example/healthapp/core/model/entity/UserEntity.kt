@@ -15,8 +15,10 @@ data class UserEntity(
     @ColumnInfo(name = "height") val height: Float? = null,
     @ColumnInfo(name = "weight") val weight: Float? = null,
     @ColumnInfo(name = "bmi") val bmi: Float? = null,
-    @ColumnInfo(name = "target_steps") val targetSteps: Int = 10000
+    @ColumnInfo(name = "target_steps") val targetSteps: Int = 10000,
+    @ColumnInfo(name = "updated_at")
+    val updatedAt: Long = System.currentTimeMillis()
 ) {
 
-    constructor() : this("", null, "", null, "Male", null, null, null, 10000)
+    constructor() : this("", null, "", null, "Male", null, null, null, 10000,0)
 }
