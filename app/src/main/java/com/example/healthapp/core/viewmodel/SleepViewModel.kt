@@ -10,14 +10,18 @@ import com.example.healthapp.core.data.SleepBucket
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.model.dao.HealthDao
+import com.example.healthapp.core.model.entity.SleepSessionEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.LocalDate
@@ -105,7 +109,6 @@ class SleepViewModel @Inject constructor(
             else -> "Ngủ nhiều (Cần vận động)"
         }
     }
-
     fun formatDuration(minutes: Long): String {
         val h = minutes / 60
         val m = minutes % 60
@@ -115,6 +118,7 @@ class SleepViewModel @Inject constructor(
         _selectedTimeRange.value = range
         loadChartData() // Load lại dữ liệu ngay
     }
+
 
 
     // Hàm load dữ liệu
@@ -160,4 +164,10 @@ class SleepViewModel @Inject constructor(
             }
         }
     }
+    val sleepHistory: StateFlow<List<SleepSessionEntity>> = repository.getSleepHistory()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
 }

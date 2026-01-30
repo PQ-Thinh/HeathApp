@@ -40,7 +40,10 @@ import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
 import android.content.Intent
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healthapp.core.service.StepForegroundService
+import com.example.healthapp.feature.components.HistoryListSection
+import com.example.healthapp.feature.components.formatDateTime
 
 @Composable
 fun StepDetailScreen(
@@ -50,6 +53,7 @@ fun StepDetailScreen(
     isDarkTheme: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val historyList by stepViewModel.stepHistory.collectAsStateWithLifecycle()
     // Lấy dữ liệu Realtime
     val currentSteps by mainViewModel.realtimeSteps.collectAsState()
     val currentMode by mainViewModel.currentMode.collectAsState()
@@ -222,8 +226,34 @@ fun StepDetailScreen(
                             }
                         }
                     )
-                    Spacer(modifier = Modifier.height(80.dp))
+                    Spacer(modifier = Modifier.height(20.dp))
 
+                }
+                item {
+                    HistoryListSection(
+                        title = "Lịch sử Hoạt Động",
+                        historyData = historyList
+                    ) { record ->
+                        Row(
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = formatDateTime(record.startTime ?: 0L),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = "${record.count} steps",
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -30,13 +30,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.example.healthapp.core.viewmodel.SleepViewModel
 import com.example.healthapp.feature.chart.SleepChart
+import com.example.healthapp.feature.components.HistoryListSection
 import com.example.healthapp.feature.components.SleepSettingDialog
+import com.example.healthapp.feature.components.formatDateTime
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
+import java.time.Duration
 
 @Composable
 fun SleepDetailScreen(
@@ -45,6 +49,8 @@ fun SleepDetailScreen(
     isDarkTheme: Boolean,
     modifier: Modifier
 ) {
+
+    val historyList by sleepViewModel.sleepHistory.collectAsStateWithLifecycle()
     val duration by sleepViewModel.sleepDuration.collectAsState()
     val assessment by sleepViewModel.sleepAssessment.collectAsState()
     val chartData by sleepViewModel.chartData.collectAsState()
@@ -182,6 +188,40 @@ fun SleepDetailScreen(
                                 showSleepDialog = false
                             }
                         )
+                    }
+                }
+                item {
+                    HistoryListSection(
+                        title = "Lịch sử giấc ngủ",
+                        historyData = historyList
+                    ) { session ->
+                        Row(
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Bắt Đầu: ${formatDateTime(session.startTime ?: 0L)}",
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+
+                                Text(
+                                    text = "Kết Thúc: ${formatDateTime(session.endTime ?: 0L)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = Color.Gray
+                                )
+                            }
+                            val durationMin = (session.endTime - session.startTime) / 60000
+                            val h = durationMin / 60
+                            val m = durationMin % 60
+                            Text(
+                                text = "${h}h ${m}m",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.secondary)
+                            )
+                        }
                     }
                 }
             }

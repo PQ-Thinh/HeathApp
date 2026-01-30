@@ -10,13 +10,17 @@ import com.example.healthapp.core.model.dao.HealthDao
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.example.healthapp.core.model.entity.StepRecordEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import javax.inject.Inject
@@ -37,7 +41,7 @@ class StepViewModel @Inject constructor(
     private var _startSessionSteps = 0 // Số bước tại thời điểm bấm Start
     private val _sessionSteps = MutableStateFlow(0) // Số bước chạy được trong phiên
     val sessionSteps = _sessionSteps.asStateFlow()
-    private val _sessionStartTime = MutableStateFlow<LocalDateTime?>(null)
+    private var _sessionStartTime = MutableStateFlow<LocalDateTime?>(null)
     // Cân nặng user (Mặc định 70kg nếu chưa set)
     private var userWeight: Float = 70f
     private val CURRENT_USER_EMAIL_KEY = stringPreferencesKey("current_user_email")
@@ -91,5 +95,32 @@ class StepViewModel @Inject constructor(
     // Công thức tính Calories cho Chart: 0.04 * steps * weight / 70
     fun calculateCalories(steps: Long): Int {
         return (0.04 * steps * userWeight / 70).toInt()
+    }
+
+    val stepHistory: StateFlow<List<StepRecordEntity>> = repository.getStepHistory()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+    fun finishRunSession(currentTotalSteps: Int) {
+        val startTime = _sessionStartTime.value ?: return
+        val endTime = LocalDateTime.now()
+
+        // Tính số bước thực tế trong phiên
+        val stepsTaken = (currentTotalSteps - _startSessionSteps).coerceAtLeast(0)
+
+        if (stepsTaken > 0) {
+            viewModelScope.launch {
+                // Gọi Repository để lưu vào Room (bảng StepRecordEntity)
+                // Hàm writeStepsToHealthConnect trong Repository của bạn đã có logic lưu vào Room rồi
+                repository.writeStepsToHealthConnect(startTime, endTime, stepsTaken)
+            }
+        }
+
+        // Reset lại trạng thái
+        _sessionStartTime.value = null
+        _startSessionSteps = 0
+        _sessionSteps.value = 0
     }
 }

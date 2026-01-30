@@ -128,7 +128,7 @@ class HealthRepository @Inject constructor(
         val endTime = end.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
 
         val record = StepRecordEntity(
-            id = java.util.UUID.randomUUID().toString(),
+            id = UUID.randomUUID().toString(),
             userId = userId,
             startTime = startTime,
             endTime = endTime,
@@ -384,6 +384,9 @@ class HealthRepository @Inject constructor(
     fun stopRealtimeSync() {
         syncManager.stopAllListeners()
     }
+    fun getStepHistory() = healthDao.getAllStepsHistory()
+    fun getHeartRateHistory() = healthDao.getAllHeartRateHistory()
+    fun getSleepHistory() = healthDao.getAllSleepHistory()
 }
 
 enum class ChartTimeRange { DAY, WEEK, MONTH, YEAR}

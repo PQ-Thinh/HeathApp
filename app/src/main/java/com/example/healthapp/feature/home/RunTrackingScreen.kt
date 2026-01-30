@@ -46,7 +46,6 @@ fun RunTrackingScreen(
     onFinishRun: (Int, Int, Long) -> Unit,
 ) {
     val context = LocalContext.current
-
     // State quản lý thời gian (Timer)
     var timeSeconds by remember { mutableLongStateOf(0L) }
     var isRunning by remember { mutableStateOf(false) }
@@ -147,6 +146,7 @@ fun RunTrackingScreen(
                         onClick = {
                             isRunning = !isRunning
                             onToggleService(isRunning)
+                           // stepViewModel.startRunSession(totalRealtimeSteps)
                         },
                         modifier = Modifier.size(72.dp),
                         shape = CircleShape,
@@ -167,6 +167,7 @@ fun RunTrackingScreen(
                                 onToggleService(false)
                                 // Gọi callback để chuyển màn hình, truyền dữ liệu vừa chạy xong
                                 onFinishRun(sessionSteps, stepViewModel.calculateCalories(sessionSteps.toLong()), timeSeconds)
+                                stepViewModel.finishRunSession(totalRealtimeSteps)
                                 onClose() // Đóng màn hình chạy
                             },
                             modifier = Modifier.size(72.dp),

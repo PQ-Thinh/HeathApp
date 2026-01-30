@@ -30,7 +30,10 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.text.TextStyle
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
+import com.example.healthapp.feature.components.HistoryListSection
+import com.example.healthapp.feature.components.formatDateTime
 import com.example.healthapp.ui.theme.AestheticColors
 
 @Composable
@@ -41,6 +44,8 @@ fun HeartDetailScreen(
     modifier: Modifier,
     onHeartRateClick: () -> Unit
 ) {
+
+    val historyList by heartViewModel.heartHistory.collectAsStateWithLifecycle()
     // Collect State từ ViewModel
     val latestHeartRate by heartViewModel.latestHeartRate.collectAsState()
     val chartData by heartViewModel.heartRateData.collectAsState()
@@ -188,6 +193,29 @@ fun HeartDetailScreen(
                         )
                     ) {
                         Text("Đo nhịp tim ngay")
+                    }
+                }
+                item {
+                    HistoryListSection(
+                        title = "Lịch sử nhịp tim",
+                        historyData = historyList
+                    ) { record ->
+                        Row(
+                            modifier = Modifier
+                                .padding(12.dp)
+                                .fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = formatDateTime(record.time), // Giả sử field tên là time
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                text = "${record.bpm} BPM",
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color.Red)
+                            )
+                        }
                     }
                 }
             }

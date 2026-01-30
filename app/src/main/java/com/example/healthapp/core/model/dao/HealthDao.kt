@@ -155,4 +155,14 @@ interface HealthDao {
     // Query cho Biểu đồ Giấc ngủ (Lấy các phiên ngủ)
     @Query("SELECT * FROM sleep_sessions WHERE userId = :userId AND startTime >= :startTime AND endTime <= :endTime ORDER BY startTime ASC")
     suspend fun getSleepSessionsInRange(userId: String, startTime: Long, endTime: Long): List<SleepSessionEntity>
+
+
+    @Query("SELECT * FROM step_records ORDER BY startTime DESC")
+    fun getAllStepsHistory(): Flow<List<StepRecordEntity>>
+
+    @Query("SELECT * FROM heart_rate_records ORDER BY time DESC")
+    fun getAllHeartRateHistory(): Flow<List<HeartRateRecordEntity>>
+
+    @Query("SELECT * FROM sleep_sessions ORDER BY startTime DESC")
+    fun getAllSleepHistory(): Flow<List<SleepSessionEntity>>
 }
