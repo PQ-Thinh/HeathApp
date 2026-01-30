@@ -25,6 +25,9 @@ class FirebaseSyncManager @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
     private var invitationListener: ListenerRegistration? = null
+    // Biến quản lý Listener để có thể hủy khi cần
+    private var userListener: ListenerRegistration? = null
+    private var dailyHealthListener: ListenerRegistration? = null
 
     //Kéo dữ liệu khi đăng nhập
     suspend fun pullUserData(uid: String) {
@@ -165,6 +168,43 @@ class FirebaseSyncManager @Inject constructor(
             Log.e("Sync", "Lỗi pushSleepSession: ${e.message}")
         }
     }
+    //Hàm đẩy danh sách Step Records (Chi tiết từng lần đi bộ)
+    suspend fun pushStepRecords(records: List<StepRecordEntity>) {
+        if (records.isEmpty()) return
+        val batch = firestore.batch()
+
+        records.forEach { record ->
+            val docRef = firestore.collection("users").document(record.userId)
+                .collection("step_records").document(record.id)
+            batch.set(docRef, record, SetOptions.merge())
+        }
+
+        try {
+            batch.commit().await()
+            Log.d("Sync", "Đã đẩy ${records.size} bản ghi Steps chi tiết lên Cloud")
+        } catch (e: Exception) {
+            Log.e("Sync", "Lỗi pushStepRecords: ${e.message}")
+        }
+    }
+
+    // Hàm đẩy danh sách Heart Rate Records (Chi tiết từng nhịp tim)
+    suspend fun pushHeartRateRecords(records: List<HeartRateRecordEntity>) {
+        if (records.isEmpty()) return
+        val batch = firestore.batch()
+
+        records.forEach { record ->
+            val docRef = firestore.collection("users").document(record.userId)
+                .collection("heart_rate_records").document(record.id)
+            batch.set(docRef, record, SetOptions.merge())
+        }
+
+        try {
+            batch.commit().await()
+            Log.d("Sync", "Đã đẩy ${records.size} bản ghi HeartRate lên Cloud")
+        } catch (e: Exception) {
+            Log.e("Sync", "Lỗi pushHeartRateRecords: ${e.message}")
+        }
+    }
 
     // Đẩy Thông báo lên Cloud (Backup)
     suspend fun pushNotification(uid: String, notification: NotificationEntity) {
@@ -210,7 +250,7 @@ class FirebaseSyncManager @Inject constructor(
         }
     }
 
-    // 6. Lắng nghe lời mời ĐẾN
+    //Lắng nghe lời mời ĐẾN
     fun startListeningForInvitations(currentUid: String) {
         invitationListener?.remove()
 
@@ -257,7 +297,7 @@ class FirebaseSyncManager @Inject constructor(
             }
     }
 
-    // 7. Phản hồi lời mời
+    // Phản hồi lời mời
     suspend fun respondToInvitation(inviteId: String, isAccepted: Boolean) {
         val newStatus = if (isAccepted) "ACCEPTED" else "REJECTED"
         firestore.collection("invitations").document(inviteId)
@@ -265,7 +305,33 @@ class FirebaseSyncManager @Inject constructor(
         healthDao.updateInvitationStatus(inviteId, newStatus)
     }
 
-    fun stopListening() {
-        invitationListener?.remove()
+
+
+    //Lắng nghe thay đổi Profile (Máy A đổi tên -> Máy B cập nhật ngay)
+    fun startListeningUser(uid: String) {
+        userListener?.remove() // Hủy cái cũ nếu có
+        userListener = firestore.collection("users").document(uid)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) return@addSnapshotListener
+
+                if (snapshot != null && snapshot.exists()) {
+                    val user = snapshot.toObject(UserEntity::class.java)
+                    if (user != null) {
+                        // Chạy Coroutine để lưu vào Room
+                        CoroutineScope(Dispatchers.IO).launch {
+                            healthDao.saveUser(user)
+                            Log.d("Sync", "Realtime: Đã cập nhật User Profile từ Cloud")
+                        }
+                    }
+                }
+            }
+    }
+
+
+    //Hủy lắng nghe (Gọi khi Logout hoặc Destroy)
+    fun stopAllListeners() {
+        userListener?.remove()
+        dailyHealthListener?.remove()
+        invitationListener?.remove() // Hàm cũ của bạn
     }
 }

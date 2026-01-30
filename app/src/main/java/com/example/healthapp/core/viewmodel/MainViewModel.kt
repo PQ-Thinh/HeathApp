@@ -75,16 +75,22 @@ class MainViewModel @Inject constructor(
     }
     private fun initializeData() {
         viewModelScope.launch {
-            try{// 1. Lấy User ID
+            try{// Lấy User ID
                 val email = dataStore.data.first()[CURRENT_USER_EMAIL_KEY]
                 if (email != null) {
                     val user = healthDao.getUserByEmail(email)
                     currentUserId = user?.id?:""
+                    if (currentUserId != null) {
+                        //Sync dữ liệu cũ (Pull 1 lần)
+                        repository.initialSync(currentUserId!!)
+                        // Bắt đầu lắng nghe Realtime
+                        repository.startRealtimeSync(currentUserId!!)
+                    }
                 } else {
                     currentUserId = null
                 }
 
-                // 2. Bắt đầu lắng nghe Database ngay sau khi có User ID
+                // Bắt đầu lắng nghe Database ngay sau khi có User ID
                 // Logic này thay thế cho observeDatabase cũ và cả snapshotFlow
                 currentUserId?.let { userId ->
                     val today = LocalDate.now().toString()

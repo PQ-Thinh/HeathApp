@@ -11,6 +11,9 @@ import com.example.healthapp.core.data.SleepBucket
 import com.example.healthapp.core.data.StepBucket
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
+import com.example.healthapp.core.model.entity.HeartRateRecordEntity
+import com.example.healthapp.core.model.entity.SleepSessionEntity
+import com.example.healthapp.core.model.entity.StepRecordEntity
 import com.example.healthapp.core.model.entity.UserEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterNotNull
@@ -23,6 +26,7 @@ import kotlinx.coroutines.flow.map
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.Period
+import java.util.UUID
 import javax.inject.Inject
 
 class HealthRepository @Inject constructor(
@@ -111,7 +115,31 @@ class HealthRepository @Inject constructor(
     }
 
     suspend fun writeStepsToHealthConnect(start: LocalDateTime, end: LocalDateTime, stepsDelta: Int) {
+        val prefs = dataStore.data.first()
+        val email = prefs[CURRENT_USER_EMAIL_KEY] ?: return
+        val user = healthDao.getUserByEmail(email) ?: return
+        val userId = user.id
+
+        //  Ghi vào Health Connect (Giữ nguyên)
         healthConnectManager.writeSteps(start, end, stepsDelta)
+
+        //Lưu bản ghi chi tiết vào Room & Push Cloud
+        val startTime = start.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endTime = end.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val record = StepRecordEntity(
+            id = java.util.UUID.randomUUID().toString(),
+            userId = userId,
+            startTime = startTime,
+            endTime = endTime,
+            count = stepsDelta
+        )
+
+        // Lưu vào Room
+        healthDao.insertStepRecords(listOf(record))
+
+        // Push lên Firebase
+        syncManager.pushStepRecords(listOf(record))
     }
 
     suspend fun saveHeartRate(userId: String, bpm: Int) {
@@ -126,42 +154,61 @@ class HealthRepository @Inject constructor(
             // Phải kiểm tra xem bản ghi đã tồn tại chưa.
             // Nếu chưa có (VD: mới cài app, chưa đi bước nào) thì phải Insert mới.
             val currentData = healthDao.getDailyHealth(todayStr, userId).firstOrNull()
-
             if (currentData == null) {
-                val newData = DailyHealthEntity(
-                    date = todayStr,
-                    userId = userId,
-                    heartRateAvg = bpm
-                )
+                val newData = DailyHealthEntity(date = todayStr, userId = userId, heartRateAvg = bpm)
                 healthDao.insertOrUpdateDailyHealth(newData)
+                syncManager.pushDailyHealth(newData) // Push Daily
             } else {
-                // Nếu đã có, update trường heart_rate
                 healthDao.updateHeartRate(todayStr, userId, bpm)
+                // Cần push lại Daily để update Avg Heart Rate lên Cloud
+                val updatedData = currentData.copy(heartRateAvg = bpm)
+                syncManager.pushDailyHealth(updatedData)
             }
+
+            // Lưu bản ghi chi tiết (Record) để vẽ biểu đồ
+            val timeMilli = now.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val record = HeartRateRecordEntity(
+                id = UUID.randomUUID().toString(),
+                userId = userId,
+                time = timeMilli,
+                bpm = bpm
+            )
+
+            healthDao.insertHeartRateRecords(listOf(record))
+            syncManager.pushHeartRateRecords(listOf(record))
         }
     }
 
     suspend fun saveSleepSession(userId: String, start: LocalDateTime, end: LocalDateTime) {
+        // Ghi HC
         healthConnectManager.writeSleepSession(start, end)
 
+        //Tính toán & Update Daily
         val durationMinutes = Duration.between(start, end).toMinutes()
         val today = LocalDate.now().toString()
-
         val currentData = healthDao.getDailyHealth(today, userId).firstOrNull()
-
-        // Logic này của bạn đã đúng (dùng copy), nhưng kiểm tra lại cho chắc
         val finalData = if (currentData == null) {
-            DailyHealthEntity(
-                date = today,
-                userId = userId,
-                sleepHours = durationMinutes,
-            )
+            DailyHealthEntity(date = today, userId = userId, sleepHours = durationMinutes)
         } else {
             currentData.copy(sleepHours = durationMinutes)
         }
-
         healthDao.insertOrUpdateDailyHealth(finalData)
         syncManager.pushDailyHealth(finalData)
+
+        //  Lưu Session chi tiết & Push Cloud
+        val startTime = start.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endTime = end.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val sessionEntity = SleepSessionEntity(
+            id = UUID.randomUUID().toString(),
+            userId = userId,
+            startTime = startTime,
+            endTime = endTime,
+            type = "Sleep"
+        )
+
+        healthDao.insertSleepSessions(listOf(sessionEntity))
+        syncManager.pushSleepSession(sessionEntity)
     }
 
     suspend fun getSleepChartData(range: ChartTimeRange): List<SleepBucket> {
@@ -328,6 +375,14 @@ class HealthRepository @Inject constructor(
     }
     suspend fun initialSync(uid: String) {
         syncManager.pullUserData(uid)
+    }
+    fun startRealtimeSync(uid: String) {
+        syncManager.startListeningUser(uid)
+        syncManager.startListeningForInvitations(uid)
+    }
+
+    fun stopRealtimeSync() {
+        syncManager.stopAllListeners()
     }
 }
 
