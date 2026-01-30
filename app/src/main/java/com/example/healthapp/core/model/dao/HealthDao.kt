@@ -107,6 +107,9 @@ interface HealthDao {
     // --- INVITATIONS (Mới thêm cho tính năng mời bạn bè) ---
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertListInvitation(invite: List<InvitationEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertInvitation(invite: InvitationEntity)
 
     @Query("SELECT * FROM invitations WHERE status = 'PENDING' ORDER BY timestamp DESC")

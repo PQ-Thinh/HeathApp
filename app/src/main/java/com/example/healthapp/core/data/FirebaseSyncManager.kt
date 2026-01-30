@@ -3,9 +3,11 @@ package com.example.healthapp.core.data
 import android.util.Log
 import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.DailyHealthEntity
+import com.example.healthapp.core.model.entity.HeartRateRecordEntity
 import com.example.healthapp.core.model.entity.InvitationEntity
 import com.example.healthapp.core.model.entity.NotificationEntity
 import com.example.healthapp.core.model.entity.SleepSessionEntity
+import com.example.healthapp.core.model.entity.StepRecordEntity
 import com.example.healthapp.core.model.entity.UserEntity
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
@@ -24,7 +26,7 @@ class FirebaseSyncManager @Inject constructor(
 ) {
     private var invitationListener: ListenerRegistration? = null
 
-    // 1. Kéo dữ liệu khi đăng nhập
+    //Kéo dữ liệu khi đăng nhập
     suspend fun pullUserData(uid: String) {
         try {
             // A. Profile
@@ -48,6 +50,29 @@ class FirebaseSyncManager @Inject constructor(
                 // Khi kéo về, ta để Room tự sinh ID mới (id = null) để tránh trùng lặp Int
                 healthDao.insertNotification(it.copy(id = null))
             }
+            // Kéo Sleep Sessions (Để vẽ biểu đồ ngủ)
+            val sleepDocs = firestore.collection("users").document(uid)
+                .collection("sleep_sessions").get().await()
+            val sleepSessions = sleepDocs.toObjects(SleepSessionEntity::class.java)
+            healthDao.insertSleepSessions(sleepSessions)
+
+            // Kéo Step Sessions (Để vẽ biểu bước chân)
+            val stepDocs = firestore.collection("users").document(uid)
+                .collection("step_records").get().await()
+            val stepSessions = stepDocs.toObjects(StepRecordEntity::class.java)
+            healthDao.insertStepRecords(stepSessions)
+
+            // Kéo  heart_rate_records (Để vẽ biểu đồ nhịp tim)
+            val heartRateDocs = firestore.collection("users").document(uid)
+                .collection("heart_rate_records").get().await()
+            val heartRateSessions = heartRateDocs.toObjects(HeartRateRecordEntity::class.java)
+            healthDao.insertHeartRateRecords(heartRateSessions)
+
+            val invitationDocs = firestore.collection("users").document(uid)
+                .collection("invitations").get().await()
+            val invitationSessions = invitationDocs.toObjects(InvitationEntity::class.java)
+            healthDao.insertListInvitation(invitationSessions)
+
 
             Log.d("Sync", "Đã kéo dữ liệu User, Sức khỏe và Thông báo về máy.")
         } catch (e: Exception) {
@@ -156,7 +181,7 @@ class FirebaseSyncManager @Inject constructor(
 
                         val entity = InvitationEntity(inviteId, senderId, senderName, currentUid, status, timestamp)
 
-                        // [SỬA LỖI]: Dùng Dispatchers.IO thay vì coroutineContext (gây crash)
+                        //Dùng Dispatchers.IO thay vì coroutineContext (gây crash)
                         CoroutineScope(Dispatchers.IO).launch {
                             healthDao.insertInvitation(entity)
 
@@ -169,10 +194,10 @@ class FirebaseSyncManager @Inject constructor(
                                     relatedId = inviteId
                                 )
 
-                                // 2. Lưu Local
+                                //Lưu Local
                                 healthDao.insertNotification(notif)
 
-                                // [MỚI] 3. Đẩy lên Cloud ngay lập tức để backup
+                                // Đẩy lên Cloud ngay lập tức để backup
                                 pushNotification(currentUid, notif)
                             }
                         }
