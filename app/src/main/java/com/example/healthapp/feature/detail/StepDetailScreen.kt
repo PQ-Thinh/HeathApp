@@ -61,8 +61,6 @@ fun StepDetailScreen(
     val chartData by stepViewModel.chartData.collectAsState()
     val selectedTimeRange by stepViewModel.selectedTimeRange.collectAsState()
 
-    // Vì StepViewModel đã nắm giữ userWeight, ta có thể dùng hàm trong đó hoặc tính tại chỗ.
-    // Để đơn giản và reactive, ta tính tại UI này bằng hàm của ViewModel
     val currentCalories = stepViewModel.calculateCalories(currentSteps.toLong())
     val context = LocalContext.current
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic

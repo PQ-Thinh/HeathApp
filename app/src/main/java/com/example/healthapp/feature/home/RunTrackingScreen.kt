@@ -146,7 +146,7 @@ fun RunTrackingScreen(
                         onClick = {
                             isRunning = !isRunning
                             onToggleService(isRunning)
-                           // stepViewModel.startRunSession(totalRealtimeSteps)
+                            // stepViewModel.startRunSession(totalRealtimeSteps)
                         },
                         modifier = Modifier.size(72.dp),
                         shape = CircleShape,
