@@ -165,6 +165,11 @@ class HealthRepository @Inject constructor(
     }
 
     suspend fun getSleepChartData(range: ChartTimeRange): List<SleepBucket> {
+        val prefs = dataStore.data.first()
+        val email = prefs[CURRENT_USER_EMAIL_KEY] ?: return emptyList()
+        val user = healthDao.getUserByEmail(email) ?: return emptyList()
+        val userId = user.id
+
         val today = LocalDate.now()
         val end = today.plusDays(1).atStartOfDay()
         val start = when (range) {
@@ -174,33 +179,95 @@ class HealthRepository @Inject constructor(
             else -> today.minusDays(6).atStartOfDay()
         }
         val period = if (range == ChartTimeRange.YEAR) Period.ofMonths(1) else Period.ofDays(1)
-        return healthConnectManager.readSleepChartData(start, end, period)
-    }
 
+        //[ƯU TIÊN] HC
+        val hcData = healthConnectManager.readSleepChartData(start, end, period)
+        if (hcData.isNotEmpty()) return hcData
+
+        // Nếu HC trống -> Lấy từ Room
+        Log.d("Chart", "HC Sleep trống, lấy từ Room...")
+        val zoneId = java.time.ZoneId.systemDefault()
+        val startTimeL = start.atZone(zoneId).toInstant().toEpochMilli()
+        val endTimeL = end.atZone(zoneId).toInstant().toEpochMilli()
+
+        // Hàm getSleepSessionsInRange bạn đã thêm vào DAO
+        val sessions = healthDao.getSleepSessionsInRange(userId, startTimeL, endTimeL)
+
+        // Tính tổng thời gian ngủ mỗi ngày
+        val grouped = sessions.groupBy {
+            java.time.Instant.ofEpochMilli(it.startTime).atZone(zoneId).toLocalDate()
+        }
+
+        return grouped.map { (date, list) ->
+            // Tính tổng phút: (End - Start) / 60000
+            val totalMinutes = list.sumOf { (it.endTime - it.startTime) / 60000 }
+            SleepBucket(
+                startTime = date.atStartOfDay(),
+                totalMinutes = totalMinutes
+            )
+        }.sortedBy { it.startTime }
+    }
     suspend fun getHeartRateChartData(range: ChartTimeRange): List<HeartRateBucket> {
+        // Lấy User ID
+        val prefs = dataStore.data.first()
+        val email = prefs[CURRENT_USER_EMAIL_KEY] ?: return emptyList()
+        val user = healthDao.getUserByEmail(email) ?: return emptyList()
+        val userId = user.id
+
         val now = LocalDateTime.now()
         val end = now.toLocalDate().plusDays(1).atStartOfDay()
-        return when (range) {
-            ChartTimeRange.DAY -> {
-                val start = LocalDate.now().atStartOfDay()
-                healthConnectManager.readHeartRateAggregationByDuration(start, end, Duration.ofHours(1))
-            }
-            ChartTimeRange.WEEK -> {
-                val start = now.minusDays(6)
-                healthConnectManager.readHeartRateAggregation(start, end, Period.ofDays(1))
-            }
-            ChartTimeRange.MONTH -> {
-                val start = now.minusDays(30)
-                healthConnectManager.readHeartRateAggregation(start, end, Period.ofDays(1))
-            }
-            ChartTimeRange.YEAR -> {
-                val start = now.minusYears(1)
-                healthConnectManager.readHeartRateAggregation(start, end, Period.ofMonths(1))
-            }
+        val start = when (range) {
+            ChartTimeRange.DAY -> LocalDate.now().atStartOfDay()
+            ChartTimeRange.WEEK -> now.minusDays(6)
+            ChartTimeRange.MONTH -> now.minusDays(30)
+            ChartTimeRange.YEAR -> now.minusYears(1)
         }
-    }
 
+        // [ƯU TIÊN] HC
+        val hcData = if (range == ChartTimeRange.DAY) {
+            healthConnectManager.readHeartRateAggregationByDuration(start, end, Duration.ofHours(1))
+        } else {
+            healthConnectManager.readHeartRateAggregation(start, end, Period.ofDays(1))
+        }
+
+        if (hcData.isNotEmpty()) return hcData
+
+        // Nếu HC trống -> Lấy từ Room
+        Log.d("Chart", "HC HeartRate trống, lấy từ Room...")
+
+        // Convert sang Mili giây để query bảng heart_rate_records
+        // Lưu ý ZoneOffset: Ở VN thường là +7, nhưng tốt nhất dùng systemDefault
+        val zoneId = java.time.ZoneId.systemDefault()
+        val startTimeL = start.atZone(zoneId).toInstant().toEpochMilli()
+        val endTimeL = end.atZone(zoneId).toInstant().toEpochMilli()
+
+        val records = healthDao.getHeartRateRecordsList(userId, startTimeL, endTimeL)
+
+        if (records.isEmpty()) return emptyList()
+
+        // Gom nhóm dữ liệu thô thành Bucket (Min/Max/Avg)
+        val grouped = records.groupBy {
+            java.time.Instant.ofEpochMilli(it.time).atZone(zoneId).toLocalDate()
+        }
+
+        return grouped.map { (date, list) ->
+            HeartRateBucket(
+                startTime = date.atStartOfDay(),
+                min = list.minOf { it.bpm }.toLong(),
+                max = list.maxOf { it.bpm }.toLong(),
+                avg = list.map { it.bpm }.average().toLong()
+            )
+        }.sortedBy { it.startTime }
+    }
     suspend fun getStepChartData(range: ChartTimeRange): List<StepBucket> {
+        //Lấy User ID (Cần để query Room)
+        // Cách lấy nhanh nhất từ DataStore (để code gọn hơn đoạn flow của bạn)
+        val prefs = dataStore.data.first()
+        val email = prefs[CURRENT_USER_EMAIL_KEY] ?: return emptyList()
+        val user = healthDao.getUserByEmail(email) ?: return emptyList()
+        val userId = user.id
+
+        // 2. Setup thời gian
         val now = LocalDateTime.now()
         val end = now.toLocalDate().plusDays(1).atStartOfDay()
         val start = when (range) {
@@ -210,47 +277,55 @@ class HealthRepository @Inject constructor(
             else -> LocalDate.now().minusDays(6).atStartOfDay()
         }
         val period = if (range == ChartTimeRange.YEAR) Period.ofMonths(1) else Period.ofDays(1)
-        val hcDataList = healthConnectManager.readStepChartData(start, end, period).toMutableList()
 
-        if (range != ChartTimeRange.YEAR) {
-            val todayStr = LocalDate.now().toString()
-            val currentUserInfo = dataStore.data
-                .map { prefs -> prefs[CURRENT_USER_EMAIL_KEY] }
-                .flatMapLatest { email ->
-                    if (email != null) healthDao.getUserFlowByEmail(email) else flowOf(null)
-                }
-            val currentUser = currentUserInfo.filterNotNull().first()
-            val userId = currentUser.id
+        //Thử lấy từ Health Connect
+        val hcData = healthConnectManager.readStepChartData(start, end, period)
 
-            val localTodayData = healthDao.getDailyHealth(todayStr, userId).firstOrNull()
-            val realTimeSteps = localTodayData?.steps ?: 0
+        // Kiểm tra xem HC có dữ liệu thực không (hay chỉ toàn 0)
+        val hasRealData = hcData.any { it.totalSteps > 0 }
 
-            val todayIndex = hcDataList.indexOfFirst {
-                it.startTime.toLocalDate().isEqual(LocalDate.now())
-            }
+        if (hasRealData) {
+            //Merge thêm bước chân realtime hôm nay vào HC
+            val mutableHcData = hcData.toMutableList()
+            if (range != ChartTimeRange.YEAR) {
+                val todayStr = LocalDate.now().toString()
+                val localTodayData = healthDao.getDailyHealth(todayStr, userId).firstOrNull()
+                val realTimeSteps = localTodayData?.steps ?: 0
 
-            if (todayIndex != -1) {
-                val currentBucket = hcDataList[todayIndex]
-                if (realTimeSteps > currentBucket.totalSteps) {
-                    hcDataList[todayIndex] = StepBucket(
-                        startTime = currentBucket.startTime,
-                        endTime = currentBucket.endTime,
-                        totalSteps = realTimeSteps.toLong()
-                    )
-                }
-            } else {
-                if (realTimeSteps > 0) {
-                    hcDataList.add(StepBucket(
-                        startTime = LocalDate.now().atStartOfDay(),
-                        endTime = now,
-                        totalSteps = realTimeSteps.toLong()
-                    ))
+                // Tìm bucket hôm nay để update
+                val todayIndex = mutableHcData.indexOfFirst { it.startTime.toLocalDate().isEqual(LocalDate.now()) }
+                if (todayIndex != -1) {
+                    if (realTimeSteps > mutableHcData[todayIndex].totalSteps) {
+                        mutableHcData[todayIndex] = mutableHcData[todayIndex].copy(totalSteps = realTimeSteps.toLong())
+                    }
+                } else if (realTimeSteps > 0) {
+                    mutableHcData.add(StepBucket(LocalDate.now().atStartOfDay(), now, realTimeSteps.toLong()))
                 }
             }
+            return mutableHcData.sortedBy { it.startTime }
         }
-        return hcDataList.sortedBy { it.startTime }
-    }
 
+        // Nếu HC trống -> Lấy từ Room (Dữ liệu lịch sử từ Firebase)
+        Log.d("Chart", "Health Connect trống, lấy Step từ Room...")
+
+        // Cần import java.time.format.DateTimeFormatter
+        val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd")
+        val startDateStr = start.toLocalDate().format(formatter)
+        val endDateStr = end.toLocalDate().format(formatter)
+
+
+        val roomData = healthDao.getDailyHealthInRange(userId, startDateStr, endDateStr)
+
+        val fallbackList = roomData.map { entity ->
+            val date = LocalDate.parse(entity.date, formatter)
+            StepBucket(
+                startTime = date.atStartOfDay(),
+                endTime = date.plusDays(1).atStartOfDay(),
+                totalSteps = entity.steps.toLong()
+            )
+        }
+        return fallbackList.sortedBy { it.startTime }
+    }
     suspend fun initialSync(uid: String) {
         syncManager.pullUserData(uid)
     }

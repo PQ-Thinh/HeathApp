@@ -68,11 +68,25 @@ class FirebaseSyncManager @Inject constructor(
             val heartRateSessions = heartRateDocs.toObjects(HeartRateRecordEntity::class.java)
             healthDao.insertHeartRateRecords(heartRateSessions)
 
-            val invitationDocs = firestore.collection("users").document(uid)
-                .collection("invitations").get().await()
-            val invitationSessions = invitationDocs.toObjects(InvitationEntity::class.java)
-            healthDao.insertListInvitation(invitationSessions)
+            // Lấy các lời mời mà mình là người nhận
+            val receivedInvites = firestore.collection("invitations")
+                .whereEqualTo("receiverId", uid)
+                .get().await()
+                .toObjects(InvitationEntity::class.java)
 
+            // Lấy các lời mời mà mình là người gửi (nếu muốn hiển thị lịch sử gửi)
+            val sentInvites = firestore.collection("invitations")
+                .whereEqualTo("senderId", uid)
+                .get().await()
+                .toObjects(InvitationEntity::class.java)
+
+            // Gộp lại và lưu vào Room (Dùng Set để tránh trùng nếu lỡ có)
+            val allInvites = (receivedInvites + sentInvites).distinctBy { it.id }
+
+            if (allInvites.isNotEmpty()) {
+                healthDao.insertListInvitation(allInvites)
+                Log.d("Sync", "Đã sync ${allInvites.size} lời mời")
+            }
 
             Log.d("Sync", "Đã kéo dữ liệu User, Sức khỏe và Thông báo về máy.")
         } catch (e: Exception) {
@@ -91,13 +105,50 @@ class FirebaseSyncManager @Inject constructor(
     }
 
     // Đẩy dữ liệu Sức khỏe
+    //Đẩy dữ liệu sức khỏe với cơ chế "Max Steps Wins"
+    // Ngăn chặn việc máy mới (ít bước) ghi đè lên máy cũ (nhiều bước)
     suspend fun pushDailyHealth(data: DailyHealthEntity) {
+        val docRef = firestore.collection("users").document(data.userId)
+            .collection("daily_health").document(data.date)
+
         try {
-            firestore.collection("users").document(data.userId)
-                .collection("daily_health").document(data.date)
-                .set(data, SetOptions.merge())
+            firestore.runTransaction { transaction ->
+                val snapshot = transaction.get(docRef)
+
+                if (snapshot.exists()) {
+                    //Nếu trên Cloud đã có dữ liệu -> So sánh để lấy số lớn nhất
+                    val cloudSteps = snapshot.getLong("steps")?.toInt() ?: 0
+                    val cloudCal = snapshot.getDouble("calories_burned")?.toFloat() ?: 0f
+                    val cloudSleep = snapshot.getLong("sleep_hours") ?: 0
+
+                    // Logic Merge:
+                    // - Steps/Calo: Lấy số lớn nhất (Chống ghi đè)
+                    // - HeartRate/Sleep: Có thể lấy cái mới nhất (từ data gửi lên) hoặc lớn nhất tùy logic.
+                    // Ở đây Sleep ta cũng lấy lớn nhất để an toàn.
+
+                    val mergedSteps = maxOf(cloudSteps, data.steps)
+                    val mergedCal = maxOf(cloudCal, data.caloriesBurned)
+                    val mergedSleep = maxOf(cloudSleep, data.sleepHours)
+
+                    // Chỉ update nếu dữ liệu Local tốt hơn hoặc bằng Cloud
+                    // (Hoặc cập nhật các trường khác như heart_rate nếu cần)
+                    transaction.update(docRef, mapOf(
+                        "steps" to mergedSteps,
+                        "calories_burned" to mergedCal,
+                        "sleep_hours" to mergedSleep,
+                        "heart_rate_avg" to data.heartRateAvg // Nhịp tim thì cứ lấy cái mới nhất gửi lên
+                    ))
+                } else {
+                    //Nếu Cloud chưa có -> Tạo mới hoàn toàn
+                    transaction.set(docRef, data)
+                }
+            }.await()
+
+
+            Log.d("Sync", "Pushed DailyHealth: ${data.date} | Steps: ${data.steps}")
+
         } catch (e: Exception) {
-            Log.e("Sync", "Lỗi pushDailyHealth: ${e.message}")
+            Log.e("Sync", "Lỗi Transaction pushDailyHealth: ${e.message}")
         }
     }
     // Hàm đẩy 1 bản ghi Sleep Session (hoặc Stage) lên Firebase
