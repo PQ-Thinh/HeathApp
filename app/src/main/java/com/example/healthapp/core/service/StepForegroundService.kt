@@ -107,7 +107,7 @@ class StepForegroundService : Service() {
 
         serviceScope.launch {
         try{
-            //ĐỌC DỮ LIỆU CŨ (QUAN TRỌNG: Phải làm trong Coroutine)
+            //ĐỌC DỮ LIỆU CŨ
             val prefs = dataStore.data.first()
             val savedDate = prefs[LAST_SAVED_DATE_KEY] ?: ""
             var startOfDaySteps = prefs[START_OF_DAY_STEPS_KEY] ?: 0
