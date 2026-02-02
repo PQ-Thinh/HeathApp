@@ -25,6 +25,11 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.Period
 import java.util.UUID
+import androidx.health.connect.client.records.HeartRateRecord
+import androidx.health.connect.client.records.SleepSessionRecord
+import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.time.TimeRangeFilter
+import java.time.Instant
 import javax.inject.Inject
 
 class HealthRepository @Inject constructor(
@@ -44,7 +49,6 @@ class HealthRepository @Inject constructor(
             .await()
     }
 
-    //Lấy DailyHealth (Realtime Flow)
     //Lấy DailyHealth (Realtime Flow)
     fun getDailyHealth(date: String, userId: String): Flow<DailyHealthEntity?> = callbackFlow {
         val docRef = firestore.collection("users").document(userId)
@@ -129,6 +133,27 @@ class HealthRepository @Inject constructor(
             .set(record)
             .await()
     }
+    suspend fun deleteStepRecord(record: StepRecordEntity) {
+        try {
+            // A. Xóa trên Health Connect
+            val timeRangeFilter = TimeRangeFilter.between(
+                Instant.ofEpochMilli(record.startTime),
+                Instant.ofEpochMilli(record.endTime)
+            )
+            healthConnectManager.deleteRecords(StepsRecord::class, timeRangeFilter)
+
+            // B. Xóa trên Firestore
+            firestore.collection("users").document(record.userId)
+                .collection("step_records") // Kiểm tra lại tên collection lúc lưu (có thể là step_runs)
+                .document(record.id)
+                .delete()
+                .await()
+
+            Log.d("HealthRepository", "Deleted step record: ${record.id}")
+        } catch (e: Exception) {
+            Log.e("HealthRepository", "Error deleting step record", e)
+        }
+    }
 
     //Lưu Nhịp tim
     suspend fun saveHeartRate(userId: String, bpm: Int) {
@@ -157,6 +182,29 @@ class HealthRepository @Inject constructor(
             firestore.collection("users").document(userId)
                 .collection("heart_rate_records").document(record.id)
                 .set(record)
+        }
+    }
+    suspend fun deleteHeartRate(record: HeartRateRecordEntity) {
+        try {
+            // Xóa trên Health Connect (Dựa vào thời gian ghi nhận)
+            // Vì nhịp tim là thời điểm tức thời, ta xóa trong khoảng nhỏ 1 giây quanh thời điểm đó
+            val time = Instant.ofEpochMilli(record.time)
+            val timeRangeFilter = TimeRangeFilter.between(
+                time.minusMillis(100),
+                time.plusMillis(1000) // +1 giây
+            )
+           healthConnectManager.deleteRecords(HeartRateRecord::class, timeRangeFilter)
+
+            // Xóa trên Firestore
+            firestore.collection("users").document(record.userId)
+                .collection("heart_rates") // Đảm bảo tên collection này khớp với lúc bạn lưu
+                .document(record.id)
+                .delete()
+                .await()
+
+            Log.d("HealthRepository", "Deleted heart rate: ${record.id}")
+        } catch (e: Exception) {
+            Log.e("HealthRepository", "Error deleting heart rate", e)
         }
     }
 
@@ -189,6 +237,27 @@ class HealthRepository @Inject constructor(
         firestore.collection("users").document(userId)
             .collection("sleep_sessions").document(sessionEntity.id)
             .set(sessionEntity)
+    }
+    suspend fun deleteSleepSession(session: SleepSessionEntity) {
+        try {
+            // A. Xóa trên Health Connect (Theo khoảng thời gian ngủ)
+            val timeRangeFilter = TimeRangeFilter.between(
+                Instant.ofEpochMilli(session.startTime),
+                Instant.ofEpochMilli(session.endTime)
+            )
+            healthConnectManager.deleteRecords(SleepSessionRecord::class, timeRangeFilter)
+
+            // B. Xóa trên Firestore
+            firestore.collection("users").document(session.userId)
+                .collection("sleep_sessions")
+                .document(session.id)
+                .delete()
+                .await()
+
+            Log.d("HealthRepository", "Deleted sleep session: ${session.id}")
+        } catch (e: Exception) {
+            Log.e("HealthRepository", "Error deleting sleep session", e)
+        }
     }
 
     // --- BIỂU ĐỒ & LỊCH SỬ ---

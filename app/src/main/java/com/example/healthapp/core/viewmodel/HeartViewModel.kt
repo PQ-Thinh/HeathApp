@@ -17,7 +17,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
 import java.time.LocalDate
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -121,6 +124,21 @@ class HeartViewModel @Inject constructor(
             loadChartData()
             loadHistory()
         }
+    }
+    fun deleteHeartRecord(record: HeartRateRecordEntity) {
+        val uid = auth.currentUser?.uid ?: return
+        viewModelScope.launch {
+
+            repository.deleteHeartRate(record)
+
+            // Tải lại dữ liệu sau khi xóa để UI cập nhật
+            loadHistory()
+            loadChartData()
+        }
+    }
+    fun formatDateTime(timestamp: Long): String {
+        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        return sdf.format(Date(timestamp))
     }
 
     // Tiện ích theo dõi Auth

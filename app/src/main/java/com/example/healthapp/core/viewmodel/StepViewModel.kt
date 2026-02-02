@@ -22,7 +22,10 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
 import java.time.LocalDateTime
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -171,6 +174,10 @@ class StepViewModel @Inject constructor(
         _sessionStartTime.value = null
         _startSessionSteps = 0
         _sessionSteps.value = 0
+    }
+    fun formatDateTime(timestamp: Long): String {
+        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        return sdf.format(Date(timestamp))
     }
 
     // Theo dõi Auth state

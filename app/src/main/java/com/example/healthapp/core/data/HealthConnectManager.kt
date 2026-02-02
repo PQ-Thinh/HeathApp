@@ -18,6 +18,8 @@ import java.time.Duration
 import java.time.LocalDateTime
 import java.time.Period
 import java.time.ZoneId
+import kotlin.reflect.KClass
+import androidx.health.connect.client.records.Record
 
 class HealthConnectManager(private val context: Context) {
 
@@ -280,6 +282,14 @@ class HealthConnectManager(private val context: Context) {
         } catch (e: Exception) {
             e.printStackTrace()
             return emptyList()
+        }
+    }
+    suspend fun deleteRecords(recordType: KClass<out Record>, timeRangeFilter: TimeRangeFilter) {
+        try {
+            healthConnectClient.deleteRecords(recordType, timeRangeFilter)
+            Log.d("HealthConnect", "Đã xóa record loại ${recordType.simpleName}")
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Lỗi xóa dữ liệu: ${e.message}")
         }
     }
     // Hàm đọc chi tiết các giai đoạn ngủ

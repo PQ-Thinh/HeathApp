@@ -6,57 +6,62 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.example.healthapp.core.viewmodel.HeartViewModel
-import com.example.healthapp.feature.chart.HeartChart
-import com.example.healthapp.ui.theme.DarkAesthetic
-import com.example.healthapp.ui.theme.LightAesthetic
-import androidx.compose.material3.FilterChip
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.text.TextStyle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
-import com.example.healthapp.feature.components.HistoryListSection
-import com.example.healthapp.feature.components.formatDateTime
+import com.example.healthapp.core.model.entity.HeartRateRecordEntity
+import com.example.healthapp.core.viewmodel.HeartViewModel
+import com.example.healthapp.feature.chart.HeartChart
+import com.example.healthapp.feature.components.GenericHistoryDialog
 import com.example.healthapp.ui.theme.AestheticColors
+import com.example.healthapp.ui.theme.DarkAesthetic
+import com.example.healthapp.ui.theme.LightAesthetic
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HeartDetailScreen(
     onBackClick: () -> Unit,
     isDarkTheme: Boolean,
+    modifier: Modifier = Modifier,
+    onHeartRateClick: () -> Unit,
     heartViewModel: HeartViewModel = hiltViewModel(),
-    modifier: Modifier,
-    onHeartRateClick: () -> Unit
 ) {
-
-    val historyList by heartViewModel.heartHistory.collectAsStateWithLifecycle()
     // Collect State từ ViewModel
+    val historyList by heartViewModel.heartHistory.collectAsStateWithLifecycle()
     val latestHeartRate by heartViewModel.latestHeartRate.collectAsState()
     val chartData by heartViewModel.heartRateData.collectAsState()
     val assessment by heartViewModel.assessment.collectAsState()
     val selectedTimeRange by heartViewModel.selectedTimeRange.collectAsState()
 
+    var showHistoryDialog by remember { mutableStateOf(false) }
+
     // Setup Theme màu sắc
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
-    val heartColor = Color(0xFFFF5252) // Màu đỏ đặc trưng cho tim
+    val heartColor = Color(0xFFEF4444) // Màu đỏ đặc trưng cho tim
 
-    // Animation nền (Giống Sleep)
+    // Animation nền
     val infiniteTransition = rememberInfiniteTransition(label = "background")
     val floatAnim by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -67,6 +72,42 @@ fun HeartDetailScreen(
         ),
         label = "float"
     )
+
+    // --- DIALOG LỊCH SỬ ---
+    if (showHistoryDialog) {
+        GenericHistoryDialog(
+            title = "Lịch sử Nhịp tim",
+            dataList = historyList,
+            onDismiss = { showHistoryDialog = false },
+            onDelete = { record -> heartViewModel.deleteHeartRecord(record) },
+            isDarkTheme = isDarkTheme,
+            itemContent = { item, textColor ->
+                // Nội dung hiển thị trong Dialog (Chi tiết hơn)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Favorite,
+                        contentDescription = null,
+                        tint = heartColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "${item.bpm} BPM",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = textColor
+                        )
+                        Text(
+                            text = SimpleDateFormat("HH:mm - dd/MM/yyyy", Locale.getDefault()).format(Date(item.time)),
+                            fontSize = 13.sp,
+                            color = textColor.copy(0.6f)
+                        )
+                    }
+                }
+            }
+        )
+    }
 
     Box(
         modifier = Modifier
@@ -93,10 +134,22 @@ fun HeartDetailScreen(
 
         Scaffold(
             containerColor = Color.Transparent,
-            topBar = { HeartTopBar(onBackClick, colors) }
+            topBar = { HeartTopBar(onBackClick, colors) },
+            // Nút FAB đo nhịp tim
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = onHeartRateClick,
+                    containerColor = heartColor,
+                    contentColor = Color.White
+                ) {
+                    Icon(Icons.Default.Favorite, contentDescription = "Đo tim")
+                }
+            }
         ) { paddingValues ->
             LazyColumn(
-                modifier = Modifier.padding(paddingValues).padding(16.dp),
+                modifier = Modifier
+                    .padding(paddingValues)
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 // 1. Card hiển thị BPM và Đánh giá
@@ -127,15 +180,13 @@ fun HeartDetailScreen(
                             Text(
                                 text = assessment,
                                 fontSize = 18.sp,
-                                color = if (latestHeartRate in 60..100) Color.Green else Color(
-                                    0xFFFFCC00
-                                )
+                                color = if (latestHeartRate in 60..100) Color(0xFF22C55E) else Color(0xFFEAB308)
                             )
                         }
                     }
                 }
 
-                // 2. Thanh chọn Ngày - Tuần - Tháng - Năm
+                // 2. Thanh chọn Thời gian (Ngày/Tuần/Tháng/Năm)
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -154,74 +205,155 @@ fun HeartDetailScreen(
                                             ChartTimeRange.YEAR -> "Năm"
                                         }
                                     )
-                                }
+                                },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = heartColor.copy(alpha = 0.2f),
+                                    selectedLabelColor = heartColor
+                                )
                             )
                         }
                     }
                 }
 
-                // 3. Biểu đồ Cột (MPAndroidChart)
+                // 3. Biểu đồ
                 item {
                     Text(
-                        "Biểu đồ nhịp tim (Min/Max/Avg)",
+                        "Biểu đồ nhịp tim",
                         color = colors.textSecondary,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        fontWeight = FontWeight.Bold
                     )
 
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .height(300.dp)
                             .clip(RoundedCornerShape(16.dp))
-
+                            .background(colors.glassContainer)
+                            .padding(16.dp)
                     ) {
                         HeartChart(
                             data = chartData,
                             timeRange = selectedTimeRange,
-                            //lineColor =  android.graphics.Color.parseColor("#EF4444")
                         )
                     }
                 }
 
-                // 4. Nút Đo Nhịp Tim
+                // 4. Lịch sử (Thay thế HistoryListSection cũ bằng giao diện mới)
                 item {
-                    Button(
-                        onClick = onHeartRateClick,
-                        modifier = Modifier.fillMaxWidth().height(56.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                            containerColor = heartColor
-                        )
+                    // Header Lịch sử + Nút Xem thêm
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Đo nhịp tim ngay")
+                        Text(
+                            text = "Lịch sử đo gần đây",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.textPrimary
+                        )
+
+                        // Chỉ hiện nút "Xem thêm" nếu list dài hơn 3
+                        if (historyList.size > 3) {
+                            TextButton(onClick = { showHistoryDialog = true }) {
+                                Text("Xem thêm", color = heartColor, fontWeight = FontWeight.Bold)
+                            }
+                        }
                     }
-                }
-                item {
-                    HistoryListSection(
-                        title = "Lịch sử nhịp tim",
-                        historyData = historyList
-                    ) { record ->
-                        Row(
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    if (historyList.isEmpty()) {
+                        Box(
                             modifier = Modifier
-                                .padding(12.dp)
-                                .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = formatDateTime(record.time), // Giả sử field tên là time
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = "${record.bpm} BPM",
-                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold, color = Color.Red)
-                            )
+                            Text("Chưa có dữ liệu đo", color = colors.textSecondary)
+                        }
+                    } else {
+                        // CHỈ HIỂN THỊ TỐI ĐA 3 ITEMS MỚI NHẤT
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            historyList.take(3).forEach { item ->
+                                SimpleHeartHistoryRow(
+                                    item = item,
+                                    colors = colors,
+                                    heartColor = heartColor
+                                )
+                            }
                         }
                     }
                 }
+
+                // Khoảng trống dưới cùng để không bị FAB che
+                item { Spacer(modifier = Modifier.height(80.dp)) }
             }
         }
     }
 }
+
+// Composable hiển thị 1 dòng lịch sử đơn giản (ở màn hình chính)
+@Composable
+fun SimpleHeartHistoryRow(
+    item: HeartRateRecordEntity,
+    colors: AestheticColors,
+    heartColor: Color
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(colors.glassContainer) // Màu nền theo theme kính mờ
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Icon tròn nhỏ
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(heartColor.copy(0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.WatchLater,
+                    contentDescription = null,
+                    tint = heartColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Thông tin ngày giờ
+            Column {
+                Text(
+                    text = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(item.time)),
+                    fontWeight = FontWeight.Bold,
+                    color = colors.textPrimary
+                )
+                Text(
+                    text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(item.time)),
+                    fontSize = 12.sp,
+                    color = colors.textSecondary
+                )
+            }
+        }
+
+        // Chỉ số BPM
+        Text(
+            text = "${item.bpm} BPM",
+            fontWeight = FontWeight.Bold,
+            color = heartColor,
+            fontSize = 16.sp
+        )
+    }
+}
+
 @Composable
 fun HeartTopBar(onBackClick: () -> Unit, colors: AestheticColors) {
     Row(
@@ -240,7 +372,6 @@ fun HeartTopBar(onBackClick: () -> Unit, colors: AestheticColors) {
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = colors.textPrimary,
-                // Giảm bóng đổ ở Light mode để trông sạch hơn
                 shadow = if (colors.background == DarkAesthetic.background)
                     Shadow(Color.Black.copy(0.3f), blurRadius = 4f)
                 else null

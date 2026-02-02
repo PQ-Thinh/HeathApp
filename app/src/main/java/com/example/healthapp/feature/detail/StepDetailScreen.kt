@@ -25,8 +25,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,12 +37,12 @@ import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
 import android.content.Intent
+import android.text.format.DateUtils.formatDateTime
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healthapp.core.service.StepForegroundService
 import com.example.healthapp.feature.components.HistoryListSection
 import com.example.healthapp.feature.components.TopBar
-import com.example.healthapp.feature.components.formatDateTime
 
 @Composable
 fun StepDetailScreen(
@@ -241,7 +239,7 @@ fun StepDetailScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = formatDateTime(record.startTime ?: 0L),
+                                text = stepViewModel.formatDateTime(record.startTime ?: 0L),
                                 style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
