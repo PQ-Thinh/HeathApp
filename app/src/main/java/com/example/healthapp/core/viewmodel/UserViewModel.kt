@@ -138,7 +138,7 @@ class UserViewModel @Inject constructor(
         viewModelScope.launch {
             firestore.collection("users").document(uid)
                 .set(updates, SetOptions.merge())
-            dataStore.edit { it[IS_LOGGED_IN_KEY] = true }
+
         }
     }
 

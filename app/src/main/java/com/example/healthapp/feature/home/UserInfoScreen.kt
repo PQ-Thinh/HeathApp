@@ -37,11 +37,11 @@ import java.util.Calendar
 @Composable
 fun UserInfoScreen(
     modifier: Modifier = Modifier,
-    onStartClick: (String, String, Int, Int, Int) -> Unit // Trả về: Tên, Giới tính, Ngày, Tháng, Năm
+    onStartClick: (String, String, Int, Int, Int) -> Unit
 ) {
     // State
     var name by remember { mutableStateOf("") }
-    var selectedGender by remember { mutableStateOf("Male") } // "Male" or "Female"
+    var selectedGender by remember { mutableStateOf("Male") }
 
     // Ngày sinh (Mặc định chọn ngày hôm nay)
     val calendar = Calendar.getInstance()
@@ -227,7 +227,7 @@ fun UserInfoScreen(
                                     name,
                                     selectedGender,
                                     selectedDate.get(Calendar.DAY_OF_MONTH),
-                                    selectedDate.get(Calendar.MONTH) + 1, // Calendar tháng bắt đầu từ 0
+                                    selectedDate.get(Calendar.MONTH) + 1,
                                     selectedDate.get(Calendar.YEAR)
                                 )
                             }

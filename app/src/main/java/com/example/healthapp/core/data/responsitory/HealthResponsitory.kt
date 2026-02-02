@@ -242,7 +242,7 @@ class HealthRepository @Inject constructor(
         val zoneId = java.time.ZoneId.systemDefault()
 
         val grouped = sessions.groupBy {
-            java.time.Instant.ofEpochMilli(it.startTime).atZone(zoneId).toLocalDate()
+            java.time.Instant.ofEpochMilli(it.endTime).atZone(zoneId).toLocalDate()
         }
 
         return grouped.map { (date, list) ->
@@ -253,7 +253,7 @@ class HealthRepository @Inject constructor(
 
     suspend fun getHeartRateChartData(range: ChartTimeRange): List<HeartRateBucket> {
         val userId = currentUserId ?: return emptyList()
-        val end = LocalDateTime.now().toLocalDate().plusDays(1).atStartOfDay()
+        val end = LocalDateTime.now().plusDays(1)
         val start = getStartDate(range)
 
         val startTimeL = start.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
@@ -267,19 +267,29 @@ class HealthRepository @Inject constructor(
         if (records.isEmpty()) return emptyList()
 
         val zoneId = java.time.ZoneId.systemDefault()
-        val grouped = records.groupBy {
-            java.time.Instant.ofEpochMilli(it.time).atZone(zoneId).toLocalDate()
+
+        //  Logic gom nhóm thông minh hơn
+        val grouped = if (range == ChartTimeRange.DAY) {
+            // Nếu xem TRONG NGÀY -> Gom theo GIỜ (Hour)
+            records.groupBy {
+                java.time.Instant.ofEpochMilli(it.time).atZone(zoneId).toLocalDateTime().withMinute(0).withSecond(0).withNano(0)
+            }
+        } else {
+            // Nếu xem TUẦN/THÁNG -> Gom theo NGÀY (Date) như cũ
+            records.groupBy {
+                java.time.Instant.ofEpochMilli(it.time).atZone(zoneId).toLocalDate().atStartOfDay()
+            }
         }
-        return grouped.map { (date, list) ->
+
+        return grouped.map { (timeKey, list) ->
             HeartRateBucket(
-                startTime = date.atStartOfDay(),
+                startTime = timeKey, // timeKey giờ là LocalDateTime (có giờ cụ thể)
                 min = list.minOf { it.bpm }.toLong(),
                 max = list.maxOf { it.bpm }.toLong(),
                 avg = list.map { it.bpm }.average().toLong()
             )
         }.sortedBy { it.startTime }
     }
-
     // --- CÁC HÀM LỊCH SỬ (QUAN TRỌNG) ---
 
     suspend fun getStepRecordHistory(): List<StepRecordEntity> {

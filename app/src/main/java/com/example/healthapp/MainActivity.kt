@@ -214,7 +214,7 @@ class MainActivity : ComponentActivity() {
                         currentScreen = "dashboard"
                     } else {
                         // Nếu Logout -> Về lại Intro
-                        currentScreen = "intro"
+                        currentScreen = "login"
                     }
                 }
                 BackHandler {
@@ -375,9 +375,8 @@ class MainActivity : ComponentActivity() {
                             onBackClick = { currentScreen = "dashboard" },
                             //onLogoutClick = {  },
                             isDarkTheme = isDark,
-                            onChangeLogin = { isLoggedIn ->
+                            onChangeLogin = {
                                 mainViewModel.logout()
-                                currentScreen = "login"
                             },
                             isLoggingIn = isLoggedIn,
                             userViewModel = userViewModel

@@ -129,10 +129,6 @@ class MainViewModel @Inject constructor(
                     viewModelScope.launch {
                         // Lưu Profile lên Cloud
                         firestore.collection("users").document(uid).set(newUser)
-
-                        // Cập nhật trạng thái Local
-
-
                         // Reset các chỉ số hiển thị
                         _realtimeSteps.value = 0
                         _realtimeCalories.value = 0f
@@ -171,8 +167,16 @@ class MainViewModel @Inject constructor(
     fun logout() {
         auth.signOut()
         viewModelScope.launch {
+            //  Cập nhật DataStore
             dataStore.edit { it[IS_LOGGED_IN_KEY] = false }
+
+            //Reset toàn bộ StateFlow về 0/Null ngay lập tức
             _realtimeSteps.value = 0
+            _realtimeCalories.value = 0f
+            _realtimeHeartRate.value = 0
+            _todayHealthData.value = null
+
+            //Dừng lắng nghe
             repository.stopRealtimeSync()
         }
     }
