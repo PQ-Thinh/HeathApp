@@ -144,7 +144,7 @@ class HealthRepository @Inject constructor(
 
             // B. Xóa trên Firestore
             firestore.collection("users").document(record.userId)
-                .collection("step_records") // Kiểm tra lại tên collection lúc lưu (có thể là step_runs)
+                .collection("step_records")
                 .document(record.id)
                 .delete()
                 .await()
@@ -197,7 +197,7 @@ class HealthRepository @Inject constructor(
 
             // Xóa trên Firestore
             firestore.collection("users").document(record.userId)
-                .collection("heart_rates") // Đảm bảo tên collection này khớp với lúc bạn lưu
+                .collection("heart_rate_records") // Đảm bảo tên collection này khớp với lúc bạn lưu
                 .document(record.id)
                 .delete()
                 .await()

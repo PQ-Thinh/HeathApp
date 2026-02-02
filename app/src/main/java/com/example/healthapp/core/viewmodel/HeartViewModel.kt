@@ -1,5 +1,6 @@
 package com.example.healthapp.core.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.HeartRateBucket
@@ -127,13 +128,23 @@ class HeartViewModel @Inject constructor(
     }
     fun deleteHeartRecord(record: HeartRateRecordEntity) {
         val uid = auth.currentUser?.uid ?: return
+
+        // Xóa khỏi List hiển thị NGAY LẬP TỨC
+        val currentList = _heartHistory.value.toMutableList()
+        currentList.remove(record)
+        _heartHistory.value = currentList
+
         viewModelScope.launch {
-
-            repository.deleteHeartRate(record)
-
-            // Tải lại dữ liệu sau khi xóa để UI cập nhật
-            loadHistory()
-            loadChartData()
+            try {
+                //Sau đó mới gọi xuống Database xóa ngầm
+                repository.deleteHeartRate(record)
+                // Load lại chart cho chuẩn số liệu
+                loadChartData()
+            } catch (e: Exception) {
+                // Nếu lỗi thì load lại list cũ (hoàn tác)
+                loadHistory()
+                Log.e("HeartViewModel", "Xóa thất bại", e)
+            }
         }
     }
     fun formatDateTime(timestamp: Long): String {

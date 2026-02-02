@@ -1,5 +1,6 @@
 package com.example.healthapp.feature.detail
 
+import android.content.Intent
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -11,38 +12,40 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.healthapp.core.model.entity.StepRecordEntity
+import com.example.healthapp.core.service.StepForegroundService
 import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.feature.chart.StepChart
 import com.example.healthapp.feature.components.CustomTopMenu
+import com.example.healthapp.feature.components.GenericHistoryDialog
+import com.example.healthapp.feature.components.TopBar
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
-import android.content.Intent
-import android.text.format.DateUtils.formatDateTime
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.healthapp.core.service.StepForegroundService
-import com.example.healthapp.feature.components.HistoryListSection
-import com.example.healthapp.feature.components.TopBar
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @Composable
 fun StepDetailScreen(
@@ -52,18 +55,24 @@ fun StepDetailScreen(
     isDarkTheme: Boolean,
     modifier: Modifier = Modifier
 ) {
+    // Collect State
     val historyList by stepViewModel.stepHistory.collectAsStateWithLifecycle()
-    // Lấy dữ liệu Realtime
     val currentSteps by mainViewModel.realtimeSteps.collectAsState()
     val currentMode by mainViewModel.currentMode.collectAsState()
-    // Lấy dữ liệu Chart
     val chartData by stepViewModel.chartData.collectAsState()
     val selectedTimeRange by stepViewModel.selectedTimeRange.collectAsState()
 
     val currentCalories = stepViewModel.calculateCalories(currentSteps.toLong())
     val context = LocalContext.current
+
+    // Theme Setup
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
-    // Animation nền (Giống Sleep)
+    val stepColor = Color(0xFFF59E0B) // Màu cam chủ đạo cho bước chân
+
+    // State Dialog
+    var showHistoryDialog by remember { mutableStateOf(false) }
+
+    // Animation nền
     val infiniteTransition = rememberInfiniteTransition(label = "background")
     val floatAnim by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -75,8 +84,45 @@ fun StepDetailScreen(
         label = "float"
     )
 
+    // --- DIALOG LỊCH SỬ ---
+    if (showHistoryDialog) {
+        GenericHistoryDialog(
+            title = "Lịch sử Chạy bộ",
+            dataList = historyList,
+            onDismiss = { showHistoryDialog = false },
+            onDelete = { record -> stepViewModel.deleteStepRecord(record) },
+            isDarkTheme = isDarkTheme,
+            itemContent = { item, textColor ->
+                val date = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(item.startTime))
+                // Nội dung Dialog
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.DirectionsRun,
+                        contentDescription = null,
+                        tint = stepColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            text = "${item.count} bước",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = textColor
+                        )
+                        Text(
+                            text = date,
+                            fontSize = 13.sp,
+                            color = textColor.copy(0.6f)
+                        )
+                    }
+                }
+            }
+        )
+    }
+
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxSize()
             .background(colors.background)
     ) {
@@ -100,16 +146,29 @@ fun StepDetailScreen(
 
         Scaffold(
             containerColor = Color.Transparent,
-            topBar = { TopBar(onBackClick, colors,"Bước Đếm") }
+            topBar = { TopBar(onBackClick, colors, "Bước Chân") },
+            // --- FAB (NÚT TRÒN ĐỂ TRỐNG) ---
+            floatingActionButton = {
+                FloatingActionButton(
+                    onClick = {
+                        // TODO: Xử lý sự kiện thêm hoạt động thủ công tại đây
+                    },
+                    containerColor = stepColor,
+                    contentColor = Color.White,
+                    shape = CircleShape
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Thêm hoạt động")
+                }
+            }
         ) { paddingValues ->
             LazyColumn(
-                modifier = Modifier.padding(paddingValues).padding(16.dp),
+                modifier = Modifier
+                    .padding(paddingValues)
+                    .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-
+                // 1. Card Tổng quan (Steps + Calories)
                 item {
-
-                    // Card Tổng quan (Steps + Calories)
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -120,9 +179,7 @@ fun StepDetailScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
-                            modifier = Modifier
-                                .padding(24.dp)
-                                .fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceAround,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -131,7 +188,7 @@ fun StepDetailScreen(
                                 Icon(
                                     Icons.Default.DirectionsRun,
                                     contentDescription = null,
-                                    tint = Color(0xFFF59E0B), // Màu cam
+                                    tint = stepColor,
                                     modifier = Modifier.size(32.dp)
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -156,7 +213,7 @@ fun StepDetailScreen(
                                 Icon(
                                     Icons.Default.LocalFireDepartment,
                                     contentDescription = null,
-                                    tint = Color(0xFFEF4444), // Màu đỏ lửa
+                                    tint = Color(0xFFEF4444),
                                     modifier = Modifier.size(32.dp)
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -172,46 +229,52 @@ fun StepDetailScreen(
                     }
                 }
 
+                // 2. Biểu đồ
                 item {
-                    // Chart Title
                     Text(
                         "Thống kê hoạt động",
                         color = colors.textSecondary,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                        modifier = Modifier.padding(bottom = 8.dp),
+                        fontWeight = FontWeight.Bold
                     )
 
-                    // Selector (Tái sử dụng component TimeRangeSelector bạn đã có)
                     TimeRangeSelector(
                         selectedRange = selectedTimeRange,
                         onRangeSelected = { stepViewModel.setTimeRange(it) },
-                        activeColor = Color(0xFFF59E0B), // Màu cam Active
+                        activeColor = stepColor,
                         inactiveColor = colors.textSecondary
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    // Chart
-                    StepChart(
-                        data = chartData,
-                        timeRange = selectedTimeRange
-                    )
-
-
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(300.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(colors.glassContainer)
+                            .padding(16.dp)
+                    ) {
+                        StepChart(
+                            data = chartData,
+                            timeRange = selectedTimeRange,
+                        )
+                    }
                 }
+
+                // 3. Chế độ luyện tập
                 item {
                     Text(
                         "Chế độ luyện tập",
                         color = colors.textSecondary,
-                        modifier = Modifier.padding(bottom = 8.dp, start = 8.dp)
+                        modifier = Modifier.padding(bottom = 8.dp, start = 8.dp),
+                        fontWeight = FontWeight.Bold
                     )
-
-                    Spacer(modifier = Modifier.height(8.dp))
 
                     CustomTopMenu(
                         colors = colors,
-                        selectedMode = currentMode, // UI sẽ tự cập nhật khi DataStore thay đổi
+                        selectedMode = currentMode,
                         onOptionSelected = { selected ->
-                            // Gửi lệnh cho Service
                             val intent = Intent(context, StepForegroundService::class.java).apply {
                                 action = StepForegroundService.ACTION_SWITCH_MODE
                                 putExtra(StepForegroundService.EXTRA_MODE, selected)
@@ -223,36 +286,113 @@ fun StepDetailScreen(
                             }
                         }
                     )
-                    Spacer(modifier = Modifier.height(20.dp))
-
                 }
+
+                // 4. Lịch sử (Giao diện mới)
                 item {
-                    HistoryListSection(
-                        title = "Lịch sử Hoạt Động",
-                        historyData = historyList
-                    ) { record ->
-                        Row(
+                    // Header + Nút Xem thêm
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Lịch sử hoạt động",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.textPrimary
+                        )
+
+                        if (historyList.size > 3) {
+                            TextButton(onClick = { showHistoryDialog = true }) {
+                                Text("Xem thêm", color = stepColor, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    if (historyList.isEmpty()) {
+                        Box(
                             modifier = Modifier
-                                .padding(12.dp)
-                                .fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = stepViewModel.formatDateTime(record.startTime ?: 0L),
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = "${record.count} steps",
-                                style = MaterialTheme.typography.titleSmall.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.primary
+                            Text("Chưa có dữ liệu chạy bộ", color = colors.textSecondary)
+                        }
+                    } else {
+                        // Hiển thị 3 item mới nhất
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            historyList.take(3).forEach { record ->
+                                SimpleStepHistoryRow(
+                                    record = record,
+                                    colors = colors,
+                                    stepColor = stepColor
                                 )
-                            )
+                            }
                         }
                     }
                 }
+
+                // Padding bottom để tránh FAB che
+                item { Spacer(modifier = Modifier.height(80.dp)) }
             }
         }
+    }
+}
+
+// Item lịch sử đơn giản
+@Composable
+fun SimpleStepHistoryRow(
+    record: StepRecordEntity,
+    colors: AestheticColors,
+    stepColor: Color
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(colors.glassContainer)
+            .padding(16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(stepColor.copy(0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DirectionsRun,
+                    contentDescription = null,
+                    tint = stepColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(record.startTime)),
+                    fontWeight = FontWeight.Bold,
+                    color = colors.textPrimary
+                )
+                Text(
+                    text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(record.startTime)),
+                    fontSize = 12.sp,
+                    color = colors.textSecondary
+                )
+            }
+        }
+
+        Text(
+            text = "${record.count} bước",
+            fontWeight = FontWeight.Bold,
+            color = stepColor,
+            fontSize = 16.sp
+        )
     }
 }

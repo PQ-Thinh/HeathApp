@@ -1,5 +1,6 @@
 package com.example.healthapp.core.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.SleepBucket
@@ -140,6 +141,27 @@ class SleepViewModel @Inject constructor(
     fun formatDateTime(timestamp: Long): String {
         val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         return sdf.format(Date(timestamp))
+    }
+    fun deleteSleepRecord(record: SleepSessionEntity) {
+        val uid = auth.currentUser?.uid ?: return
+
+        // Xóa khỏi List hiển thị NGAY LẬP TỨC
+        val currentList = _sleepHistory.value.toMutableList()
+        currentList.remove(record)
+        _sleepHistory.value = currentList
+
+        viewModelScope.launch {
+            try {
+                //  Sau đó mới gọi xuống Database xóa ngầm
+                repository.deleteSleepSession(record)
+                // Load lại chart cho chuẩn số liệu
+                loadChartData()
+            } catch (e: Exception) {
+                // Nếu lỗi thì load lại list cũ (hoàn tác)
+                loadHistory()
+                Log.e("HeartViewModel", "Xóa thất bại", e)
+            }
+        }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

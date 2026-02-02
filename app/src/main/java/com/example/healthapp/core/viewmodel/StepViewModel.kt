@@ -1,5 +1,6 @@
 package com.example.healthapp.core.viewmodel
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.StepBucket
@@ -178,6 +179,27 @@ class StepViewModel @Inject constructor(
     fun formatDateTime(timestamp: Long): String {
         val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         return sdf.format(Date(timestamp))
+    }
+    fun deleteStepRecord(record: StepRecordEntity) {
+        val uid = auth.currentUser?.uid ?: return
+
+        // Xóa khỏi List hiển thị NGAY LẬP TỨC
+        val currentList = _stepHistory.value.toMutableList()
+        currentList.remove(record)
+        _stepHistory.value = currentList
+
+        viewModelScope.launch {
+            try {
+                //Sau đó mới gọi xuống Database xóa ngầm
+                repository.deleteStepRecord(record)
+                // Load lại chart cho chuẩn số liệu
+                loadChartData()
+            } catch (e: Exception) {
+                // Nếu lỗi thì load lại list cũ (hoàn tác)
+                loadHistory()
+                Log.e("HeartViewModel", "Xóa thất bại", e)
+            }
+        }
     }
 
     // Theo dõi Auth state
