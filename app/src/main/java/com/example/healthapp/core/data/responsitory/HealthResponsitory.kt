@@ -45,15 +45,17 @@ class HealthRepository @Inject constructor(
     }
 
     //Lấy DailyHealth (Realtime Flow)
+    //Lấy DailyHealth (Realtime Flow)
     fun getDailyHealth(date: String, userId: String): Flow<DailyHealthEntity?> = callbackFlow {
         val docRef = firestore.collection("users").document(userId)
             .collection("daily_health").document(date)
 
         val listener = docRef.addSnapshotListener { snapshot, error ->
             if (error != null) {
-                close(error)
+                Log.e("HealthRepository", "Lỗi Realtime DailyHealth: ${error.message}")
                 return@addSnapshotListener
             }
+
             if (snapshot != null && snapshot.exists()) {
                 val data = snapshot.toObject(DailyHealthEntity::class.java)
                 trySend(data)

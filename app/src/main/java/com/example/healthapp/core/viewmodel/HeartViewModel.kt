@@ -8,9 +8,14 @@ import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.model.entity.HeartRateRecordEntity
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
@@ -21,52 +26,55 @@ class HeartViewModel @Inject constructor(
     private val auth: FirebaseAuth
 ) : ViewModel() {
 
-    // --- State cho Chart ---
     private val _heartRateData = MutableStateFlow<List<HeartRateBucket>>(emptyList())
     val heartRateData = _heartRateData.asStateFlow()
 
     private val _selectedTimeRange = MutableStateFlow(ChartTimeRange.DAY)
     val selectedTimeRange = _selectedTimeRange.asStateFlow()
 
-    // --- State cho thông tin chung ---
     private val _latestHeartRate = MutableStateFlow<Int>(0)
     val latestHeartRate = _latestHeartRate.asStateFlow()
 
     private val _assessment = MutableStateFlow<String>("Chưa có dữ liệu")
     val assessment = _assessment.asStateFlow()
 
-    // --- State cho Lịch sử ---
     private val _heartHistory = MutableStateFlow<List<HeartRateRecordEntity>>(emptyList())
     val heartHistory = _heartHistory.asStateFlow()
 
+    private var realtimeJob: Job? = null
+
     init {
-        loadLatestHeartRate()
-        loadChartData()
-        loadHistory() // Load lịch sử khi mở màn hình
-    }
-
-    //Hàm chọn mốc thời gian
-    fun setTimeRange(range: ChartTimeRange) {
-        _selectedTimeRange.value = range
-        loadChartData()
-    }
-
-    //Load dữ liệu biểu đồ
-    private fun loadChartData() {
+        // Tự động theo dõi trạng thái đăng nhập để reset hoặc load dữ liệu
         viewModelScope.launch {
-            // Repository mới đã tự lo việc lấy UID bên trong hoặc trả về list rỗng
-            val data = repository.getHeartRateChartData(_selectedTimeRange.value)
-            _heartRateData.value = data
+            authStateChanges().collectLatest { user ->
+                if (user == null) {
+                    // 1. Khi Logout: Xóa sạch dữ liệu cũ
+                    clearData()
+                } else {
+                    // 2. Khi Login/Register: Tải dữ liệu mới
+                    loadDataForUser(user.uid)
+                }
+            }
         }
     }
 
-    //Load nhịp tim mới nhất (Realtime Flow từ Firestore)
-    private fun loadLatestHeartRate() {
-        val userId = auth.currentUser?.uid ?: return
+    private fun clearData() {
+        _heartRateData.value = emptyList()
+        _latestHeartRate.value = 0
+        _assessment.value = "Chưa có dữ liệu"
+        _heartHistory.value = emptyList()
+        realtimeJob?.cancel()
+    }
 
-        viewModelScope.launch {
+    private fun loadDataForUser(uid: String) {
+        loadChartData()
+        loadHistory()
+
+        // Lắng nghe realtime nhịp tim
+        realtimeJob?.cancel()
+        realtimeJob = viewModelScope.launch {
             val today = LocalDate.now().toString()
-            repository.getDailyHealth(today, userId).collect { data ->
+            repository.getDailyHealth(today, uid).collect { data ->
                 if (data != null && data.heartRateAvg > 0) {
                     _latestHeartRate.value = data.heartRateAvg
                     evaluateHeartRate(data.heartRateAvg)
@@ -75,40 +83,51 @@ class HeartViewModel @Inject constructor(
         }
     }
 
-    //Load danh sách lịch sử chi tiết
+    fun setTimeRange(range: ChartTimeRange) {
+        _selectedTimeRange.value = range
+        loadChartData()
+    }
+
+    private fun loadChartData() {
+        viewModelScope.launch {
+            val data = repository.getHeartRateChartData(_selectedTimeRange.value)
+            _heartRateData.value = data
+        }
+    }
+
     private fun loadHistory() {
         viewModelScope.launch {
             _heartHistory.value = repository.getHeartRateHistory()
         }
     }
 
-    //Logic đánh giá nhịp tim
     private fun evaluateHeartRate(bpm: Int) {
         _assessment.value = when {
             bpm == 0 -> "Chưa có dữ liệu"
-            bpm < 60 -> "Nhịp tim chậm (Thường gặp ở VĐV)"
-            bpm in 60..100 -> "Bình thường (Khỏe mạnh)"
-            bpm in 101..120 -> "Hơi cao (Cần nghỉ ngơi)"
-            else -> "Cao (Nhịp tim nhanh)"
+            bpm < 60 -> "Nhịp tim chậm"
+            bpm in 60..100 -> "Bình thường"
+            bpm in 101..120 -> "Hơi cao"
+            else -> "Cao"
         }
     }
 
-    //Lưu nhịp tim mới đo
     fun saveHeartRateRecord(bpm: Int) {
         val userId = auth.currentUser?.uid ?: return
-
         viewModelScope.launch {
-            // Lưu vào Health Connect & Firestore
             repository.saveHeartRate(userId, bpm)
-
-            // Cập nhật UI ngay lập tức
             _latestHeartRate.value = bpm
             evaluateHeartRate(bpm)
-
-            //Đợi 1 chút để dữ liệu kịp đồng bộ rồi reload biểu đồ & lịch sử
             delay(1000)
             loadChartData()
             loadHistory()
         }
+    }
+
+    // Tiện ích theo dõi Auth
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun authStateChanges() = callbackFlow {
+        val listener = FirebaseAuth.AuthStateListener { auth -> trySend(auth.currentUser) }
+        auth.addAuthStateListener(listener)
+        awaitClose { auth.removeAuthStateListener(listener) }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.healthapp.core.viewmodel
 
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
@@ -36,7 +37,7 @@ class UserViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val THEME_KEY = booleanPreferencesKey("is_dark_mode")
-    private val IS_LOGGED_IN_KEY = booleanPreferencesKey("is_logged_in")
+
 
     //Quản lý Theme (Dark Mode)
     val isDarkMode: StateFlow<Boolean> = dataStore.data
@@ -44,25 +45,29 @@ class UserViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
 
-        // Tạo hàm này để UI gọi hoặc observe
-        @OptIn(ExperimentalCoroutinesApi::class)
-        val currentUserInfo: StateFlow<UserEntity?> = auth.authStateChanges()
-            .flatMapLatest { firebaseUser ->
-                if (firebaseUser == null) {
-                    flowOf(null)
-                } else {
-                    // Lắng nghe Firestore khi có User
-                    callbackFlow {
-                        val listener = firestore.collection("users").document(firebaseUser.uid)
-                            .addSnapshotListener { snapshot, _ ->
-                                val user = snapshot?.toObject(UserEntity::class.java)
-                                trySend(user as Nothing?)
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val currentUserInfo: StateFlow<UserEntity?> = auth.authStateChanges()
+        .flatMapLatest { firebaseUser ->
+            if (firebaseUser == null) {
+                flowOf<UserEntity?>(null)
+            } else {
+                callbackFlow<UserEntity?> {
+                    val listener = firestore.collection("users").document(firebaseUser.uid)
+                        .addSnapshotListener { snapshot, e->
+                            if (e != null) {
+                                Log.w("UserViewModel", "Lỗi lắng nghe User: ${e.message}")
+                                return@addSnapshotListener
                             }
-                        awaitClose { listener.remove() }
-                    }
+
+                            val user = snapshot?.toObject(UserEntity::class.java)
+                            trySend(user)
+                        }
+
+                    awaitClose { listener.remove() }
                 }
             }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
 
     // Toggle Theme

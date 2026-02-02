@@ -10,12 +10,16 @@ import com.example.healthapp.core.model.entity.UserEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -46,36 +50,62 @@ class StepViewModel @Inject constructor(
     private var _sessionStartTime = MutableStateFlow<LocalDateTime?>(null)
     val sessionStartTime = _sessionStartTime.asStateFlow()
 
-
     // Cân nặng (Mặc định 70kg)
     private var userWeight: Float = 70f
 
     // --- State: Thông tin User (Realtime từ Firestore) ---
-    val currentUserInfo: Flow<UserEntity?> = callbackFlow {
-        val uid = auth.currentUser?.uid
-        if (uid == null) {
-            trySend(null)
-            close()
-            return@callbackFlow
-        }
-
-        val listener = firestore.collection("users").document(uid)
-            .addSnapshotListener { snapshot, _ ->
-                if (snapshot != null && snapshot.exists()) {
-                    val user = snapshot.toObject(UserEntity::class.java)
-                    if (user != null) {
-                        userWeight = user.weight ?: 70f // Cập nhật cân nặng
-                        trySend(user)
-                    }
-                } else {
-                    trySend(null)
+    // SỬA: Dùng flatMapLatest để tự động lắng nghe lại khi đổi user
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val currentUserInfo: Flow<UserEntity?> = authStateChanges()
+        .flatMapLatest { firebaseUser ->
+            if (firebaseUser == null) {
+                flowOf<UserEntity?>(null)
+            } else {
+                callbackFlow {
+                    val listener = firestore.collection("users").document(firebaseUser.uid)
+                        .addSnapshotListener { snapshot, _ ->
+                            if (snapshot != null && snapshot.exists()) {
+                                val user = snapshot.toObject(UserEntity::class.java)
+                                if (user != null) {
+                                    userWeight = user.weight ?: 70f // Cập nhật cân nặng để tính Calo
+                                    trySend(user)
+                                }
+                            } else {
+                                trySend(null)
+                            }
+                        }
+                    awaitClose { listener.remove() }
                 }
             }
-        awaitClose { listener.remove() }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
 
     init {
+        // Tự động theo dõi trạng thái đăng nhập
+        viewModelScope.launch {
+            authStateChanges().collectLatest { user ->
+                if (user == null) {
+                    // Logout -> Xóa sạch dữ liệu
+                    clearData()
+                } else {
+                    // Login -> Tải dữ liệu mới
+                    loadData()
+                }
+            }
+        }
+    }
+
+    private fun clearData() {
+        _chartData.value = emptyList()
+        _stepHistory.value = emptyList()
+        _sessionSteps.value = 0
+        _sessionStartTime.value = null
+        _startSessionSteps = 0
+        userWeight = 70f
+    }
+
+    private fun loadData() {
         loadChartData()
         loadHistory()
     }
@@ -86,14 +116,18 @@ class StepViewModel @Inject constructor(
     }
 
     private fun loadChartData() {
+        // Kiểm tra user trước khi gọi repository để tránh lỗi
+        if (auth.currentUser == null) return
+
         viewModelScope.launch {
             val data = repository.getStepChartData(_selectedTimeRange.value)
             _chartData.value = data
         }
     }
 
-    // Load lịch sử (Tổng hợp theo ngày)
     private fun loadHistory() {
+        if (auth.currentUser == null) return
+
         viewModelScope.launch {
             _stepHistory.value = repository.getStepRecordHistory()
         }
@@ -109,7 +143,7 @@ class StepViewModel @Inject constructor(
 
     fun updateSessionSteps(currentTotalSteps: Int) {
         if (currentTotalSteps < _startSessionSteps) {
-            _startSessionSteps = 0 // Xử lý trường hợp reboot máy
+            _startSessionSteps = 0 // Xử lý trường hợp reboot máy hoặc reset bước
         }
         _sessionSteps.value = (currentTotalSteps - _startSessionSteps).coerceAtLeast(0)
     }
@@ -129,8 +163,7 @@ class StepViewModel @Inject constructor(
                 repository.writeStepsToHealthConnect(startTime, endTime, stepsTaken)
 
                 // Reload lại chart và history sau khi lưu
-                loadChartData()
-                loadHistory()
+                loadData()
             }
         }
 
@@ -138,5 +171,13 @@ class StepViewModel @Inject constructor(
         _sessionStartTime.value = null
         _startSessionSteps = 0
         _sessionSteps.value = 0
+    }
+
+    // Theo dõi Auth state
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private fun authStateChanges() = callbackFlow {
+        val listener = FirebaseAuth.AuthStateListener { auth -> trySend(auth.currentUser) }
+        auth.addAuthStateListener(listener)
+        awaitClose { auth.removeAuthStateListener(listener) }
     }
 }

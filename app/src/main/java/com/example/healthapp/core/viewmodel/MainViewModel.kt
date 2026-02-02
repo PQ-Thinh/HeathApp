@@ -21,9 +21,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -88,18 +90,23 @@ class MainViewModel @Inject constructor(
     // Hàm lắng nghe Realtime Dashboard
     private fun listenToDailyHealth(userId: String) {
         dailyHealthJob?.cancel()
-        viewModelScope.launch {
+        dailyHealthJob = viewModelScope.launch { // Gán vào biến dailyHealthJob để quản lý
             val today = LocalDate.now().toString()
-            repository.getDailyHealth(today, userId).collect { data ->
-                _todayHealthData.value = data
-                if (data != null) {
-                    _realtimeSteps.value = data.steps
-                    _realtimeCalories.value = data.caloriesBurned
-                    if (data.heartRateAvg > 0) {
-                        _realtimeHeartRate.value = data.heartRateAvg
+            repository.getDailyHealth(today, userId)
+                .catch { e ->
+                    Log.e("MainViewModel", "Lỗi lắng nghe sức khỏe: ${e.message}")
+                    emit(null)
+                }
+                .collect { data ->
+                    _todayHealthData.value = data
+                    if (data != null) {
+                        _realtimeSteps.value = data.steps
+                        _realtimeCalories.value = data.caloriesBurned
+                        if (data.heartRateAvg > 0) {
+                            _realtimeHeartRate.value = data.heartRateAvg
+                        }
                     }
                 }
-            }
         }
     }
 
@@ -110,6 +117,8 @@ class MainViewModel @Inject constructor(
             _isLoggedIn.value = status
         }
     }
+    // Trong MainViewModel.kt
+
     fun registerUser(
         email: String,
         pass: String,
@@ -122,10 +131,9 @@ class MainViewModel @Inject constructor(
                 if (firebaseUser != null) {
                     val uid = firebaseUser.uid
 
-                    // Tạo User Entity mới
                     val newUser = UserEntity(
-                        id = uid, // Gán ID thủ công
-                        name = "Người dùng mới",
+                        id = uid,
+                        name = "",
                         email = email,
                         targetSteps = 10000,
                         gender = "Male",
@@ -133,16 +141,21 @@ class MainViewModel @Inject constructor(
                     )
 
                     viewModelScope.launch {
-                        // Lưu Profile lên Cloud
                         setIsLoggedIn(true)
-                        firestore.collection("users").document(uid).set(newUser)
-                        // Reset các chỉ số hiển thị
-                        _realtimeSteps.value = 0
-                        _realtimeCalories.value = 0f
 
-                        // Bắt đầu lắng nghe
-                        initializeData()
-                        onSuccess()
+                        try {
+                            firestore.collection("users").document(uid).set(newUser).await()
+
+                            _realtimeSteps.value = 0
+                            _realtimeCalories.value = 0f
+
+                            initializeData()
+                            onSuccess()
+
+                        } catch (e: Exception) {
+                            onError("Lỗi khởi tạo dữ liệu: ${e.message}")
+                        }
+
                     }
                 } else {
                     onError("Lỗi tạo user.")
