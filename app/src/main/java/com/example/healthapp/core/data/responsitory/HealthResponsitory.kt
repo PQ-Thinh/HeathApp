@@ -282,13 +282,13 @@ class HealthRepository @Inject constructor(
 
     // --- CÁC HÀM LỊCH SỬ (QUAN TRỌNG) ---
 
-    suspend fun getStepHistory(): List<DailyHealthEntity> {
+    suspend fun getStepRecordHistory(): List<StepRecordEntity> {
         val uid = currentUserId ?: return emptyList()
         return firestore.collection("users").document(uid)
-            .collection("daily_health")
-            .orderBy("date", Query.Direction.DESCENDING)
+            .collection("step_records")
+            .orderBy("startTime", Query.Direction.DESCENDING)
             .get().await()
-            .toObjects(DailyHealthEntity::class.java)
+            .toObjects(StepRecordEntity::class.java)
     }
 
     suspend fun getHeartRateHistory(): List<HeartRateRecordEntity> {

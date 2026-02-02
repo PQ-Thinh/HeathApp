@@ -15,7 +15,6 @@ import com.example.healthapp.core.model.entity.DailyHealthEntity
 import com.example.healthapp.core.model.entity.UserEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -132,7 +131,7 @@ class MainViewModel @Inject constructor(
                         firestore.collection("users").document(uid).set(newUser)
 
                         // Cập nhật trạng thái Local
-                        dataStore.edit { it[IS_LOGGED_IN_KEY] = true }
+
 
                         // Reset các chỉ số hiển thị
                         _realtimeSteps.value = 0
@@ -158,7 +157,6 @@ class MainViewModel @Inject constructor(
                 if (uid != null) {
                     viewModelScope.launch {
                         dataStore.edit { it[IS_LOGGED_IN_KEY] = true }
-
                         // Bắt đầu lắng nghe lại dữ liệu của User này
                         initializeData()
                         onSuccess()

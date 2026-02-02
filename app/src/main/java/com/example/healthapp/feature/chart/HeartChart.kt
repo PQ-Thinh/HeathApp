@@ -40,7 +40,6 @@ fun HeartChart(
 //                description.text = "Biểu đồ nhịp tim (Min/Max/Avg)"
 //                description.textColor = Color.WHITE
 //                description.textSize = 12f
-
                 setDrawGridBackground(false)
                 setTouchEnabled(true)
                 isDragEnabled = true

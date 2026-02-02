@@ -35,8 +35,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.room.Room.databaseBuilder
-import com.example.healthapp.core.model.AppDb
+
 
 
 @Composable
@@ -54,10 +53,6 @@ fun SignUpScreen(
     var isContentVisible by remember { mutableStateOf(isPreview) }
 
     val context = LocalContext.current
-    val db = databaseBuilder(
-        context,
-        AppDb::class.java,"app_db"
-    ).allowMainThreadQueries().build()
 
     LaunchedEffect(Unit) {
         if (!isPreview) {
@@ -311,7 +306,7 @@ fun SignUpScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // 5. Footer
+            //Footer
             AnimatedVisibility(
                 visible = isContentVisible,
                 enter = fadeIn(tween(800, 450))
@@ -337,7 +332,6 @@ fun SignUpScreenPreview() {
     SignUpScreen(
         onLoginClick = {},
         onSignUp = { email, password ->
-        // For preview, you can leave it empty or log values
         }
     )
 }

@@ -1,4 +1,4 @@
-package com.example.healthapp.feature.detail
+package com.example.healthapp.feature.components
 
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -35,13 +35,4 @@ fun DatePickerModal(
     ) {
         DatePicker(state = datePickerState)
     }
-}
-
-@Preview
-@Composable
-fun DatePickerModalInputPreview() {
-    DatePickerModal(
-        onDateSelected = {},
-        onDismiss = {}
-    )
 }

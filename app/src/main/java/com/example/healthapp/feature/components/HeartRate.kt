@@ -37,7 +37,6 @@ import net.kibotu.kalmanrx.jkalman.JKalman
 @Composable
 fun HeartRateScreen(
     onBackClick: (Int) -> Unit,
-    mainViewModel: MainViewModel
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
 
@@ -131,8 +130,6 @@ fun HeartRateScreen(
                                     // Cập nhật UI & ViewModel
                                     currentBpm = filteredBpm
                                     Log.d("HeartRate", "BPM: $filteredBpm")
-                                    mainViewModel.updateRealtimeHeartRate(filteredBpm)
-
                                 }, { it.printStackTrace() })
 
                             subscription.add(bpmUpdates)

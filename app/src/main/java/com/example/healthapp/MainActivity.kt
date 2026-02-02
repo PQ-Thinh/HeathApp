@@ -44,7 +44,7 @@ import androidx.health.connect.client.PermissionController
 import com.example.healthapp.feature.components.HeartRateScreen
 import com.example.healthapp.feature.detail.HeartDetailScreen
 import com.example.healthapp.feature.home.HeightPickerScreen
-import com.example.healthapp.feature.home.NameScreen
+import com.example.healthapp.feature.home.UserInfoScreen
 import com.example.healthapp.feature.home.WeightScreen
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import androidx.activity.result.contract.ActivityResultContracts
@@ -268,7 +268,7 @@ class MainActivity : ComponentActivity() {
                                     pass = password,
                                     onSuccess = {
                                         Toast.makeText(this@MainActivity, "Đăng ký thành công!", Toast.LENGTH_SHORT).show()
-                                        currentScreen = "name" // Vào thẳng dashboard
+                                        currentScreen = "name"
                                     },
                                     onError = { message ->
                                         Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
@@ -281,10 +281,10 @@ class MainActivity : ComponentActivity() {
                             modifier = Modifier.padding(innerPadding),
                             onBackToLoginClick = { currentScreen = "login" }
                         )
-                        "name" -> NameScreen(
+                        "name" -> UserInfoScreen (
                             modifier = Modifier.padding(innerPadding),
-                            onStartClick = {name->
-                                userViewModel.addName(name)
+                            onStartClick = {name,gender,day,mouth,year->
+                                userViewModel.updateUserInfo(name,gender,day,mouth,year)
                                 currentScreen = "height"
                             }
                         )
@@ -361,7 +361,6 @@ class MainActivity : ComponentActivity() {
                             onBackClick = { heartRate ->
                                 heartViewModel.saveHeartRateRecord(heartRate)
                                 currentScreen = "heart_detail" },
-                            mainViewModel = mainViewModel
                         )
                         "step_detail"-> StepDetailScreen(
                             onBackClick = { currentScreen = "dashboard" },
@@ -377,8 +376,8 @@ class MainActivity : ComponentActivity() {
                             //onLogoutClick = {  },
                             isDarkTheme = isDark,
                             onChangeLogin = { isLoggedIn ->
-                                mainViewModel.updateLoginStatus(isLoggedIn = false)
-                                currentScreen = "intro"
+                                mainViewModel.logout()
+                                currentScreen = "login"
                             },
                             isLoggingIn = isLoggedIn,
                             userViewModel = userViewModel

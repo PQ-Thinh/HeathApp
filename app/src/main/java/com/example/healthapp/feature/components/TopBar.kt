@@ -22,7 +22,7 @@ import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 
 @Composable
-fun TopBar(onBackClick: () -> Unit, colors: AestheticColors) {
+fun TopBar(onBackClick: () -> Unit, colors: AestheticColors,title: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -38,7 +38,7 @@ fun TopBar(onBackClick: () -> Unit, colors: AestheticColors) {
             )
         }
         Text(
-            text = "Bước Đếm",
+            text = title,
             style = TextStyle(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,

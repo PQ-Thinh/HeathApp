@@ -43,13 +43,14 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healthapp.core.service.StepForegroundService
 import com.example.healthapp.feature.components.HistoryListSection
+import com.example.healthapp.feature.components.TopBar
 import com.example.healthapp.feature.components.formatDateTime
 
 @Composable
 fun StepDetailScreen(
     onBackClick: () -> Unit,
-    mainViewModel: MainViewModel, // Dùng để lấy số bước realtime hôm nay
-    stepViewModel: StepViewModel = hiltViewModel(), // Dùng cho Chart
+    mainViewModel: MainViewModel,
+    stepViewModel: StepViewModel = hiltViewModel(),
     isDarkTheme: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -101,7 +102,7 @@ fun StepDetailScreen(
 
         Scaffold(
             containerColor = Color.Transparent,
-            topBar = { StepTopBar(onBackClick, colors) }
+            topBar = { TopBar(onBackClick, colors,"Bước Đếm") }
         ) { paddingValues ->
             LazyColumn(
                 modifier = Modifier.padding(paddingValues).padding(16.dp),
@@ -257,34 +258,3 @@ fun StepDetailScreen(
         }
     }
 }
-    @Composable
-    fun StepTopBar(onBackClick: () -> Unit, colors: AestheticColors) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .statusBarsPadding()
-                .padding(horizontal = 8.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onBackClick) {
-                Icon(
-                    Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = colors.textPrimary
-                )
-            }
-            Text(
-                text = "Bước Đếm",
-                style = TextStyle(
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = colors.textPrimary,
-                    // Giảm bóng đổ ở Light mode để trông sạch hơn
-                    shadow = if (colors.background == DarkAesthetic.background)
-                        Shadow(Color.Black.copy(0.3f), blurRadius = 4f)
-                    else null
-                ),
-                modifier = Modifier.padding(start = 8.dp)
-            )
-        }
-    }

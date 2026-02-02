@@ -32,6 +32,7 @@ class UserViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val THEME_KEY = booleanPreferencesKey("is_dark_mode")
+    private val IS_LOGGED_IN_KEY = booleanPreferencesKey("is_logged_in")
 
     //Quản lý Theme (Dark Mode)
     val isDarkMode: StateFlow<Boolean> = dataStore.data
@@ -137,6 +138,7 @@ class UserViewModel @Inject constructor(
         viewModelScope.launch {
             firestore.collection("users").document(uid)
                 .set(updates, SetOptions.merge())
+            dataStore.edit { it[IS_LOGGED_IN_KEY] = true }
         }
     }
 

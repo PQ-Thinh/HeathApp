@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.StepBucket
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.example.healthapp.core.data.responsitory.HealthRepository
-import com.example.healthapp.core.model.entity.DailyHealthEntity
+import com.example.healthapp.core.model.entity.StepRecordEntity
 import com.example.healthapp.core.model.entity.UserEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -35,11 +35,17 @@ class StepViewModel @Inject constructor(
     private val _selectedTimeRange = MutableStateFlow(ChartTimeRange.WEEK)
     val selectedTimeRange = _selectedTimeRange.asStateFlow()
 
+    // --- State: Lịch sử (Daily List) ---
+    private val _stepHistory = MutableStateFlow<List<StepRecordEntity>>(emptyList())
+    val stepHistory = _stepHistory.asStateFlow()
+
     // --- State cho phiên chạy bộ (Run Session) ---
     private var _startSessionSteps = 0
     private val _sessionSteps = MutableStateFlow(0)
     val sessionSteps = _sessionSteps.asStateFlow()
     private var _sessionStartTime = MutableStateFlow<LocalDateTime?>(null)
+    val sessionStartTime = _sessionStartTime.asStateFlow()
+
 
     // Cân nặng (Mặc định 70kg)
     private var userWeight: Float = 70f
@@ -68,9 +74,6 @@ class StepViewModel @Inject constructor(
         awaitClose { listener.remove() }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-    // --- State: Lịch sử (Daily List) ---
-    private val _stepHistory = MutableStateFlow<List<DailyHealthEntity>>(emptyList())
-    val stepHistory = _stepHistory.asStateFlow()
 
     init {
         loadChartData()
@@ -92,7 +95,7 @@ class StepViewModel @Inject constructor(
     // Load lịch sử (Tổng hợp theo ngày)
     private fun loadHistory() {
         viewModelScope.launch {
-            _stepHistory.value = repository.getStepHistory()
+            _stepHistory.value = repository.getStepRecordHistory()
         }
     }
 
