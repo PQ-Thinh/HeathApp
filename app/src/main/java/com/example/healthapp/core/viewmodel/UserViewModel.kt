@@ -11,10 +11,13 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -40,26 +43,27 @@ class UserViewModel @Inject constructor(
         .map { preferences -> preferences[THEME_KEY] ?: false }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    //Thông tin User (Realtime từ Firestore)
-    val currentUserInfo: StateFlow<UserEntity?> = callbackFlow {
-        val uid = auth.currentUser?.uid
-        if (uid == null) {
-            trySend(null)
-            close()
-            return@callbackFlow
-        }
 
-        val listener = firestore.collection("users").document(uid)
-            .addSnapshotListener { snapshot, _ ->
-                if (snapshot != null && snapshot.exists()) {
-                    val user = snapshot.toObject(UserEntity::class.java)
-                    trySend(user)
+        // Tạo hàm này để UI gọi hoặc observe
+        @OptIn(ExperimentalCoroutinesApi::class)
+        val currentUserInfo: StateFlow<UserEntity?> = auth.authStateChanges()
+            .flatMapLatest { firebaseUser ->
+                if (firebaseUser == null) {
+                    flowOf(null)
                 } else {
-                    trySend(null)
+                    // Lắng nghe Firestore khi có User
+                    callbackFlow {
+                        val listener = firestore.collection("users").document(firebaseUser.uid)
+                            .addSnapshotListener { snapshot, _ ->
+                                val user = snapshot?.toObject(UserEntity::class.java)
+                                trySend(user as Nothing?)
+                            }
+                        awaitClose { listener.remove() }
+                    }
                 }
             }
-        awaitClose { listener.remove() }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
 
     // Toggle Theme
     fun toggleTheme(isDark: Boolean) {
@@ -159,4 +163,9 @@ class UserViewModel @Inject constructor(
         val bmi = weightKg / (heightM * heightM)
         return (bmi * 10).roundToInt() / 10f // Làm tròn 1 chữ số thập phân
     }
+}
+fun FirebaseAuth.authStateChanges() = callbackFlow {
+    val listener = FirebaseAuth.AuthStateListener { trySend(it.currentUser) }
+    addAuthStateListener(listener)
+    awaitClose { removeAuthStateListener(listener) }
 }

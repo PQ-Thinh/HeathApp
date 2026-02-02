@@ -48,6 +48,7 @@ import com.example.healthapp.feature.home.UserInfoScreen
 import com.example.healthapp.feature.home.WeightScreen
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.DisposableEffect
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -208,15 +209,19 @@ class MainActivity : ComponentActivity() {
                 var currentScreen by remember {
                     mutableStateOf( "intro")
                 }
-                LaunchedEffect(isLoggedIn) {
+                // Thêm userInfo vào key
+                LaunchedEffect(isLoggedIn, userInfo) {
                     if (isLoggedIn == true) {
+                        // Thứ tự kiểm tra cực kỳ quan trọng:
                         if (userInfo == null) {
-                        } else if (userInfo?.name.isNullOrBlank()) {
+
+                        } else if (userInfo?.name.isNullOrBlank() == true) {
                             currentScreen = "name"
-                        } else if (userInfo?.height == 0f) {
+                        } else if ((userInfo?.height ?: 0f) == 0f) {
                             currentScreen = "height"
+                        } else if ((userInfo?.weight ?: 0f) == 0f) { 
+                            currentScreen = "weight"
                         } else {
-                            // Đã có đủ thông tin -> vào Dashboard
                             currentScreen = "dashboard"
                         }
                     } else if (isLoggedIn == false) {

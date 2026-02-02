@@ -16,6 +16,7 @@ import com.example.healthapp.core.model.entity.UserEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +40,7 @@ class MainViewModel @Inject constructor(
     private val CURRENT_MODE_KEY = stringPreferencesKey("current_mode")
 
     // --- STATE FLOWS ---
+    private var dailyHealthJob: Job? = null
     private val _realtimeSteps = MutableStateFlow(0)
     val realtimeSteps: StateFlow<Int> = _realtimeSteps.asStateFlow()
 
@@ -85,6 +87,7 @@ class MainViewModel @Inject constructor(
 
     // Hàm lắng nghe Realtime Dashboard
     private fun listenToDailyHealth(userId: String) {
+        dailyHealthJob?.cancel()
         viewModelScope.launch {
             val today = LocalDate.now().toString()
             repository.getDailyHealth(today, userId).collect { data ->
