@@ -44,9 +44,8 @@ fun <T> HistoryListSection(
                 modifier = Modifier.padding(vertical = 8.dp)
             )
         } else {
-            //  có thể bỏ .take(10) nếu muốn hiện hết
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                historyData.take(20).forEach { item ->
+                historyData.take(3).forEach { item ->
                     Card(
                         colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
                         shape = RoundedCornerShape(12.dp),
@@ -58,10 +57,4 @@ fun <T> HistoryListSection(
             }
         }
     }
-}
-
-// Hàm tiện ích format ngày giờ
-fun formatDateTime(timestamp: Long): String {
-    val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-    return sdf.format(Date(timestamp))
 }

@@ -161,6 +161,42 @@ class UserViewModel @Inject constructor(
             }
         }
     }
+    fun updateFullProfile(
+        name: String,
+        gender: String,
+        day: Int,
+        month: Int,
+        year: Int,
+        height: Float,
+        weight: Float,
+        targetSteps: Int
+    ) {
+        val uid = auth.currentUser?.uid ?: return
+
+        val bmi = if (height > 0) weight / ((height / 100) * (height / 100)) else 0f
+
+        val updates = mapOf(
+            "name" to name,
+            "gender" to gender,
+            "birthDay" to day,
+            "birthMonth" to month,
+            "birthYear" to year,
+            "height" to height,
+            "weight" to weight,
+            "bmi" to bmi,
+            "targetSteps" to targetSteps,
+            "updatedAt" to System.currentTimeMillis()
+        )
+
+        viewModelScope.launch {
+            try {
+                firestore.collection("users").document(uid)
+                    .set(updates, SetOptions.merge()) // Dùng merge để chỉ update trường thay đổi
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
     // Hàm phụ trợ tính BMI
     private fun calculateBMI(heightCm: Float, weightKg: Float): Float {
         if (heightCm <= 0 || weightKg <= 0) return 0f

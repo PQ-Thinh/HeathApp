@@ -17,9 +17,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import java.util.Date
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -132,6 +135,11 @@ class SleepViewModel @Inject constructor(
         val h = minutes / 60
         val m = minutes % 60
         return "${h}h ${m}m"
+    }
+    // Hàm tiện ích format ngày giờ
+    fun formatDateTime(timestamp: Long): String {
+        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+        return sdf.format(Date(timestamp))
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

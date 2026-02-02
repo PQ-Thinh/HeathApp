@@ -36,7 +36,6 @@ import com.example.healthapp.core.viewmodel.SleepViewModel
 import com.example.healthapp.feature.chart.SleepChart
 import com.example.healthapp.feature.components.HistoryListSection
 import com.example.healthapp.feature.components.SleepSettingDialog
-import com.example.healthapp.feature.components.formatDateTime
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
@@ -204,12 +203,12 @@ fun SleepDetailScreen(
                         ) {
                             Column {
                                 Text(
-                                    text = "Bắt Đầu: ${formatDateTime(session.startTime ?: 0L)}",
+                                    text = "Bắt Đầu: ${sleepViewModel.formatDateTime(session.startTime ?: 0L)}",
                                     style = MaterialTheme.typography.bodySmall
                                 )
 
                                 Text(
-                                    text = "Kết Thúc: ${formatDateTime(session.endTime ?: 0L)}",
+                                    text = "Kết Thúc: ${sleepViewModel.formatDateTime(session.endTime ?: 0L)}",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color.Gray
                                 )
@@ -224,10 +223,11 @@ fun SleepDetailScreen(
                         }
                     }
                 }
+                item {
+
+                }
             }
         }
-
-
     }
 }
 @Composable

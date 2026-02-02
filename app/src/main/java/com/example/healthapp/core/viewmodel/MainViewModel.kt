@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -39,7 +40,10 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
 
     // --- KEYS DATASTORE
-    private val CURRENT_MODE_KEY = stringPreferencesKey("current_mode")
+    companion object {
+        private val CURRENT_MODE_KEY = stringPreferencesKey("current_mode")
+        private val IS_INTRO_SHOWN_KEY = booleanPreferencesKey("is_intro_shown")
+    }
 
     // --- STATE FLOWS ---
     private var dailyHealthJob: Job? = null
@@ -65,11 +69,52 @@ class MainViewModel @Inject constructor(
         .map { preferences -> preferences[CURRENT_MODE_KEY] ?: "Chạy Bộ" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Chạy Bộ")
 
-    private val _isLoggedIn = MutableStateFlow<Boolean?>(null) // null nghĩa là đang kiểm tra (Loading)
+    // Trạng thái Login: null (đang check), true, false
+    private val _isLoggedIn = MutableStateFlow<Boolean?>(null)
     val isLoggedIn: StateFlow<Boolean?> = _isLoggedIn
 
+    // Điểm đến bắt đầu: null (loading), "intro", "login", "dashboard"
+    private val _startDestination = MutableStateFlow<String?>(null)
+    val startDestination = _startDestination.asStateFlow()
+
     init {
-        initializeData()
+        determineStartScreen()
+    }
+
+    // --- LOGIC QUYẾT ĐỊNH MÀN HÌNH ---
+    private fun determineStartScreen() {
+        viewModelScope.launch {
+            // 1. Kiểm tra Firebase Auth (Cache trên máy)
+            val currentUser = auth.currentUser
+
+            if (currentUser != null) {
+                // User còn hạn -> Vào thẳng Dashboard
+                _isLoggedIn.value = true
+                initializeData() // Bắt đầu lắng nghe dữ liệu
+                _startDestination.value = "dashboard"
+            } else {
+                // User chưa đăng nhập -> Check DataStore xem đã hiện Intro chưa
+                _isLoggedIn.value = false
+
+                // Lấy giá trị DataStore (dùng .first() để lấy 1 lần duy nhất)
+                val preferences = dataStore.data.first()
+                val isIntroShown = preferences[IS_INTRO_SHOWN_KEY] ?: false
+
+                if (isIntroShown) {
+                    _startDestination.value = "login"
+                } else {
+                    _startDestination.value = "intro"
+                }
+            }
+        }
+    }
+
+    // Hàm gọi khi bấm nút "Bắt đầu" ở màn hình Intro
+    fun completeIntro() {
+        viewModelScope.launch {
+            dataStore.edit { it[IS_INTRO_SHOWN_KEY] = true }
+            // Không cần chuyển màn hình ở đây, UI (MainActivity) sẽ xử lý dựa trên callback
+        }
     }
 
     private fun initializeData() {
@@ -90,12 +135,12 @@ class MainViewModel @Inject constructor(
     // Hàm lắng nghe Realtime Dashboard
     private fun listenToDailyHealth(userId: String) {
         dailyHealthJob?.cancel()
-        dailyHealthJob = viewModelScope.launch { // Gán vào biến dailyHealthJob để quản lý
+        dailyHealthJob = viewModelScope.launch {
             val today = LocalDate.now().toString()
             repository.getDailyHealth(today, userId)
                 .catch { e ->
                     Log.e("MainViewModel", "Lỗi lắng nghe sức khỏe: ${e.message}")
-                    emit(null)
+                    // Không emit null để tránh UI bị flicker, chỉ log lỗi
                 }
                 .collect { data ->
                     _todayHealthData.value = data
@@ -117,7 +162,6 @@ class MainViewModel @Inject constructor(
             _isLoggedIn.value = status
         }
     }
-    // Trong MainViewModel.kt
 
     fun registerUser(
         email: String,
@@ -133,7 +177,7 @@ class MainViewModel @Inject constructor(
 
                     val newUser = UserEntity(
                         id = uid,
-                        name = "",
+                        name = "", // Tên rỗng để kích hoạt màn hình nhập tên
                         email = email,
                         targetSteps = 10000,
                         gender = "Male",
@@ -155,7 +199,6 @@ class MainViewModel @Inject constructor(
                         } catch (e: Exception) {
                             onError("Lỗi khởi tạo dữ liệu: ${e.message}")
                         }
-
                     }
                 } else {
                     onError("Lỗi tạo user.")
@@ -187,12 +230,15 @@ class MainViewModel @Inject constructor(
         auth.signOut()
         viewModelScope.launch {
             setIsLoggedIn(false)
+            _startDestination.value = "login" // Reset về màn login sau khi thoát
+
             //Reset toàn bộ StateFlow về 0/Null ngay lập tức
             _realtimeSteps.value = 0
             _realtimeCalories.value = 0f
             _realtimeHeartRate.value = 0
             _todayHealthData.value = null
             //Dừng lắng nghe
+            dailyHealthJob?.cancel() // Hủy job realtime
             repository.stopRealtimeSync()
         }
     }
