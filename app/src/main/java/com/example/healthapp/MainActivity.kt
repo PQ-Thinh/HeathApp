@@ -93,7 +93,7 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(context, "Cần quyền để đồng bộ dữ liệu", Toast.LENGTH_SHORT).show()
                 }
             }
-
+            val userInfo by userViewModel.currentUserInfo.collectAsState()
             val activityRecognitionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestPermission()
             ) { isGranted ->
@@ -209,11 +209,17 @@ class MainActivity : ComponentActivity() {
                     mutableStateOf( "intro")
                 }
                 LaunchedEffect(isLoggedIn) {
-                    if (isLoggedIn) {
-                        // Nếu DataStore báo đã đăng nhập -> Vào thẳng Dashboard
-                        currentScreen = "dashboard"
-                    } else {
-                        // Nếu Logout -> Về lại Intro
+                    if (isLoggedIn == true) {
+                        if (userInfo == null) {
+                        } else if (userInfo?.name.isNullOrBlank()) {
+                            currentScreen = "name"
+                        } else if (userInfo?.height == 0f) {
+                            currentScreen = "height"
+                        } else {
+                            // Đã có đủ thông tin -> vào Dashboard
+                            currentScreen = "dashboard"
+                        }
+                    } else if (isLoggedIn == false) {
                         currentScreen = "login"
                     }
                 }
@@ -378,7 +384,6 @@ class MainActivity : ComponentActivity() {
                             onChangeLogin = {
                                 mainViewModel.logout()
                             },
-                            isLoggingIn = isLoggedIn,
                             userViewModel = userViewModel
                         )
 

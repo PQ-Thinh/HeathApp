@@ -41,8 +41,7 @@ fun ProfileScreen(
     //onLogoutClick: () -> Unit = {},
     onBackClick: () -> Unit = {},
     isDarkTheme: Boolean,
-    isLoggingIn: Boolean,
-    onChangeLogin: (Boolean) -> Unit = {},
+    onChangeLogin: () -> Unit = {},
     userViewModel: UserViewModel
 ) {
 
@@ -212,7 +211,7 @@ fun ProfileScreen(
                         Button(
                             onClick = {
                                 //onLogoutClick
-                                onChangeLogin(false)
+                                onChangeLogin()
                                       },
                             modifier = Modifier
                                 .fillMaxWidth()

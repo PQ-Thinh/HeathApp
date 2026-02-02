@@ -36,7 +36,6 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
 
     // --- KEYS DATASTORE
-    private val IS_LOGGED_IN_KEY = booleanPreferencesKey("is_logged_in")
     private val CURRENT_MODE_KEY = stringPreferencesKey("current_mode")
 
     // --- STATE FLOWS ---
@@ -62,9 +61,8 @@ class MainViewModel @Inject constructor(
         .map { preferences -> preferences[CURRENT_MODE_KEY] ?: "Chạy Bộ" }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Chạy Bộ")
 
-    val isLoggedIn: StateFlow<Boolean> = dataStore.data
-        .map { it[IS_LOGGED_IN_KEY] ?: false }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    private val _isLoggedIn = MutableStateFlow<Boolean?>(null) // null nghĩa là đang kiểm tra (Loading)
+    val isLoggedIn: StateFlow<Boolean?> = _isLoggedIn
 
     init {
         initializeData()
@@ -104,6 +102,11 @@ class MainViewModel @Inject constructor(
 
     // ĐĂNG KÝ & ĐĂNG NHẬP
 
+    fun setIsLoggedIn(status: Boolean) {
+        viewModelScope.launch {
+            _isLoggedIn.value = status
+        }
+    }
     fun registerUser(
         email: String,
         pass: String,
@@ -128,6 +131,7 @@ class MainViewModel @Inject constructor(
 
                     viewModelScope.launch {
                         // Lưu Profile lên Cloud
+                        setIsLoggedIn(true)
                         firestore.collection("users").document(uid).set(newUser)
                         // Reset các chỉ số hiển thị
                         _realtimeSteps.value = 0
@@ -152,8 +156,7 @@ class MainViewModel @Inject constructor(
                 val uid = result.user?.uid
                 if (uid != null) {
                     viewModelScope.launch {
-                        dataStore.edit { it[IS_LOGGED_IN_KEY] = true }
-                        // Bắt đầu lắng nghe lại dữ liệu của User này
+                        setIsLoggedIn(true)
                         initializeData()
                         onSuccess()
                     }
@@ -167,15 +170,12 @@ class MainViewModel @Inject constructor(
     fun logout() {
         auth.signOut()
         viewModelScope.launch {
-            //  Cập nhật DataStore
-            dataStore.edit { it[IS_LOGGED_IN_KEY] = false }
-
+            setIsLoggedIn(false)
             //Reset toàn bộ StateFlow về 0/Null ngay lập tức
             _realtimeSteps.value = 0
             _realtimeCalories.value = 0f
             _realtimeHeartRate.value = 0
             _todayHealthData.value = null
-
             //Dừng lắng nghe
             repository.stopRealtimeSync()
         }

@@ -23,21 +23,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
-import android.Manifest
-import android.os.Build
-import android.content.Context
-import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.core.content.ContextCompat
-import androidx.compose.ui.platform.LocalContext
-//
+
 @Composable
 fun SettingsScreen(
     modifier: Modifier = Modifier,
@@ -45,11 +38,7 @@ fun SettingsScreen(
     onThemeChanged: (Boolean) -> Unit,
     isDarkTheme: Boolean,
     onChangePassword: () -> Unit = {},
-//    isServiceRunning: Boolean,
-//    onToggleService: (Boolean) -> Unit
-
 ) {
-    val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
     var isVisible by remember { mutableStateOf(isPreview) }
     var isServiceRunning by remember { mutableStateOf(false) }

@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import javax.inject.Inject
 import kotlin.math.roundToInt
@@ -99,49 +100,58 @@ class UserViewModel @Inject constructor(
         }
     }
 
-    // Cập nhật Chiều cao (Tự động tính lại BMI)
+
+    // Trong UserViewModel.kt
+
     fun addHeight(height: Int) {
-        val user = currentUserInfo.value ?: return
         val uid = auth.currentUser?.uid ?: return
 
-        // Tính BMI mới dựa trên cân nặng hiện có
-        val currentWeight = user.weight ?: 0f
-        val newBmi = calculateBMI(height.toFloat(), currentWeight)
-
-        val updates = mapOf(
-            "height" to height.toFloat(),
-            "bmi" to newBmi,
-            "updatedAt" to System.currentTimeMillis()
-        )
-
         viewModelScope.launch {
-            firestore.collection("users").document(uid)
-                .set(updates, SetOptions.merge())
+            try {
+                // Lấy dữ liệu mới nhất trực tiếp từ Firestore
+                val snapshot = firestore.collection("users").document(uid).get().await()
+                val currentWeight = snapshot.getDouble("weight")?.toFloat() ?: 0f
+
+                val newBmi = calculateBMI(height.toFloat(), currentWeight)
+
+                val updates = mapOf(
+                    "height" to height.toFloat(),
+                    "bmi" to newBmi,
+                    "updatedAt" to System.currentTimeMillis()
+                )
+
+                firestore.collection("users").document(uid)
+                    .set(updates, SetOptions.merge()).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
-    //Cập nhật Cân nặng (Tự động tính lại BMI)
     fun addWeight(weight: Float) {
-        val user = currentUserInfo.value ?: return
         val uid = auth.currentUser?.uid ?: return
 
-        // Tính BMI mới dựa trên chiều cao hiện có
-        val currentHeight = user.height ?: 0f
-        val newBmi = calculateBMI(currentHeight, weight)
-
-        val updates = mapOf(
-            "weight" to weight,
-            "bmi" to newBmi,
-            "updatedAt" to System.currentTimeMillis()
-        )
-
         viewModelScope.launch {
-            firestore.collection("users").document(uid)
-                .set(updates, SetOptions.merge())
+            try {
+                // Lấy dữ liệu mới nhất trực tiếp từ Firestore
+                val snapshot = firestore.collection("users").document(uid).get().await()
+                val currentHeight = snapshot.getDouble("height")?.toFloat() ?: 0f
 
+                val newBmi = calculateBMI(currentHeight, weight)
+
+                val updates = mapOf(
+                    "weight" to weight,
+                    "bmi" to newBmi,
+                    "updatedAt" to System.currentTimeMillis()
+                )
+
+                firestore.collection("users").document(uid)
+                    .set(updates, SetOptions.merge()).await()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
-
     // Hàm phụ trợ tính BMI
     private fun calculateBMI(heightCm: Float, weightKg: Float): Float {
         if (heightCm <= 0 || weightKg <= 0) return 0f
