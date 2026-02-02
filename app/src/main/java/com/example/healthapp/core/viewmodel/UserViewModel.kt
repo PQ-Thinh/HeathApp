@@ -6,7 +6,6 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.model.entity.UserEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -22,6 +21,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 import kotlin.math.roundToInt
+import java.time.Period
 
 @HiltViewModel
 class UserViewModel @Inject constructor(
@@ -65,24 +65,36 @@ class UserViewModel @Inject constructor(
     }
 
     //Cập nhật thông tin cơ bản: Tên, Giới tính, Tuổi
-    fun updateUserInfo(name: String, gender: String, birthYear: Int) {
+    fun updateUserInfo(name: String, gender: String, day: Int, month: Int, year: Int) {
         val uid = auth.currentUser?.uid ?: return
 
-        // Tính tuổi
-        val currentYear = LocalDate.now().year
-        val age = (currentYear - birthYear).coerceAtLeast(0)
+        try {
+            // Tạo đối tượng ngày sinh
+            val birthDate = LocalDate.of(year, month, day)
+            val today = LocalDate.now()
 
-        // Tạo map dữ liệu để update (tránh ghi đè các trường khác)
-        val updates = mapOf(
-            "name" to name,
-            "gender" to gender,
-            "age" to age,
-            "updatedAt" to System.currentTimeMillis()
-        )
+            // Tính tuổi chính xác
+            val age = Period.between(birthDate, today).years
 
-        viewModelScope.launch {
-            firestore.collection("users").document(uid)
-                .set(updates, SetOptions.merge())
+
+            // chuỗi ngày sinh "YYYY-MM-DD" để sau này App tự tính lại tuổi mỗi năm
+            val birthDateString = birthDate.toString()
+
+            val updates = mapOf(
+                "name" to name,
+                "gender" to gender,
+                "age" to age, // Tuổi chính xác
+                "birthDate" to birthDateString,
+                "updatedAt" to System.currentTimeMillis()
+            )
+
+            viewModelScope.launch {
+                firestore.collection("users").document(uid)
+                    .set(updates, SetOptions.merge())
+            }
+        } catch (e: Exception) {
+            // Phòng trường hợp ngày tháng không hợp lệ (VD: 30/02)
+            e.printStackTrace()
         }
     }
 
