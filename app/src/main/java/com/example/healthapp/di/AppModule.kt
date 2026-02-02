@@ -31,23 +31,23 @@ object AppModule {
         return context.dataStore
     }
 
-    @Provides
-    @Singleton
-    fun provideAppDatabase(@ApplicationContext context: Context): AppDb {
-        return Room.databaseBuilder(
-            context,
-            AppDb::class.java,
-            "app_db"
-        )
-            .fallbackToDestructiveMigration()
-            .build()
-    }
-
-    @Provides
-    @Singleton
-    fun provideHealthDao(appDb: AppDb): HealthDao {
-        return appDb.healthDao()
-    }
+//    @Provides
+//    @Singleton
+//    fun provideAppDatabase(@ApplicationContext context: Context): AppDb {
+//        return Room.databaseBuilder(
+//            context,
+//            AppDb::class.java,
+//            "app_db"
+//        )
+//            .fallbackToDestructiveMigration()
+//            .build()
+//    }
+//
+//    @Provides
+//    @Singleton
+//    fun provideHealthDao(appDb: AppDb): HealthDao {
+//        return appDb.healthDao()
+//    }
 
     @Provides
     @Singleton
