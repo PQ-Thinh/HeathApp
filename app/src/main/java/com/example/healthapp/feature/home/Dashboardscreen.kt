@@ -49,6 +49,7 @@ import com.example.healthapp.feature.detail.StepRunDetail
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
+import kotlinx.serialization.StringFormat
 
 @Composable
 fun HealthDashboardScreen(
@@ -258,7 +259,7 @@ fun HealthDashboardScreen(
                     HealthStatCard(
                         modifier = Modifier.fillMaxWidth(),
                         title = "BMI",
-                        value = "${user?.bmi ?: "Updating..."}",
+                        value = user?.bmi?.let { String.format("%.2f", it) } ?: "Updating...",
                         unit = "Kg/m²",
                         icon = Icons.Default.MonitorWeight,
                         accentColor = Color(0xFF8B5CF6),

@@ -6,6 +6,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -42,7 +43,8 @@ fun ProfileScreen(
     onBackClick: () -> Unit = {},
     isDarkTheme: Boolean,
     onChangeLogin: () -> Unit = {},
-    userViewModel: UserViewModel
+    userViewModel: UserViewModel,
+    onProfileDetail: ()-> Unit = {}
 ) {
 
     val user by userViewModel.currentUserInfo.collectAsState()
@@ -181,7 +183,8 @@ fun ProfileScreen(
                             "Thông Tin Cá Nhân",
                             isVisible,
                             1,
-                            colors
+                            colors,
+                            onClickListener = onProfileDetail
                         )
                         ProfileMenuItem(
                             Icons.Default.History,
@@ -269,7 +272,7 @@ fun ProfileMenuItem(
     visible: Boolean,
     index: Int,
     colors: AestheticColors,
-    //onClickListener: () -> Unit = {}
+    onClickListener: () -> Unit = {}
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -278,7 +281,8 @@ fun ProfileMenuItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(16.dp)
+                .clickable{ onClickListener() },
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Icon dùng màu Accent (Indigo/Blue)
