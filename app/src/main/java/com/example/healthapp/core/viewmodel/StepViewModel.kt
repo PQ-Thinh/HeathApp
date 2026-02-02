@@ -1,25 +1,21 @@
 package com.example.healthapp.core.viewmodel
 
-
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.StepBucket
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.example.healthapp.core.data.responsitory.HealthRepository
-import com.example.healthapp.core.model.dao.HealthDao
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.stringPreferencesKey
-import com.example.healthapp.core.model.entity.StepRecordEntity
+import com.example.healthapp.core.model.entity.DailyHealthEntity
+import com.example.healthapp.core.model.entity.UserEntity
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -28,42 +24,57 @@ import javax.inject.Inject
 @HiltViewModel
 class StepViewModel @Inject constructor(
     private val repository: HealthRepository,
-    private val dataStore: DataStore<Preferences>,
-    private val healthDao: HealthDao
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
 ) : ViewModel() {
 
+    // --- State cho Chart ---
     private val _chartData = MutableStateFlow<List<StepBucket>>(emptyList())
     val chartData = _chartData.asStateFlow()
 
     private val _selectedTimeRange = MutableStateFlow(ChartTimeRange.WEEK)
     val selectedTimeRange = _selectedTimeRange.asStateFlow()
 
-    private var _startSessionSteps = 0 // Số bước tại thời điểm bấm Start
-    private val _sessionSteps = MutableStateFlow(0) // Số bước chạy được trong phiên
+    // --- State cho phiên chạy bộ (Run Session) ---
+    private var _startSessionSteps = 0
+    private val _sessionSteps = MutableStateFlow(0)
     val sessionSteps = _sessionSteps.asStateFlow()
     private var _sessionStartTime = MutableStateFlow<LocalDateTime?>(null)
-    // Cân nặng user (Mặc định 70kg nếu chưa set)
+
+    // Cân nặng (Mặc định 70kg)
     private var userWeight: Float = 70f
-    private val CURRENT_USER_EMAIL_KEY = stringPreferencesKey("current_user_email")
-    val currentUserInfo = dataStore.data
-        .map { prefs -> prefs[CURRENT_USER_EMAIL_KEY] }
-        .flatMapLatest { email ->
-            if (email != null) healthDao.getUserFlowByEmail(email) else flowOf(null)
+
+    // --- State: Thông tin User (Realtime từ Firestore) ---
+    val currentUserInfo: Flow<UserEntity?> = callbackFlow {
+        val uid = auth.currentUser?.uid
+        if (uid == null) {
+            trySend(null)
+            close()
+            return@callbackFlow
         }
+
+        val listener = firestore.collection("users").document(uid)
+            .addSnapshotListener { snapshot, _ ->
+                if (snapshot != null && snapshot.exists()) {
+                    val user = snapshot.toObject(UserEntity::class.java)
+                    if (user != null) {
+                        userWeight = user.weight ?: 70f // Cập nhật cân nặng
+                        trySend(user)
+                    }
+                } else {
+                    trySend(null)
+                }
+            }
+        awaitClose { listener.remove() }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    // --- State: Lịch sử (Daily List) ---
+    private val _stepHistory = MutableStateFlow<List<DailyHealthEntity>>(emptyList())
+    val stepHistory = _stepHistory.asStateFlow()
 
     init {
-        loadUserProfile()
         loadChartData()
-    }
-
-    private fun loadUserProfile() {
-        viewModelScope.launch {
-            val email = dataStore.data.first()[stringPreferencesKey("current_user_email")]
-            if (email != null) {
-                val user = healthDao.getUserByEmail(email)
-                userWeight = user?.weight ?: 70f
-            }
-        }
+        loadHistory()
     }
 
     fun setTimeRange(range: ChartTimeRange) {
@@ -77,48 +88,50 @@ class StepViewModel @Inject constructor(
             _chartData.value = data
         }
     }
-    // Gọi hàm này khi màn hình RunTracking mở lên
+
+    // Load lịch sử (Tổng hợp theo ngày)
+    private fun loadHistory() {
+        viewModelScope.launch {
+            _stepHistory.value = repository.getStepHistory()
+        }
+    }
+
+    // --- LOGIC RUNNING SESSION ---
+
     fun startRunSession(currentTotalSteps: Int) {
         _startSessionSteps = currentTotalSteps
         _sessionSteps.value = 0
         _sessionStartTime.value = LocalDateTime.now()
     }
 
-    // Gọi hàm này liên tục khi sensor cập nhật
     fun updateSessionSteps(currentTotalSteps: Int) {
-        // Nếu sensor reset (ví dụ reboot máy), cần reset mốc start
         if (currentTotalSteps < _startSessionSteps) {
-            _startSessionSteps = 0
+            _startSessionSteps = 0 // Xử lý trường hợp reboot máy
         }
         _sessionSteps.value = (currentTotalSteps - _startSessionSteps).coerceAtLeast(0)
     }
-    // Công thức tính Calories cho Chart: 0.04 * steps * weight / 70
+
     fun calculateCalories(steps: Long): Int {
         return (0.04 * steps * userWeight / 70).toInt()
     }
 
-    val stepHistory: StateFlow<List<StepRecordEntity>> = repository.getStepHistory()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
     fun finishRunSession(currentTotalSteps: Int) {
         val startTime = _sessionStartTime.value ?: return
         val endTime = LocalDateTime.now()
-
-        // Tính số bước thực tế trong phiên
         val stepsTaken = (currentTotalSteps - _startSessionSteps).coerceAtLeast(0)
 
         if (stepsTaken > 0) {
             viewModelScope.launch {
-                // Gọi Repository để lưu vào Room (bảng StepRecordEntity)
-                // Hàm writeStepsToHealthConnect trong Repository của bạn đã có logic lưu vào Room rồi
+                // Lưu vào Health Connect & Firestore (Chi tiết Session)
                 repository.writeStepsToHealthConnect(startTime, endTime, stepsTaken)
+
+                // Reload lại chart và history sau khi lưu
+                loadChartData()
+                loadHistory()
             }
         }
 
-        // Reset lại trạng thái
+        // Reset
         _sessionStartTime.value = null
         _startSessionSteps = 0
         _sessionSteps.value = 0

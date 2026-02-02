@@ -4,12 +4,9 @@ import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStore
-import androidx.room.Room
 import com.example.healthapp.core.data.FirebaseSyncManager
 import com.example.healthapp.core.data.HealthConnectManager
 import com.example.healthapp.core.data.HealthSensorManager
-import com.example.healthapp.core.model.AppDb
-import com.example.healthapp.core.model.dao.HealthDao
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.Module
@@ -75,9 +72,8 @@ object AppModule {
     @Provides
     @Singleton
     fun provideFirebaseSyncManager(
-        healthDao: HealthDao,
         firestore: FirebaseFirestore
     ): FirebaseSyncManager {
-        return FirebaseSyncManager(healthDao, firestore)
+        return FirebaseSyncManager( firestore)
     }
 }

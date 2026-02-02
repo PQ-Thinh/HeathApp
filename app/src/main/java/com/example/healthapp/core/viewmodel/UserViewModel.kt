@@ -1,104 +1,138 @@
 package com.example.healthapp.core.viewmodel
 
-
-import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.responsitory.HealthRepository
-import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.UserEntity
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import javax.inject.Inject
 import kotlin.math.roundToInt
 
 @HiltViewModel
 class UserViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
-    private val healthDao: HealthDao,
-    private val repository: HealthRepository
+    //private val repository: HealthRepository,
+    private val auth: FirebaseAuth,
+    private val firestore: FirebaseFirestore
 ) : ViewModel() {
 
     private val THEME_KEY = booleanPreferencesKey("is_dark_mode")
-    private val CURRENT_USER_EMAIL_KEY = stringPreferencesKey("current_user_email")
 
+    //Quản lý Theme (Dark Mode)
     val isDarkMode: StateFlow<Boolean> = dataStore.data
         .map { preferences -> preferences[THEME_KEY] ?: false }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    val currentUserInfo: StateFlow<UserEntity?> = dataStore.data
-        .map { prefs -> prefs[CURRENT_USER_EMAIL_KEY] }
-        .flatMapLatest { email ->
-            if (email != null) healthDao.getUserFlowByEmail(email) else flowOf(null)
+    //Thông tin User (Realtime từ Firestore)
+    val currentUserInfo: StateFlow<UserEntity?> = callbackFlow {
+        val uid = auth.currentUser?.uid
+        if (uid == null) {
+            trySend(null)
+            close()
+            return@callbackFlow
         }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+        val listener = firestore.collection("users").document(uid)
+            .addSnapshotListener { snapshot, _ ->
+                if (snapshot != null && snapshot.exists()) {
+                    val user = snapshot.toObject(UserEntity::class.java)
+                    trySend(user)
+                } else {
+                    trySend(null)
+                }
+            }
+        awaitClose { listener.remove() }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    // Toggle Theme
     fun toggleTheme(isDark: Boolean) {
         viewModelScope.launch { dataStore.edit { it[THEME_KEY] = isDark } }
     }
 
-    fun addName(name: String) {
+    //Cập nhật thông tin cơ bản: Tên, Giới tính, Tuổi
+    fun updateUserInfo(name: String, gender: String, birthYear: Int) {
+        val uid = auth.currentUser?.uid ?: return
+
+        // Tính tuổi
+        val currentYear = LocalDate.now().year
+        val age = (currentYear - birthYear).coerceAtLeast(0)
+
+        // Tạo map dữ liệu để update (tránh ghi đè các trường khác)
+        val updates = mapOf(
+            "name" to name,
+            "gender" to gender,
+            "age" to age,
+            "updatedAt" to System.currentTimeMillis()
+        )
+
         viewModelScope.launch {
-            // Lấy user hiện tại từ Flow
-            val user = currentUserInfo.filterNotNull().first()
-            if (user != null && user.id != null) {
-                Log.d("UserViewModel", "Đang lưu tên '$name' cho User ID: ${user.id}")
-                healthDao.updateName(user.id, name)
-            } else {
-                Log.e("UserViewModel", "LỖI: Chưa tải xong UserInfo, không thể lưu tên!")
-                // Mẹo: Nếu null, có thể thử delay 500ms rồi thử lại
-            }
-            val updatedUser = healthDao.getUserById(user.id)
-            if (updatedUser != null) {
-                repository.syncUserToCloud(updatedUser)
-            }
+            firestore.collection("users").document(uid)
+                .set(updates, SetOptions.merge())
         }
     }
 
+    // Cập nhật Chiều cao (Tự động tính lại BMI)
     fun addHeight(height: Int) {
-        viewModelScope.launch {
-            val user = currentUserInfo.first()
-            user?.id?.let { id ->
-                healthDao.updateHeight(id, height.toFloat())
-                calculateAndSaveBMI(id)
-                val updatedUser = healthDao.getUserById(id)
+        val user = currentUserInfo.value ?: return
+        val uid = auth.currentUser?.uid ?: return
 
-                if (updatedUser != null) {
-                    repository.syncUserToCloud(updatedUser)
-                }
-            }
+        // Tính BMI mới dựa trên cân nặng hiện có
+        val currentWeight = user.weight ?: 0f
+        val newBmi = calculateBMI(height.toFloat(), currentWeight)
+
+        val updates = mapOf(
+            "height" to height.toFloat(),
+            "bmi" to newBmi,
+            "updatedAt" to System.currentTimeMillis()
+        )
+
+        viewModelScope.launch {
+            firestore.collection("users").document(uid)
+                .set(updates, SetOptions.merge())
         }
     }
 
+    //Cập nhật Cân nặng (Tự động tính lại BMI)
     fun addWeight(weight: Float) {
+        val user = currentUserInfo.value ?: return
+        val uid = auth.currentUser?.uid ?: return
+
+        // Tính BMI mới dựa trên chiều cao hiện có
+        val currentHeight = user.height ?: 0f
+        val newBmi = calculateBMI(currentHeight, weight)
+
+        val updates = mapOf(
+            "weight" to weight,
+            "bmi" to newBmi,
+            "updatedAt" to System.currentTimeMillis()
+        )
+
         viewModelScope.launch {
-            val user = currentUserInfo.first()
-            user?.id?.let { id ->
-                healthDao.updateWeight(id, weight)
-                calculateAndSaveBMI(id)
-                val updatedUser = healthDao.getUserById(id)
-
-                if (updatedUser != null) {
-                    repository.syncUserToCloud(updatedUser)
-                }
-            }
-
+            firestore.collection("users").document(uid)
+                .set(updates, SetOptions.merge())
         }
     }
 
-    private suspend fun calculateAndSaveBMI(userId: String) {
-        val user = healthDao.getUserById(userId)
-        if (user != null && user.height != null && user.weight != null && user.height > 0) {
-            val heightInMeter = user.height / 100f
-            val bmiValue = user.weight / (heightInMeter * heightInMeter)
-            val bmiRounded = (bmiValue * 10).roundToInt() / 10f
-            healthDao.updateBMI(userId, bmiRounded)
-        }
+    // Hàm phụ trợ tính BMI
+    private fun calculateBMI(heightCm: Float, weightKg: Float): Float {
+        if (heightCm <= 0 || weightKg <= 0) return 0f
+        val heightM = heightCm / 100f
+        val bmi = weightKg / (heightM * heightM)
+        return (bmi * 10).roundToInt() / 10f // Làm tròn 1 chữ số thập phân
     }
 }

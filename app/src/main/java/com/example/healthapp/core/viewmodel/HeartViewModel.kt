@@ -1,27 +1,16 @@
 package com.example.healthapp.core.viewmodel
 
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.HeartRateBucket
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.example.healthapp.core.data.responsitory.HealthRepository
-import com.example.healthapp.core.model.dao.HealthDao
 import com.example.healthapp.core.model.entity.HeartRateRecordEntity
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
@@ -29,8 +18,7 @@ import javax.inject.Inject
 @HiltViewModel
 class HeartViewModel @Inject constructor(
     private val repository: HealthRepository,
-    private val dataStore: DataStore<Preferences>,
-    private val healthDao: HealthDao
+    private val auth: FirebaseAuth
 ) : ViewModel() {
 
     // --- State cho Chart ---
@@ -47,50 +35,54 @@ class HeartViewModel @Inject constructor(
     private val _assessment = MutableStateFlow<String>("Chưa có dữ liệu")
     val assessment = _assessment.asStateFlow()
 
-    // Lấy thông tin user hiện tại (để load dữ liệu realtime nếu cần)
-    private val CURRENT_USER_EMAIL_KEY = stringPreferencesKey("current_user_email")
-    private val currentUserInfo = dataStore.data
-        .map { prefs -> prefs[CURRENT_USER_EMAIL_KEY] }
-        .flatMapLatest { email ->
-            if (email != null) healthDao.getUserFlowByEmail(email) else flowOf(null)
-        }
+    // --- State cho Lịch sử ---
+    private val _heartHistory = MutableStateFlow<List<HeartRateRecordEntity>>(emptyList())
+    val heartHistory = _heartHistory.asStateFlow()
 
     init {
         loadLatestHeartRate()
-        loadChartData() // Load mặc định (WEEK)
+        loadChartData()
+        loadHistory() // Load lịch sử khi mở màn hình
     }
 
-    // 1. Hàm chọn mốc thời gian (Gọi từ UI)
+    //Hàm chọn mốc thời gian
     fun setTimeRange(range: ChartTimeRange) {
         _selectedTimeRange.value = range
         loadChartData()
     }
 
-    // 2. Load dữ liệu biểu đồ từ Health Connect
+    //Load dữ liệu biểu đồ
     private fun loadChartData() {
         viewModelScope.launch {
+            // Repository mới đã tự lo việc lấy UID bên trong hoặc trả về list rỗng
             val data = repository.getHeartRateChartData(_selectedTimeRange.value)
             _heartRateData.value = data
         }
     }
 
-    // 3. Load nhịp tim mới nhất trong ngày để hiển thị số to và đánh giá
+    //Load nhịp tim mới nhất (Realtime Flow từ Firestore)
     private fun loadLatestHeartRate() {
+        val userId = auth.currentUser?.uid ?: return
+
         viewModelScope.launch {
-            val user = currentUserInfo.filterNotNull().first()
-            user.id?.let { userId ->
-                val today = LocalDate.now().toString()
-                repository.getDailyHealth(today, userId).collect { data ->
-                    if (data != null && data.heartRateAvg > 0) {
-                        _latestHeartRate.value = data.heartRateAvg
-                        evaluateHeartRate(data.heartRateAvg)
-                    }
+            val today = LocalDate.now().toString()
+            repository.getDailyHealth(today, userId).collect { data ->
+                if (data != null && data.heartRateAvg > 0) {
+                    _latestHeartRate.value = data.heartRateAvg
+                    evaluateHeartRate(data.heartRateAvg)
                 }
             }
         }
     }
 
-    // 4. Logic đánh giá nhịp tim
+    //Load danh sách lịch sử chi tiết
+    private fun loadHistory() {
+        viewModelScope.launch {
+            _heartHistory.value = repository.getHeartRateHistory()
+        }
+    }
+
+    //Logic đánh giá nhịp tim
     private fun evaluateHeartRate(bpm: Int) {
         _assessment.value = when {
             bpm == 0 -> "Chưa có dữ liệu"
@@ -100,30 +92,23 @@ class HeartViewModel @Inject constructor(
             else -> "Cao (Nhịp tim nhanh)"
         }
     }
-        // Hàm gọi khi người dùng đo xong nhịp tim
-        fun saveHeartRateRecord(bpm: Int) {
-            viewModelScope.launch {
-                val user = currentUserInfo.filterNotNull().first()
-                user.id?.let { id ->
-                    // 1. Lưu vào Health Connect
-                    repository.saveHeartRate(id, bpm)
 
-                    // 2. Cập nhật số to ngay lập tức (UI phản hồi nhanh)
-                    _latestHeartRate.value = bpm
-                    evaluateHeartRate(bpm)
+    //Lưu nhịp tim mới đo
+    fun saveHeartRateRecord(bpm: Int) {
+        val userId = auth.currentUser?.uid ?: return
 
-                    // 3. Đợi 1 chút để Health Connect kịp index dữ liệu
-                    delay(1000)
+        viewModelScope.launch {
+            // Lưu vào Health Connect & Firestore
+            repository.saveHeartRate(userId, bpm)
 
-                    // 4. Reload lại biểu đồ
-                    loadChartData()
-                }
-            }
+            // Cập nhật UI ngay lập tức
+            _latestHeartRate.value = bpm
+            evaluateHeartRate(bpm)
+
+            //Đợi 1 chút để dữ liệu kịp đồng bộ rồi reload biểu đồ & lịch sử
+            delay(1000)
+            loadChartData()
+            loadHistory()
         }
-    val heartHistory: StateFlow<List<HeartRateRecordEntity>> = repository.getHeartRateHistory()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    }
 }
