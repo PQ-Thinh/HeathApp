@@ -91,6 +91,7 @@ fun HealthDashboardScreen(
     var resultCalories by remember { mutableIntStateOf(0) }
     var resultTime by remember { mutableLongStateOf(0L) }
 
+
     // --- PERMISSION LAUNCHER (Quyền Thông báo + Vị trí) ---
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),

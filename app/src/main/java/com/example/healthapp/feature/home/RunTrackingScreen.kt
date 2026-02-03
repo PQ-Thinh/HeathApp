@@ -39,7 +39,7 @@ import java.util.concurrent.TimeUnit
 fun RunTrackingScreen(
     stepViewModel: StepViewModel,
     onClose: () -> Unit,
-    onToggleService: (Boolean) -> Unit, // Hàm để bật/tắt service
+    onToggleService: (Boolean) -> Unit,
     isServiceRunning: Boolean,
     colors: AestheticColors,
     mainViewModel: MainViewModel,
@@ -54,21 +54,35 @@ fun RunTrackingScreen(
 
     // Lấy dữ liệu Session (đã trừ đi bước ban đầu) từ StepViewModel
     val sessionSteps by stepViewModel.sessionSteps.collectAsState()
+    var isSessionStarted by remember { mutableStateOf(false) }
 
     // Khởi tạo Session khi màn hình mở ra lần đầu
     LaunchedEffect(Unit) {
-        // Cấu hình OSM
-        Configuration.getInstance()
-            .load(context, PreferenceManager.getDefaultSharedPreferences(context))
+        Configuration.getInstance().load(context, PreferenceManager.getDefaultSharedPreferences(context))
 
-        // Bắt đầu tính phiên chạy (đặt mốc 0)
-        stepViewModel.startRunSession(totalRealtimeSteps)
+        // Chỉ khi totalRealtimeSteps > 0 (đã load được sensor) thì mới set mốc bắt đầu
+        // Nếu totalRealtimeSteps trả về 0 lúc đầu, ta sẽ đợi ở Effect bên dưới
+        if (totalRealtimeSteps > 0) {
+            stepViewModel.startRunSession(totalRealtimeSteps)
+            isSessionStarted = true
+        }
     }
 
-    // Cập nhật session steps mỗi khi tổng bước thay đổi
+    // Logic Update: Chỉ chạy khi đã có mốc Start
     LaunchedEffect(totalRealtimeSteps) {
-        stepViewModel.updateSessionSteps(totalRealtimeSteps)
+        if (totalRealtimeSteps > 0) {
+            if (!isSessionStarted) {
+                // Trường hợp 'Start' thất bại ở trên do bước = 0, ta start lại tại đây khi có dữ liệu thật
+                stepViewModel.startRunSession(totalRealtimeSteps)
+                isSessionStarted = true
+            } else {
+                // Chỉ update khi đã start thành công
+                stepViewModel.updateSessionSteps(totalRealtimeSteps)
+            }
+        }
     }
+    // -----------------
+
     // Timer Effect
     LaunchedEffect(isRunning) {
         val startTime = System.currentTimeMillis() - (timeSeconds * 1000)

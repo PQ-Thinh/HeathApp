@@ -6,7 +6,6 @@ plugins {
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.google.services)
 }
-
 android {
     namespace = "com.example.healthapp"
     compileSdk {
