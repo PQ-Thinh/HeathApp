@@ -16,8 +16,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -328,7 +330,8 @@ fun StepDetailScreen(
                                 SimpleStepHistoryRow(
                                     record = record,
                                     colors = colors,
-                                    stepColor = stepColor
+                                    stepColor = stepColor,
+                                    onDelete = { stepViewModel.deleteStepRecord(record) }
                                 )
                             }
                         }
@@ -347,8 +350,11 @@ fun StepDetailScreen(
 fun SimpleStepHistoryRow(
     record: StepRecordEntity,
     colors: AestheticColors,
-    stepColor: Color
+    stepColor: Color,
+    onDelete: () -> Unit // <--- Thêm tham số
 ) {
+    var expanded by remember { mutableStateOf(false) }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -358,7 +364,7 @@ fun SimpleStepHistoryRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -376,23 +382,38 @@ fun SimpleStepHistoryRow(
             Spacer(modifier = Modifier.width(16.dp))
             Column {
                 Text(
-                    text = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(record.startTime)),
+                    text = "${record.count} bước",
                     fontWeight = FontWeight.Bold,
-                    color = colors.textPrimary
+                    color = colors.textPrimary,
+                    fontSize = 16.sp
                 )
                 Text(
-                    text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(record.startTime)),
+                    text = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(record.startTime)),
                     fontSize = 12.sp,
                     color = colors.textSecondary
                 )
             }
         }
 
-        Text(
-            text = "${record.count} bước",
-            fontWeight = FontWeight.Bold,
-            color = stepColor,
-            fontSize = 16.sp
-        )
+        // --- MENU XÓA ---
+        Box {
+            IconButton(onClick = { expanded = true }) {
+                Icon(Icons.Default.MoreVert, contentDescription = null, tint = colors.textSecondary)
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.background(colors.glassContainer)
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Xóa", color = Color.Red) },
+                    onClick = {
+                        expanded = false
+                        onDelete()
+                    },
+                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) }
+                )
+            }
+        }
     }
 }

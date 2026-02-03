@@ -16,6 +16,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -122,8 +124,8 @@ fun SleepDetailScreen(
     if (showSleepDialog) {
         SleepSettingDialog(
             onDismiss = { showSleepDialog = false },
-            onSave = { sH, sM, eH, eM ->
-                sleepViewModel.saveSleepTime(sH, sM, eH, eM)
+            onSave = { date, sH, sM, eH, eM ->
+                sleepViewModel.saveSleepTime(date, sH, sM, eH, eM)
                 showSleepDialog = false
             }
         )
@@ -282,7 +284,8 @@ fun SleepDetailScreen(
                                 SimpleSleepHistoryRow(
                                     session = session,
                                     colors = colors,
-                                    accentColor = accentColor
+                                    accentColor = accentColor,
+                                    onDelete = {sleepViewModel.deleteSleepRecord(session)}
                                 )
                             }
                         }
@@ -300,8 +303,11 @@ fun SleepDetailScreen(
 fun SimpleSleepHistoryRow(
     session: SleepSessionEntity,
     colors: AestheticColors,
-    accentColor: Color
+    accentColor: Color,
+    onDelete: () -> Unit
 ) {
+    var expanded by remember { mutableStateOf(false) } // State Menu
+
     val start = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(session.startTime))
     val end = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(session.endTime))
     val date = SimpleDateFormat("dd/MM", Locale.getDefault()).format(Date(session.startTime))
@@ -319,7 +325,7 @@ fun SimpleSleepHistoryRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -343,19 +349,33 @@ fun SimpleSleepHistoryRow(
                     fontSize = 16.sp
                 )
                 Text(
-                    text = date,
+                    text = "$date • ${h}h ${m}m", // Gộp ngày và thời lượng cho gọn
                     fontSize = 12.sp,
                     color = colors.textSecondary
                 )
             }
         }
 
-        Text(
-            text = "${h}h ${m}m",
-            fontWeight = FontWeight.Bold,
-            color = accentColor,
-            fontSize = 16.sp
-        )
+        // --- MENU XÓA ---
+        Box {
+            IconButton(onClick = { expanded = true }) {
+                Icon(Icons.Default.MoreVert, contentDescription = null, tint = colors.textSecondary)
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.background(colors.glassContainer)
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Xóa", color = Color.Red) },
+                    onClick = {
+                        expanded = false
+                        onDelete()
+                    },
+                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) }
+                )
+            }
+        }
     }
 }
 

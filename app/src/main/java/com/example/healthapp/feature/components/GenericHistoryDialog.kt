@@ -31,7 +31,6 @@ fun <T> GenericHistoryDialog(
     dataList: List<T>,
     onDismiss: () -> Unit,
     onDelete: (T) -> Unit,
-    // Content color và Background color sẽ tự động xử lý bên trong
     isDarkTheme: Boolean,
     itemContent: @Composable (item: T, textColor: Color) -> Unit
 ) {

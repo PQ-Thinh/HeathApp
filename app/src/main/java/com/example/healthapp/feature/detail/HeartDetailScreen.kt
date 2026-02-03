@@ -10,7 +10,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -280,7 +282,8 @@ fun HeartDetailScreen(
                                 SimpleHeartHistoryRow(
                                     item = item,
                                     colors = colors,
-                                    heartColor = heartColor
+                                    heartColor = heartColor,
+                                    onDelete = { heartViewModel.deleteHeartRecord(item) }
                                 )
                             }
                         }
@@ -299,19 +302,21 @@ fun HeartDetailScreen(
 fun SimpleHeartHistoryRow(
     item: HeartRateRecordEntity,
     colors: AestheticColors,
-    heartColor: Color
+    heartColor: Color,
+    onDelete: () -> Unit // <--- 1. Thêm tham số callback xóa
 ) {
+    var expanded by remember { mutableStateOf(false) } // <--- 2. State cho menu
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(colors.glassContainer) // Màu nền theo theme kính mờ
+            .background(colors.glassContainer)
             .padding(16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            // Icon tròn nhỏ
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
             Box(
                 modifier = Modifier
                     .size(40.dp)
@@ -326,31 +331,48 @@ fun SimpleHeartHistoryRow(
                     modifier = Modifier.size(20.dp)
                 )
             }
-
             Spacer(modifier = Modifier.width(16.dp))
-
-            // Thông tin ngày giờ
             Column {
                 Text(
-                    text = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(item.time)),
+                    text = "${item.bpm} BPM",
                     fontWeight = FontWeight.Bold,
-                    color = colors.textPrimary
+                    color = colors.textPrimary,
+                    fontSize = 16.sp
                 )
                 Text(
-                    text = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(item.time)),
+                    text = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(item.time)),
                     fontSize = 12.sp,
                     color = colors.textSecondary
                 )
             }
         }
 
-        // Chỉ số BPM
-        Text(
-            text = "${item.bpm} BPM",
-            fontWeight = FontWeight.Bold,
-            color = heartColor,
-            fontSize = 16.sp
-        )
+
+        Box {
+            IconButton(onClick = { expanded = true }) {
+                Icon(
+                    imageVector = Icons.Default.MoreVert,
+                    contentDescription = "Menu",
+                    tint = colors.textSecondary
+                )
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.background(colors.glassContainer) // Background theo theme
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Xóa", color = Color.Red) },
+                    onClick = {
+                        expanded = false
+                        onDelete()
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
+                    }
+                )
+            }
+        }
     }
 }
 

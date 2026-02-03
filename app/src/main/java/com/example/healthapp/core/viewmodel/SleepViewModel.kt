@@ -85,22 +85,33 @@ class SleepViewModel @Inject constructor(
         }
     }
 
-    // Các hàm logic khác giữ nguyên (saveSleepTime, formatDuration...)
-    fun saveSleepTime(startHour: Int, startMinute: Int, endHour: Int, endMinute: Int) {
+    fun saveSleepTime(
+        date: LocalDate,
+        startHour: Int,
+        startMinute: Int,
+        endHour: Int,
+        endMinute: Int
+    ) {
         val userId = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            val now = LocalDate.now()
-            var startDateTime = LocalDateTime.of(now, LocalTime.of(startHour, startMinute))
-            var endDateTime = LocalDateTime.of(now, LocalTime.of(endHour, endMinute))
+            //Tạo thời gian bắt đầu chính xác theo Ngày đã chọn
+            var startDateTime = LocalDateTime.of(date, LocalTime.of(startHour, startMinute))
 
-            if (endDateTime.isBefore(startDateTime)) endDateTime = endDateTime.plusDays(1)
-            if (startDateTime.isAfter(LocalDateTime.now())) {
-                startDateTime = startDateTime.minusDays(1)
-                endDateTime = endDateTime.minusDays(1)
+            //Tạo thời gian kết thúc
+            var endDateTime = LocalDateTime.of(date, LocalTime.of(endHour, endMinute))
+
+            // Xử lý logic qua đêm (Nếu giờ kết thúc nhỏ hơn giờ bắt đầu -> Là ngày hôm sau)
+            // Ví dụ: Ngủ 23:00 (ngày 1) -> Dậy 07:00 (thì phải là ngày 2)
+            // Hoặc: Ngủ 23:00 -> Dậy 01:00 sáng
+            if (endDateTime.isBefore(startDateTime)) {
+                endDateTime = endDateTime.plusDays(1)
             }
 
+            // Lưu vào Repository
             repository.saveSleepSession(userId, startDateTime, endDateTime)
-            delay(1000)
+
+            // Refresh dữ liệu
+            delay(500) // Đợi DB cập nhật một chút
             loadHistory()
             loadChartData()
         }
