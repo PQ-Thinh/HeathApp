@@ -30,12 +30,11 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
-import java.util.concurrent.TimeUnit
 
 @Composable
 fun RunTrackingScreen(
     stepViewModel: StepViewModel,
-    onClose: () -> Unit, // Hàm đóng màn hình (chỉ ẩn, không stop)
+    onClose: () -> Unit,
     onToggleService: (Boolean) -> Unit,
     colors: AestheticColors,
     mainViewModel: MainViewModel,
@@ -56,7 +55,7 @@ fun RunTrackingScreen(
         Configuration.getInstance().load(context, PreferenceManager.getDefaultSharedPreferences(context))
     }
 
-    // Logic update: Nếu ViewModel báo đang chạy -> Update liên tục
+    // Logic update
     LaunchedEffect(totalRealtimeSteps, isRunning) {
         if (isRunning && totalRealtimeSteps > 0) {
             stepViewModel.updateSessionSteps(totalRealtimeSteps)
@@ -65,7 +64,7 @@ fun RunTrackingScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
 
-        // --- PHẦN 1: BẢN ĐỒ (Chiếm 6/10 màn hình) ---
+        // --- PHẦN 1: BẢN ĐỒ (60%) ---
         Box(
             modifier = Modifier
                 .weight(0.6f)
@@ -74,7 +73,6 @@ fun RunTrackingScreen(
         ) {
             OsmMapView(modifier = Modifier.fillMaxSize())
 
-            // Nút Back nhỏ ở góc trên (để thu nhỏ màn hình nếu muốn)
             IconButton(
                 onClick = onClose,
                 modifier = Modifier
@@ -85,12 +83,12 @@ fun RunTrackingScreen(
             }
         }
 
-        // --- PHẦN 2: THÔNG TIN (Chiếm 4/10 màn hình) ---
+        // --- PHẦN 2: THÔNG TIN (40%) ---
         Surface(
             modifier = Modifier
                 .weight(0.4f)
                 .fillMaxWidth()
-                .shadow(elevation = 16.dp), // Tạo bóng đổ đè lên map
+                .shadow(elevation = 16.dp),
             color = colors.background,
             tonalElevation = 8.dp
         ) {
@@ -99,10 +97,10 @@ fun RunTrackingScreen(
                     .fillMaxSize()
                     .padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween // Căn đều nội dung
+                verticalArrangement = Arrangement.SpaceBetween
             ) {
 
-                // 1. Đồng hồ to
+                // 1. Đồng hồ
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = stepViewModel.formatDuration(sessionDuration),
@@ -111,30 +109,61 @@ fun RunTrackingScreen(
                         color = colors.textPrimary,
                         letterSpacing = 2.sp
                     )
-                    Text(
-                        text = "Thời gian chạy",
-                        fontSize = 14.sp,
-                        color = colors.textSecondary
-                    )
+                    Text(text = "Thời gian chạy", fontSize = 14.sp, color = colors.textSecondary)
                 }
 
-                // 2. Grid Thông số (Distance - Speed - Steps - Kcal)
+                // 2. Thông số
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    StatItemCompact(value = String.format("%.2f", sessionDistance), unit = "Km", colors = colors, color = Color(0xFF10B981))
-                    StatItemCompact(value = String.format("%.1f", sessionSpeed), unit = "Km/h", colors = colors)
-                    StatItemCompact(value = "$sessionSteps", unit = "Steps", colors = colors)
-                    StatItemCompact(value = "${stepViewModel.calculateCalories(sessionSteps.toLong())}", unit = "Kcal", colors = colors, color = Color(0xFFF59E0B))
+                    StatItemCompact(String.format("%.2f", sessionDistance), "Km", colors, Color(0xFF10B981))
+                    StatItemCompact(String.format("%.1f", sessionSpeed), "Km/h", colors)
+                    StatItemCompact("$sessionSteps", "Steps", colors)
+                    StatItemCompact("${stepViewModel.calculateCalories(sessionSteps.toLong())}", "Kcal", colors, Color(0xFFF59E0B))
                 }
 
-                // 3. Nút Điều khiển
+                // 3. NÚT ĐIỀU KHIỂN (Đã sửa lại có 2 nút)
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(32.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp) // Khoảng cách giữa 2 nút
                 ) {
-                    // Nút STOP (Màu đỏ)
+                    // --- NÚT 1: TẠM DỪNG / TIẾP TỤC ---
+                    Button(
+                        onClick = {
+                            if (isRunning) {
+                                // Đang chạy -> Bấm để Tạm dừng
+                                stepViewModel.pauseRunSession()
+                                onToggleService(false) // Tắt service đếm nền
+                            } else {
+                                // Đang dừng -> Bấm để Tiếp tục
+                                stepViewModel.resumeRunSession()
+                                onToggleService(true) // Bật lại service
+                            }
+                        },
+                        modifier = Modifier
+                            .weight(1f) // Chiếm 50% chiều ngang
+                            .height(64.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        // Màu vàng nếu đang chạy (để pause), Màu xanh nếu đang dừng (để resume)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (isRunning) Color(0xFFF59E0B) else Color(0xFF10B981)
+                        )
+                    ) {
+                        Icon(
+                            imageVector = if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = "Toggle",
+                            tint = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (isRunning) "TẠM DỪNG" else "TIẾP TỤC",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    // --- NÚT 2: KẾT THÚC (STOP) ---
                     Button(
                         onClick = {
                             onToggleService(false)
@@ -143,8 +172,8 @@ fun RunTrackingScreen(
                             onClose()
                         },
                         modifier = Modifier
-                            .height(64.dp) // Nút to hình viên thuốc
-                            .weight(1f),
+                            .weight(1f) // Chiếm 50% chiều ngang còn lại
+                            .height(64.dp),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
                     ) {
@@ -157,6 +186,8 @@ fun RunTrackingScreen(
         }
     }
 }
+
+// ... Các hàm helper OsmMapView và StatItemCompact giữ nguyên ...
 
 @Composable
 fun StatItemCompact(value: String, unit: String, colors: AestheticColors, color: Color? = null) {

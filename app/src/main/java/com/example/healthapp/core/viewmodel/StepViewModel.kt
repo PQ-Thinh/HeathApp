@@ -174,10 +174,6 @@ class StepViewModel @Inject constructor(
         }
     }
 
-    fun formatDateTime(timestamp: Long): String {
-        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-        return sdf.format(Date(timestamp))
-    }
     fun deleteStepRecord(record: StepRecordEntity) {
         val uid = auth.currentUser?.uid ?: return
 
@@ -214,6 +210,16 @@ class StepViewModel @Inject constructor(
                 }
             }
         }
+    }
+    fun resumeRunSession() {
+        _isRunning.value = true
+        viewModelScope.launch { dataStore.edit { it[PREF_IS_RUNNING] = true } }
+    }
+    fun pauseRunSession() {
+        // Chỉ cần chỉnh biến UI, không cần xóa DataStore (để lỡ kill app vẫn biết là đang có session)
+        _isRunning.value = false
+        // Lưu trạng thái Tracking là false nhưng KHÔNG XÓA start_time
+        viewModelScope.launch { dataStore.edit { it[PREF_IS_RUNNING] = false } }
     }
     // --- BẮT ĐẦU CHẠY ---
     fun startRunSession(currentTotalSteps: Int) {
