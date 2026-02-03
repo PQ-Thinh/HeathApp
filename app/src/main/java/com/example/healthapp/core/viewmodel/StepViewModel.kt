@@ -1,6 +1,11 @@
 package com.example.healthapp.core.viewmodel
 
 import android.util.Log
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.StepBucket
@@ -25,15 +30,19 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
+import androidx.datastore.preferences.core.Preferences
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltViewModel
 class StepViewModel @Inject constructor(
     private val repository: HealthRepository,
     private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val dataStore: DataStore<Preferences>
 ) : ViewModel() {
 
     // --- State cho Chart ---
@@ -48,17 +57,43 @@ class StepViewModel @Inject constructor(
     val stepHistory = _stepHistory.asStateFlow()
 
     // --- State cho phiên chạy bộ (Run Session) ---
+    private val _isRunning = MutableStateFlow(false)
+    val isRunning = _isRunning.asStateFlow()
     private var _startSessionSteps = 0
     private val _sessionSteps = MutableStateFlow(0)
     val sessionSteps = _sessionSteps.asStateFlow()
     private var _sessionStartTime = MutableStateFlow<LocalDateTime?>(null)
     val sessionStartTime = _sessionStartTime.asStateFlow()
+    private val _sessionDuration = MutableStateFlow(0L) // Giây
+    val sessionDuration = _sessionDuration.asStateFlow()
+
+    private val _sessionDistance = MutableStateFlow(0.0) // Km
+    val sessionDistance = _sessionDistance.asStateFlow()
+
+    private val _sessionSpeed = MutableStateFlow(0.0) // Km/h
+    val sessionSpeed = _sessionSpeed.asStateFlow()
+
+    // Biến nội bộ lưu mốc bắt đầu
+    private var _sessionStartTimeMillis = 0L
+
+    // Cấu hình (lấy từ User hoặc mặc định)
+    private var strideLength = 0.7 // Độ dài sải chân (mét) - Có thể lấy từ chiều cao user
+
+    // Key lưu trữ
+    companion object {
+        val PREF_IS_RUNNING = booleanPreferencesKey("session_is_running")
+        val PREF_START_STEPS = intPreferencesKey("session_start_steps")
+        val PREF_START_TIME = longPreferencesKey("session_start_time")
+    }
+
+
+
 
     // Cân nặng (Mặc định 70kg)
     private var userWeight: Float = 70f
 
     // --- State: Thông tin User (Realtime từ Firestore) ---
-    // SỬA: Dùng flatMapLatest để tự động lắng nghe lại khi đổi user
+    //Dùng flatMapLatest để tự động lắng nghe lại khi đổi user
     @OptIn(ExperimentalCoroutinesApi::class)
     val currentUserInfo: Flow<UserEntity?> = authStateChanges()
         .flatMapLatest { firebaseUser ->
@@ -86,6 +121,7 @@ class StepViewModel @Inject constructor(
 
 
     init {
+        restoreSessionState()
         // Tự động theo dõi trạng thái đăng nhập
         viewModelScope.launch {
             authStateChanges().collectLatest { user ->
@@ -99,6 +135,7 @@ class StepViewModel @Inject constructor(
             }
         }
     }
+
 
     private fun clearData() {
         _chartData.value = emptyList()
@@ -137,45 +174,6 @@ class StepViewModel @Inject constructor(
         }
     }
 
-    // --- LOGIC RUNNING SESSION ---
-
-    fun startRunSession(currentTotalSteps: Int) {
-        _startSessionSteps = currentTotalSteps
-        _sessionSteps.value = 0
-        _sessionStartTime.value = LocalDateTime.now()
-    }
-
-    fun updateSessionSteps(currentTotalSteps: Int) {
-        if (currentTotalSteps < _startSessionSteps) {
-            _startSessionSteps = 0 // Xử lý trường hợp reboot máy hoặc reset bước
-        }
-        _sessionSteps.value = (currentTotalSteps - _startSessionSteps).coerceAtLeast(0)
-    }
-
-    fun calculateCalories(steps: Long): Int {
-        return (0.04 * steps * userWeight / 70).toInt()
-    }
-
-    fun finishRunSession(currentTotalSteps: Int) {
-        val startTime = _sessionStartTime.value ?: return
-        val endTime = LocalDateTime.now()
-        val stepsTaken = (currentTotalSteps - _startSessionSteps).coerceAtLeast(0)
-
-        if (stepsTaken > 0) {
-            viewModelScope.launch {
-                // Lưu vào Health Connect & Firestore (Chi tiết Session)
-                repository.writeStepsToHealthConnect(startTime, endTime, stepsTaken)
-
-                // Reload lại chart và history sau khi lưu
-                loadData()
-            }
-        }
-
-        // Reset
-        _sessionStartTime.value = null
-        _startSessionSteps = 0
-        _sessionSteps.value = 0
-    }
     fun formatDateTime(timestamp: Long): String {
         val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
         return sdf.format(Date(timestamp))
@@ -201,7 +199,106 @@ class StepViewModel @Inject constructor(
             }
         }
     }
+    // --- LOGIC RUNNING SESSION ---
 
+    private fun restoreSessionState() {
+        viewModelScope.launch {
+            dataStore.data.collectLatest { prefs ->
+                val isRunning = prefs[PREF_IS_RUNNING] ?: false
+                if (isRunning) {
+                    _isRunning.value = true
+                    _startSessionSteps = prefs[PREF_START_STEPS] ?: 0
+                    _sessionStartTimeMillis = prefs[PREF_START_TIME] ?: System.currentTimeMillis()
+                } else {
+                    _isRunning.value = false
+                }
+            }
+        }
+    }
+    // --- BẮT ĐẦU CHẠY ---
+    fun startRunSession(currentTotalSteps: Int) {
+        viewModelScope.launch {
+            _isRunning.value = true
+            _startSessionSteps = currentTotalSteps
+            _sessionStartTimeMillis = System.currentTimeMillis()
+
+            // Lưu ngay xuống ổ cứng
+            dataStore.edit {
+                it[PREF_IS_RUNNING] = true
+                it[PREF_START_STEPS] = currentTotalSteps
+                it[PREF_START_TIME] = _sessionStartTimeMillis
+            }
+        }
+    }
+
+    // --- CẬP NHẬT LIÊN TỤC (Gọi từ UI) ---
+    fun updateSessionSteps(currentTotalSteps: Int) {
+        if (!_isRunning.value) return
+
+        // Xử lý logic reboot máy (bước bị reset về 0)
+        val actualStart = if (currentTotalSteps < _startSessionSteps) 0 else _startSessionSteps
+        val stepsTaken = (currentTotalSteps - actualStart).coerceAtLeast(0)
+
+        _sessionSteps.value = stepsTaken
+
+        // Tính thời gian
+        val now = System.currentTimeMillis()
+        val durationSec = (now - _sessionStartTimeMillis) / 1000
+        _sessionDuration.value = durationSec
+
+        // Tính quãng đường (S = Steps * Stride) -> Km
+        val distKm = (stepsTaken * strideLength) / 1000.0
+        _sessionDistance.value = distKm
+
+        // Tính tốc độ (V = S / T) -> Km/h
+        val hours = durationSec / 3600.0
+        if (hours > 0) {
+            _sessionSpeed.value = distKm / hours
+        } else {
+            _sessionSpeed.value = 0.0
+        }
+    }
+
+    // --- KẾT THÚC ---
+    fun finishRunSession(currentTotalSteps: Int) {
+        if (!_isRunning.value) return
+
+        val endTime = LocalDateTime.now()
+        val startTime = java.time.Instant.ofEpochMilli(_sessionStartTimeMillis)
+            .atZone(ZoneId.systemDefault())
+            .toLocalDateTime()
+        val stepsTaken = _sessionSteps.value
+
+        viewModelScope.launch {
+            if (stepsTaken > 0) {
+                repository.writeStepsToHealthConnect(startTime, endTime, stepsTaken)
+            }
+            // Xóa dữ liệu phiên chạy
+            dataStore.edit {
+                it.remove(PREF_IS_RUNNING)
+                it.remove(PREF_START_STEPS)
+                it.remove(PREF_START_TIME)
+            }
+            // Reset biến RAM
+            _isRunning.value = false
+            _sessionSteps.value = 0
+            _sessionDuration.value = 0
+            _sessionDistance.value = 0.0
+            _sessionSpeed.value = 0.0
+
+            loadData() // Reload chart
+        }
+    }
+    fun calculateCalories(steps: Long): Int {
+        return (0.04 * steps * userWeight / 70).toInt()
+    }
+    fun formatDuration(seconds: Long): String {
+        val h = TimeUnit.SECONDS.toHours(seconds)
+        val m = TimeUnit.SECONDS.toMinutes(seconds) % 60
+        val s = seconds % 60
+        return if (h > 0) String.format("%02d:%02d:%02d", h, m, s)
+        else String.format("%02d:%02d", m, s)
+    }
     // Theo dõi Auth state
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun authStateChanges() = callbackFlow {

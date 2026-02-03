@@ -24,7 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.healthapp.feature.home.formatTime
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.ui.theme.AestheticColors
 
 @Composable
@@ -33,6 +34,7 @@ fun StepRunDetail(
     calories: Int,
     timeSeconds: Long,
     onBackClick: () -> Unit,
+    stepViewModel: StepViewModel = hiltViewModel(),
     colors: AestheticColors
 ) {
     // Animation đơn giản khi mở màn hình
@@ -105,7 +107,7 @@ fun StepRunDetail(
                 ResultRow(
                     icon = Icons.Default.Timer,
                     label = "Thời gian",
-                    value = formatTime(timeSeconds),
+                    value = stepViewModel.formatDuration(timeSeconds),
                     color = Color(0xFF3B82F6), // Blue
                     colors = colors
                 )

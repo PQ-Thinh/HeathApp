@@ -68,6 +68,7 @@ fun HealthDashboardScreen(
     onToggleService: (Boolean) -> Unit = {},
     isServiceRunning: Boolean = false
 ) {
+    val isViewModelRunning by stepViewModel.isRunning.collectAsState()
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
     var isContentVisible by remember { mutableStateOf(isPreview) }
@@ -133,6 +134,13 @@ fun HealthDashboardScreen(
         }
     }
 
+    // 2. Logic tự động mở màn hình khi vào App
+    LaunchedEffect(isViewModelRunning) {
+        if (isViewModelRunning) {
+            isRunModeActive = true // Tự động bật Overlay
+            onToggleService(true)  // Đảm bảo service nền cũng chạy
+        }
+    }
     LaunchedEffect(Unit) {
         if (!isPreview) isContentVisible = true
     }
@@ -324,7 +332,6 @@ fun HealthDashboardScreen(
                stepViewModel = stepViewModel,
                 onClose = { isRunModeActive = false },
                 onToggleService = onToggleService,
-                isServiceRunning = isServiceRunning,
                 colors = colors,
                 mainViewModel = mainViewModel,
                 onFinishRun = { s, c, t ->
