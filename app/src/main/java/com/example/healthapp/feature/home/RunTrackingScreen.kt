@@ -1,5 +1,6 @@
 package com.example.healthapp.feature.home
 
+import android.annotation.SuppressLint
 import android.preference.PreferenceManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -31,6 +32,7 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
+@SuppressLint("DefaultLocale")
 @Composable
 fun RunTrackingScreen(
     stepViewModel: StepViewModel,
