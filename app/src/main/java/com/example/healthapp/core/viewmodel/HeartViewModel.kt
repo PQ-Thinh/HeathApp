@@ -52,10 +52,10 @@ class HeartViewModel @Inject constructor(
         viewModelScope.launch {
             authStateChanges().collectLatest { user ->
                 if (user == null) {
-                    // 1. Khi Logout: Xóa sạch dữ liệu cũ
+                    // Khi Logout: Xóa sạch dữ liệu cũ
                     clearData()
                 } else {
-                    // 2. Khi Login/Register: Tải dữ liệu mới
+                    // Khi Login/Register: Tải dữ liệu mới
                     loadDataForUser(user.uid)
                 }
             }

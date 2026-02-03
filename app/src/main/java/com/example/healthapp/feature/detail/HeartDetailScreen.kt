@@ -166,19 +166,28 @@ fun HeartDetailScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(
-                                Icons.Default.Favorite,
-                                contentDescription = null,
-                                tint = heartColor,
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "$latestHeartRate BPM",
-                                fontSize = 48.sp,
+                                text = "Nhịp tim Trung Bình Hôm Nay",
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = colors.textPrimary
                             )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row() {
+                                Icon(
+                                    Icons.Default.Favorite,
+                                    contentDescription = null,
+                                    tint = heartColor,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Text(
+                                    text = "$latestHeartRate BPM",
+                                    fontSize = 48.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colors.textPrimary
+                                )
+                            }
+
                             Text(
                                 text = assessment,
                                 fontSize = 18.sp,

@@ -30,6 +30,7 @@ import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.time.TimeRangeFilter
 import java.time.Instant
+import java.time.ZoneId
 import javax.inject.Inject
 
 class HealthRepository @Inject constructor(
@@ -70,7 +71,7 @@ class HealthRepository @Inject constructor(
         awaitClose { listener.remove() }
     }
 
-    //Đồng bộ Steps từ HC -> Firestore
+//Đồng bộ Steps & HeartRate Avg từ HC -> Firestore
     suspend fun syncHealthData(userId: String?) {
         if (userId.isNullOrEmpty()) return
 
@@ -79,11 +80,14 @@ class HealthRepository @Inject constructor(
         val todayStr = now.toLocalDate().toString()
 
         val hcSteps = healthConnectManager.readSteps(startOfDay, now)
+        val hcHeartRateAvg = healthConnectManager.readHeartRate(startOfDay, now)
 
         val data = mapOf(
             "date" to todayStr,
             "userId" to userId,
-            "steps" to hcSteps
+            "steps" to hcSteps,
+            "heartRateAvg" to hcHeartRateAvg,
+
         )
 
         firestore.collection("users").document(userId)
@@ -135,7 +139,7 @@ class HealthRepository @Inject constructor(
     }
     suspend fun deleteStepRecord(record: StepRecordEntity) {
         try {
-            // A. Xóa trên Health Connect
+            // Xóa trên Health Connect
             val timeRangeFilter = TimeRangeFilter.between(
                 Instant.ofEpochMilli(record.startTime),
                 Instant.ofEpochMilli(record.endTime)
@@ -158,21 +162,26 @@ class HealthRepository @Inject constructor(
     //Lưu Nhịp tim
     suspend fun saveHeartRate(userId: String, bpm: Int) {
         val now = LocalDateTime.now()
+        val startOfDay = now.toLocalDate().atStartOfDay()
         val todayStr = now.toLocalDate().toString()
 
         val success = healthConnectManager.writeHeartRate(bpm, now)
 
         if (success) {
+            // TÍNH TOÁN LẠI TRUNG BÌNH CỘNG TRONG NGÀY
+            val avgBpm = healthConnectManager.readHeartRate(startOfDay, now)
+
             val dailyUpdate = mapOf(
                 "date" to todayStr,
                 "userId" to userId,
-                "heartRateAvg" to bpm
+                "heartRateAvg" to avgBpm
             )
             firestore.collection("users").document(userId)
                 .collection("daily_health").document(todayStr)
                 .set(dailyUpdate, SetOptions.merge())
 
-            val timeMilli = now.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            // Lưu log chi tiết bản ghi
+            val timeMilli = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
             val record = HeartRateRecordEntity(
                 id = UUID.randomUUID().toString(),
                 userId = userId,
@@ -301,7 +310,7 @@ class HealthRepository @Inject constructor(
         val hcData = healthConnectManager.readSleepChartData(start, end, period)
         if (hcData.isNotEmpty()) return hcData
 
-        val startTimeL = start.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val startTimeL = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
         val snapshot = firestore.collection("users").document(userId)
             .collection("sleep_sessions")
@@ -310,10 +319,10 @@ class HealthRepository @Inject constructor(
             .get().await()
 
         val sessions = snapshot.toObjects(SleepSessionEntity::class.java)
-        val zoneId = java.time.ZoneId.systemDefault()
+        val zoneId = ZoneId.systemDefault()
 
         val grouped = sessions.groupBy {
-            java.time.Instant.ofEpochMilli(it.endTime).atZone(zoneId).toLocalDate()
+            Instant.ofEpochMilli(it.endTime).atZone(zoneId).toLocalDate()
         }
 
         return grouped.map { (date, list) ->
@@ -324,44 +333,83 @@ class HealthRepository @Inject constructor(
 
     suspend fun getHeartRateChartData(range: ChartTimeRange): List<HeartRateBucket> {
         val userId = currentUserId ?: return emptyList()
-        val end = LocalDateTime.now().plusDays(1)
-        val start = getStartDate(range)
 
-        val startTimeL = start.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        // Xác định thời gian chuẩn xác
+        val now = LocalDateTime.now()
+        val zoneId = ZoneId.systemDefault()
+
+        val (start, end, isDayView) = when (range) {
+            ChartTimeRange.DAY -> Triple(
+                now.toLocalDate().atStartOfDay(),
+                now,
+                true
+            )
+            ChartTimeRange.WEEK -> Triple(
+                now.minusDays(6).toLocalDate().atStartOfDay(),
+                now.plusDays(1).toLocalDate().atStartOfDay(),
+                false
+            )
+            ChartTimeRange.MONTH -> Triple(
+                now.minusDays(30).toLocalDate().atStartOfDay(),
+                now.plusDays(1).toLocalDate().atStartOfDay(),
+                false
+            )
+            ChartTimeRange.YEAR -> Triple(
+                now.minusYears(1).withDayOfMonth(1),
+                now.plusDays(1).toLocalDate().atStartOfDay(),
+                false
+            )
+        }
+
+        //Lấy từ Health Connect (Đã tối ưu dùng Aggregation)
+        val hcData = if (isDayView) {
+            // Nếu xem NGÀY -> Chia theo mỗi 1 GIỜ
+            healthConnectManager.readHeartRateAggregationByDuration(start, end, Duration.ofHours(1))
+        } else {
+            // Nếu xem TUẦN/THÁNG -> Chia theo mỗi 1 NGÀY
+            healthConnectManager.readHeartRateAggregationByPeriod(start, end, Period.ofDays(1))
+        }
+
+        // Nếu Health Connect có dữ liệu thì trả về luôn
+        if (hcData.isNotEmpty()) return hcData
+
+        // 3. ƯU TIÊN 2: Fallback về Firestore (Nếu không có Health Connect)
+        val startTimeL = start.atZone(zoneId).toInstant().toEpochMilli()
+        val endTimeL = end.atZone(zoneId).toInstant().toEpochMilli() // Thêm chặn trên để không lấy thừa tương lai
+
         val snapshot = firestore.collection("users").document(userId)
             .collection("heart_rate_records")
             .whereGreaterThanOrEqualTo("time", startTimeL)
-            .orderBy("time")
+            .whereLessThanOrEqualTo("time", endTimeL) // Đảm bảo chỉ lấy trong khoảng
+            .orderBy("time", Query.Direction.ASCENDING)
             .get().await()
 
         val records = snapshot.toObjects(HeartRateRecordEntity::class.java)
         if (records.isEmpty()) return emptyList()
 
-        val zoneId = java.time.ZoneId.systemDefault()
-
-        //  Logic gom nhóm thông minh hơn
-        val grouped = if (range == ChartTimeRange.DAY) {
-            // Nếu xem TRONG NGÀY -> Gom theo GIỜ (Hour)
+        // GOM NHÓM DỮ LIỆU FIRESTORE
+        val grouped = if (isDayView) {
+            // Xem NGÀY: Gom theo GIỜ (00:00, 01:00...)
             records.groupBy {
-                java.time.Instant.ofEpochMilli(it.time).atZone(zoneId).toLocalDateTime().withMinute(0).withSecond(0).withNano(0)
+                Instant.ofEpochMilli(it.time).atZone(zoneId).toLocalDateTime()
+                    .withMinute(0).withSecond(0).withNano(0)
             }
         } else {
-            // Nếu xem TUẦN/THÁNG -> Gom theo NGÀY (Date) như cũ
+            // Xem TUẦN/THÁNG: Gom theo NGÀY
             records.groupBy {
-                java.time.Instant.ofEpochMilli(it.time).atZone(zoneId).toLocalDate().atStartOfDay()
+                Instant.ofEpochMilli(it.time).atZone(zoneId).toLocalDate().atStartOfDay()
             }
         }
 
         return grouped.map { (timeKey, list) ->
             HeartRateBucket(
-                startTime = timeKey, // timeKey giờ là LocalDateTime (có giờ cụ thể)
+                startTime = timeKey,
                 min = list.minOf { it.bpm }.toLong(),
                 max = list.maxOf { it.bpm }.toLong(),
                 avg = list.map { it.bpm }.average().toLong()
             )
         }.sortedBy { it.startTime }
-    }
-    // --- CÁC HÀM LỊCH SỬ (QUAN TRỌNG) ---
+    }    // --- CÁC HÀM LỊCH SỬ (QUAN TRỌNG) ---
 
     suspend fun getStepRecordHistory(): List<StepRecordEntity> {
         val uid = currentUserId ?: return emptyList()

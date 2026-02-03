@@ -175,12 +175,12 @@ class HealthConnectManager(private val context: Context) {
 
 
     // Lấy dữ liệu theo TUẦN / THÁNG / NĂM (Period)
-    suspend fun readHeartRateAggregation(
+    suspend fun readHeartRateAggregationByPeriod(
         startTime: LocalDateTime,
         endTime: LocalDateTime,
         period: Period
     ): List<HeartRateBucket> {
-        try {
+        return try {
             val zoneOffset = ZoneId.systemDefault().rules.getOffset(LocalDateTime.now())
 
             val request = AggregateGroupByPeriodRequest(
@@ -192,17 +192,18 @@ class HealthConnectManager(private val context: Context) {
                 timeRangeSlicer = period
             )
             val response = healthConnectClient.aggregateGroupByPeriod(request)
-            return response.map { bucket ->
+
+            response.map { bucket ->
                 HeartRateBucket(
-                    startTime = bucket.startTime, // Period trả về LocalDateTime sẵn rồi
+                    startTime = bucket.startTime, // Period trả về sẵn LocalDateTime
                     min = bucket.result[HeartRateRecord.BPM_MIN] ?: 0,
                     max = bucket.result[HeartRateRecord.BPM_MAX] ?: 0,
                     avg = bucket.result[HeartRateRecord.BPM_AVG] ?: 0
                 )
-            }.filter { it.avg > 0 }
+            }.filter { it.avg > 0 }.sortedBy { it.startTime }
         } catch (e: Exception) {
-            e.printStackTrace()
-            return emptyList()
+            Log.e("HealthConnectManager", "Lỗi Aggregation Period: ${e.message}")
+            emptyList()
         }
     }
 
@@ -212,8 +213,9 @@ class HealthConnectManager(private val context: Context) {
         endTime: LocalDateTime,
         duration: Duration
     ): List<HeartRateBucket> {
-        try {
-            val zoneOffset = ZoneId.systemDefault().rules.getOffset(LocalDateTime.now())
+        return try {
+            val zoneId = ZoneId.systemDefault()
+            val zoneOffset = zoneId.rules.getOffset(LocalDateTime.now())
 
             val request = AggregateGroupByDurationRequest(
                 metrics = setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MAX, HeartRateRecord.BPM_MIN),
@@ -224,19 +226,19 @@ class HealthConnectManager(private val context: Context) {
                 timeRangeSlicer = duration
             )
             val response = healthConnectClient.aggregateGroupByDuration(request)
-            return response.map { bucket ->
+
+            response.map { bucket ->
                 HeartRateBucket(
-                    // QUAN TRỌNG: Convert ngược lại từ Instant sang LocalTime của máy
-                    startTime = LocalDateTime.ofInstant(bucket.startTime, ZoneId.systemDefault()),
+                    // Convert Instant -> LocalDateTime theo múi giờ máy
+                    startTime = LocalDateTime.ofInstant(bucket.startTime, zoneId),
                     min = bucket.result[HeartRateRecord.BPM_MIN] ?: 0,
                     max = bucket.result[HeartRateRecord.BPM_MAX] ?: 0,
                     avg = bucket.result[HeartRateRecord.BPM_AVG] ?: 0
                 )
-            }.filter { it.avg > 0 } // Lọc bỏ các khung giờ không có dữ liệu
-                .sortedBy { it.startTime } // Đảm bảo sắp xếp đúng thứ tự thời gian
+            }.filter { it.avg > 0 }.sortedBy { it.startTime }
         } catch (e: Exception) {
-            e.printStackTrace()
-            return emptyList()
+            Log.e("HealthConnectManager", "Lỗi Aggregation Duration: ${e.message}")
+            emptyList()
         }
     }
 
