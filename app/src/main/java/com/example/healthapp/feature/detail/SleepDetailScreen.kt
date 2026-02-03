@@ -190,19 +190,28 @@ fun SleepDetailScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
-                            Icon(
-                                Icons.Default.Bedtime,
-                                contentDescription = null,
-                                tint = accentColor,
-                                modifier = Modifier.size(48.dp)
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = sleepViewModel.formatDuration(duration),
-                                fontSize = 48.sp,
+                                text = "Thời lượng ngủ hôm nay",
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = colors.textPrimary
                             )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Row() {
+                                Icon(
+                                    Icons.Default.Bedtime,
+                                    contentDescription = null,
+                                    tint = accentColor,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Text(
+                                    text = sleepViewModel.formatDuration(duration),
+                                    fontSize = 48.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = colors.textPrimary
+                                )
+                            }
+
                             Text(
                                 text = "Đánh giá: $assessment",
                                 fontSize = 18.sp,

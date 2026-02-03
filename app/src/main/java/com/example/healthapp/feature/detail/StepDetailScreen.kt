@@ -265,31 +265,7 @@ fun StepDetailScreen(
                     }
                 }
 
-                // 3. Chế độ luyện tập
-                item {
-                    Text(
-                        "Chế độ luyện tập",
-                        color = colors.textSecondary,
-                        modifier = Modifier.padding(bottom = 8.dp, start = 8.dp),
-                        fontWeight = FontWeight.Bold
-                    )
 
-                    CustomTopMenu(
-                        colors = colors,
-                        selectedMode = currentMode,
-                        onOptionSelected = { selected ->
-                            val intent = Intent(context, StepForegroundService::class.java).apply {
-                                action = StepForegroundService.ACTION_SWITCH_MODE
-                                putExtra(StepForegroundService.EXTRA_MODE, selected)
-                            }
-                            if (android.os.Build.VERSION.SDK_INT >= 26) {
-                                context.startForegroundService(intent)
-                            } else {
-                                context.startService(intent)
-                            }
-                        }
-                    )
-                }
 
                 // 4. Lịch sử (Giao diện mới)
                 item {
