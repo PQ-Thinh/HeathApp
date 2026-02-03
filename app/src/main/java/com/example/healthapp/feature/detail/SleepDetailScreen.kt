@@ -88,6 +88,7 @@ fun SleepDetailScreen(
             onDismiss = { showHistoryDialog = false },
             onDelete = { session -> sleepViewModel.deleteSleepRecord(session) },
             isDarkTheme = isDarkTheme,
+            dateExtractor = { it.startTime },
             itemContent = { item, textColor ->
                 // Nội dung trong Dialog
                 val start = SimpleDateFormat("HH:mm dd/MM", Locale.getDefault()).format(Date(item.startTime))

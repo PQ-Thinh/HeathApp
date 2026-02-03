@@ -94,6 +94,7 @@ fun StepDetailScreen(
             onDismiss = { showHistoryDialog = false },
             onDelete = { record -> stepViewModel.deleteStepRecord(record) },
             isDarkTheme = isDarkTheme,
+            dateExtractor = { it.startTime },
             itemContent = { item, textColor ->
                 val date = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(item.startTime))
                 // Nội dung Dialog
