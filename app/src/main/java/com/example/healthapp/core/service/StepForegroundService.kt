@@ -1,260 +1,176 @@
 package com.example.healthapp.core.service
 
-import android.app.*
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.app.Service
 import android.content.Intent
-import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.stringPreferencesKey
 import com.example.healthapp.MainActivity
 import com.example.healthapp.R
 import com.example.healthapp.core.data.HealthSensorManager
-import com.example.healthapp.core.data.responsitory.HealthRepository
-import com.google.firebase.auth.FirebaseAuth
+import com.example.healthapp.core.viewmodel.StepViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.first
-import java.time.Duration
-import java.time.LocalDate
-import java.time.LocalDateTime
+import kotlinx.coroutines.flow.collectLatest
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class StepForegroundService : Service() {
 
     @Inject lateinit var sensorManager: HealthSensorManager
-    @Inject lateinit var repository: HealthRepository
-    @Inject lateinit var auth: FirebaseAuth
     @Inject lateinit var dataStore: DataStore<Preferences>
 
-    private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
-    private val CHANNEL_ID = "step_tracking_channel"
-    private val NOTIFICATION_ID = 1
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private var isServiceRunning = false
 
-    // Key DataStore
-    private val START_OF_DAY_STEPS_KEY = intPreferencesKey("start_of_day_steps")
-    private val LAST_SAVED_DATE_KEY = stringPreferencesKey("last_saved_date")
-    private val LAST_SYNCED_STEPS_KEY = intPreferencesKey("last_synced_steps_total")
-    private val LAST_SYNC_TIME_KEY = stringPreferencesKey("last_sync_time")
-    private val CURRENT_MODE_KEY = stringPreferencesKey("current_mode")
+    // --- Biến lưu trạng thái phiên chạy (Đồng bộ với ViewModel) ---
+    private var sessionStartSteps = 0
+    private var sessionStartTime = 0L
+    private var isSessionRunning = false
+
+    // --- Biến CACHE giá trị bước chân mới nhất từ cảm biến ---
+    private var currentRawSteps = 0
 
     companion object {
+        const val CHANNEL_ID = "step_channel"
+        const val NOTIFICATION_ID = 1
         const val ACTION_START = "ACTION_START"
-        const val ACTION_PAUSE = "ACTION_PAUSE"
-        const val ACTION_RESUME = "ACTION_RESUME"
         const val ACTION_STOP = "ACTION_STOP"
-        const val ACTION_SWITCH_MODE = "ACTION_SWITCH_MODE"
-        const val EXTRA_MODE = "EXTRA_MODE"
     }
-    private var currentMode = "Chạy Bộ"
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val action = intent?.action ?: ACTION_START
-        when (action) {
-            ACTION_START -> startTracking()
-            ACTION_PAUSE -> {
-                sensorManager.pauseTracking()
-                updateNotification(isPaused = true)
+    override fun onCreate() {
+        super.onCreate()
+        createNotificationChannel()
+        // Lắng nghe DataStore ngay khi Service khởi tạo
+        observeDataStore()
+    }
+
+    // 1. Lắng nghe DataStore để biết khi nào Start/Stop/Pause từ UI
+    private fun observeDataStore() {
+        serviceScope.launch {
+            dataStore.data.collectLatest { prefs ->
+                isSessionRunning = prefs[StepViewModel.PREF_IS_RUNNING] ?: false
+                sessionStartSteps = prefs[StepViewModel.PREF_START_STEPS] ?: 0
+                sessionStartTime = prefs[StepViewModel.PREF_START_TIME] ?: 0L
+
+                // Cập nhật ngay lập tức khi có thay đổi trạng thái
+                updateNotification(currentRawSteps)
             }
-            ACTION_RESUME -> {
-                sensorManager.resumeTracking()
-                updateNotification(isPaused = false)
+        }
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        when (intent?.action) {
+            ACTION_START -> {
+                if (!isServiceRunning) {
+                    isServiceRunning = true
+                    // Start notification ngay lập tức để tránh crash
+                    startForegroundCompact()
+                    // Bắt đầu đếm bước
+                    startStepTracking()
+                }
             }
             ACTION_STOP -> {
+                isServiceRunning = false
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
-            }
-            ACTION_SWITCH_MODE -> {
-                val newMode = intent?.getStringExtra(EXTRA_MODE) ?: "Chạy Bộ"
-                currentMode = newMode
-
-                serviceScope.launch {
-                    dataStore.edit { prefs ->
-                        prefs[CURRENT_MODE_KEY] = newMode
-                    }
-                }
-
-                if (newMode == "Chạy Bộ") {
-                    sensorManager.resumeTracking()
-                    updateNotification(isPaused = false)
-                } else {
-                    sensorManager.pauseTracking()
-                    updateNotification(isPaused = true)
-                }
             }
         }
         return START_STICKY
     }
 
-    private var currentSteps = 0
-    private var currentCalories = 0
-
-    private fun startTracking() {
-        createNotificationChannel()
-        startForegroundServiceCompact()
-
+    private fun startStepTracking() {
+        //Lắng nghe cảm biến và cập nhật biến Cache
         serviceScope.launch {
-            try {
-                val prefs = dataStore.data.first()
-                val savedDate = prefs[LAST_SAVED_DATE_KEY] ?: ""
-                var startOfDaySteps = prefs[START_OF_DAY_STEPS_KEY] ?: 0
-                currentMode = prefs[CURRENT_MODE_KEY] ?: "Chạy Bộ"
+            sensorManager.stepFlow.collectLatest { totalSteps ->
+                currentRawSteps = totalSteps
+                updateNotification(totalSteps)
+            }
+        }
 
-                var lastSyncedStepsTotal = prefs[LAST_SYNCED_STEPS_KEY] ?: 0
-                var lastSyncTimeStr = prefs[LAST_SYNC_TIME_KEY] ?: LocalDateTime.now().minusMinutes(16).toString()
-
-                val today = LocalDate.now().toString()
-
-                // 2. Lấy User ID trực tiếp từ Auth (Không qua DB Room)
-                val userId = auth.currentUser?.uid
-
-                if (savedDate != today) {
-                    startOfDaySteps = 0
-                    lastSyncedStepsTotal = 0
-                    dataStore.edit {
-                        it[LAST_SAVED_DATE_KEY] = today
-                        it[START_OF_DAY_STEPS_KEY] = 0
-                        it[LAST_SYNCED_STEPS_KEY] = 0
-                    }
+        //Timer cập nhật đồng hồ mỗi giây
+        serviceScope.launch {
+            while (isServiceRunning) {
+                if (isSessionRunning && sessionStartTime > 0L) {
+                    // Dùng biến cache thay vì gọi flow
+                    updateNotification(currentRawSteps)
                 }
-
-                sensorManager.stepFlow.collect { totalStepsSinceBoot ->
-                    if (totalStepsSinceBoot < startOfDaySteps) {
-                        startOfDaySteps = 0
-                        dataStore.edit { it[START_OF_DAY_STEPS_KEY] = 0 }
-                    }
-
-                    if (startOfDaySteps == 0) {
-                        startOfDaySteps = totalStepsSinceBoot
-                        dataStore.edit { it[START_OF_DAY_STEPS_KEY] = startOfDaySteps }
-                    }
-
-                    val realSteps = (totalStepsSinceBoot - startOfDaySteps).coerceAtLeast(0)
-                    currentSteps = realSteps
-                    currentCalories = (realSteps * 0.04).toInt()
-
-                    if (!sensorManager.isPaused) {
-                        updateNotification(isPaused = false)
-
-                        // 3. Update lên Cloud thông qua Repository
-                        if (userId != null) {
-                            repository.updateLocalSteps(userId, currentSteps, currentCalories.toFloat())
-                        }
-
-                        // 4. Đồng bộ Health Connect (15 phút/lần)
-                        val now = LocalDateTime.now()
-                        val lastSyncTime = try {
-                            LocalDateTime.parse(lastSyncTimeStr)
-                        } catch (e: Exception) { now.minusMinutes(16) }
-
-                        val stepsToAdd = currentSteps - lastSyncedStepsTotal
-                        val timeDiff = Duration.between(lastSyncTime, now).toMinutes()
-
-                        if (stepsToAdd > 0 && timeDiff >= 15) {
-                            // Gọi hàm ghi HC + Ghi log chi tiết lên Firestore
-                            repository.writeStepsToHealthConnect(lastSyncTime, now, stepsToAdd)
-
-                            lastSyncedStepsTotal = currentSteps
-                            lastSyncTimeStr = now.toString()
-
-                            dataStore.edit {
-                                it[LAST_SYNCED_STEPS_KEY] = lastSyncedStepsTotal
-                                it[LAST_SYNC_TIME_KEY] = lastSyncTimeStr
-                            }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("StepService", "Lỗi Service: ${e.message}")
-                e.printStackTrace()
+                delay(1000)
             }
         }
     }
 
-    private fun updateNotification(isPaused: Boolean) {
-        val notification = buildNotification(isPaused)
+    private fun updateNotification(currentTotalSteps: Int) {
+        if (!isServiceRunning) return
+
+        // Tính số bước trong phiên chạy
+        // Nếu chưa Start (sessionStartSteps = 0) thì hiển thị 0
+        val stepsTaken = if (sessionStartSteps > 0 && currentTotalSteps >= sessionStartSteps) {
+            currentTotalSteps - sessionStartSteps
+        } else {
+            0
+        }
+
+        // Tính thời gian
+        val duration = if (isSessionRunning && sessionStartTime > 0L) {
+            (System.currentTimeMillis() - sessionStartTime) / 1000
+        } else 0L
+
+        val timeString = formatDuration(duration)
+        val statusText = if (isSessionRunning) "Đang chạy..." else "Đã tạm dừng"
+
+        val notification = buildNotification(stepsTaken, timeString, statusText)
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NOTIFICATION_ID, notification)
     }
 
-    private fun buildNotification(isPaused: Boolean): Notification {
-        val openAppIntent = Intent(this, MainActivity::class.java)
-        val pendingIntent = PendingIntent.getActivity(this, 0, openAppIntent, PendingIntent.FLAG_IMMUTABLE)
-
-        val actionIntent = Intent(this, StepForegroundService::class.java)
-        val actionTitle: String
-        val actionIcon: Int
-
-        if (currentMode == "Chạy Bộ") {
-            if (isPaused) {
-                actionIntent.action = ACTION_RESUME
-                actionTitle = "Tiếp tục"
-                actionIcon = R.drawable.ic_launcher_foreground
-            } else {
-                actionIntent.action = ACTION_PAUSE
-                actionTitle = "Tạm dừng"
-                actionIcon = R.drawable.ic_launcher_foreground
-            }
-        } else {
-            actionIntent.action = ACTION_SWITCH_MODE
-            actionIntent.putExtra(EXTRA_MODE, "Chạy Bộ")
-            actionTitle = "Chuyển sang Đi bộ"
-            actionIcon = R.drawable.ic_launcher_foreground
-        }
-
-        val actionPendingIntent = PendingIntent.getService(
-            this,
-            1,
-            actionIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val contentText = if (isPaused) {
-            if (currentMode == "Chạy Bộ") "Đang tạm dừng - $currentSteps bước"
-            else "Đang theo dõi hoạt động khác"
-        } else {
-            "$currentSteps bước • $currentCalories kcal"
-        }
+    private fun buildNotification(steps: Int, time: String, status: String): Notification {
+        val intent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(currentMode)
-            .setContentText(contentText)
-            .setSmallIcon(R.mipmap.logoapp)
+            .setContentTitle("Run Tracker: $time")
+            .setContentText("$status | $steps bước")
+            .setSmallIcon(R.drawable.health) // Đảm bảo icon này tồn tại
             .setContentIntent(pendingIntent)
-            .setOnlyAlertOnce(true)
+            .setOnlyAlertOnce(true) // Không rung lại khi update
             .setOngoing(true)
-            .addAction(actionIcon, actionTitle, actionPendingIntent)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
 
-    private fun startForegroundServiceCompact() {
-        val notification = buildNotification(isPaused = false)
+    private fun startForegroundCompact() {
+        val notification = buildNotification(0, "00:00", "Đang khởi động...")
         ServiceCompat.startForeground(
             this,
             NOTIFICATION_ID,
             notification,
-            if (Build.VERSION.SDK_INT >= 34) ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH else 0
+            if (Build.VERSION.SDK_INT >= 34) android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_HEALTH else 0
         )
+    }
+
+    private fun formatDuration(seconds: Long): String {
+        val h = seconds / 3600
+        val m = (seconds % 3600) / 60
+        val s = seconds % 60
+        return if (h > 0) String.format("%02d:%02d:%02d", h, m, s)
+        else String.format("%02d:%02d", m, s)
     }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "Theo dõi bước chân",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+            val channel = NotificationChannel(CHANNEL_ID, "Step Tracker", NotificationManager.IMPORTANCE_LOW)
+            val manager = getSystemService(NotificationManager::class.java)
+            manager.createNotificationChannel(channel)
         }
     }
 

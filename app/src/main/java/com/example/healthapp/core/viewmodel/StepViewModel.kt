@@ -67,6 +67,10 @@ class StepViewModel @Inject constructor(
     private val _sessionDuration = MutableStateFlow(0L) // Giây
     val sessionDuration = _sessionDuration.asStateFlow()
 
+    // Biến này để điều khiển hiển thị màn hình Overlay đếm ngược
+    private val _isCountdownActive = MutableStateFlow(false)
+    val isCountdownActive = _isCountdownActive.asStateFlow()
+
     private val _sessionDistance = MutableStateFlow(0.0) // Km
     val sessionDistance = _sessionDistance.asStateFlow()
 
@@ -85,8 +89,6 @@ class StepViewModel @Inject constructor(
         val PREF_START_STEPS = intPreferencesKey("session_start_steps")
         val PREF_START_TIME = longPreferencesKey("session_start_time")
     }
-
-
 
 
     // Cân nặng (Mặc định 70kg)
@@ -121,7 +123,7 @@ class StepViewModel @Inject constructor(
 
 
     init {
-        restoreSessionState()
+        restoreSession()
         // Tự động theo dõi trạng thái đăng nhập
         viewModelScope.launch {
             authStateChanges().collectLatest { user ->
@@ -197,38 +199,49 @@ class StepViewModel @Inject constructor(
     }
     // --- LOGIC RUNNING SESSION ---
 
-    private fun restoreSessionState() {
+    private fun restoreSession() {
         viewModelScope.launch {
             dataStore.data.collectLatest { prefs ->
-                val isRunning = prefs[PREF_IS_RUNNING] ?: false
-                if (isRunning) {
-                    _isRunning.value = true
-                    _startSessionSteps = prefs[PREF_START_STEPS] ?: 0
-                    _sessionStartTimeMillis = prefs[PREF_START_TIME] ?: System.currentTimeMillis()
-                } else {
-                    _isRunning.value = false
+                val running = prefs[PREF_IS_RUNNING] ?: false
+                _isRunning.value = running
+                _startSessionSteps = prefs[PREF_START_STEPS] ?: 0
+                _sessionStartTimeMillis = prefs[PREF_START_TIME] ?: 0L
+
+                // Nếu đang chạy dở, tắt countdown đi để vào thẳng màn hình tracking
+                if (running && _sessionStartTimeMillis > 0) {
+                    _isCountdownActive.value = false
                 }
             }
         }
     }
+    // --- LOGIC : CHUẨN BỊ ĐẾM NGƯỢC ---
+    fun prepareRun() {
+        // Kích hoạt màn hình đếm ngược
+        _isCountdownActive.value = true
+    }
+
+    fun cancelRunPreparation() {
+        _isCountdownActive.value = false
+    }
+    fun pauseRunSession() {
+        _isRunning.value = false
+        viewModelScope.launch { dataStore.edit { it[PREF_IS_RUNNING] = false } }
+    }
+
     fun resumeRunSession() {
         _isRunning.value = true
         viewModelScope.launch { dataStore.edit { it[PREF_IS_RUNNING] = true } }
     }
-    fun pauseRunSession() {
-        // Chỉ cần chỉnh biến UI, không cần xóa DataStore (để lỡ kill app vẫn biết là đang có session)
-        _isRunning.value = false
-        // Lưu trạng thái Tracking là false nhưng KHÔNG XÓA start_time
-        viewModelScope.launch { dataStore.edit { it[PREF_IS_RUNNING] = false } }
-    }
     // --- BẮT ĐẦU CHẠY ---
     fun startRunSession(currentTotalSteps: Int) {
         viewModelScope.launch {
+            _isCountdownActive.value = false // Tắt overlay
             _isRunning.value = true
+
             _startSessionSteps = currentTotalSteps
             _sessionStartTimeMillis = System.currentTimeMillis()
 
-            // Lưu ngay xuống ổ cứng
+            // Lưu mốc vào DataStore (Service sẽ đọc cái này để đồng bộ)
             dataStore.edit {
                 it[PREF_IS_RUNNING] = true
                 it[PREF_START_STEPS] = currentTotalSteps
@@ -237,11 +250,16 @@ class StepViewModel @Inject constructor(
         }
     }
 
-    // --- CẬP NHẬT LIÊN TỤC (Gọi từ UI) ---
+    // --- LOGIC : CẬP NHẬT SỐ LIỆU (Gọi từ RunTrackingScreen) ---
     fun updateSessionSteps(currentTotalSteps: Int) {
-        if (!_isRunning.value) return
+        // Dù đang Pause hay Running, ta vẫn tính toán số liệu dựa trên mốc Start
+        // Tuy nhiên nếu Pause thì thời gian không tăng (xử lý phức tạp hơn),
+        // ở đây ta tạm chấp nhận Pause là dừng tracking nhưng thời gian thực vẫn trôi (logic đơn giản)
+        // Hoặc chỉ update khi isRunning = true
 
-        // Xử lý logic reboot máy (bước bị reset về 0)
+        if (_sessionStartTimeMillis == 0L) return
+
+        // Xử lý reboot máy (bước bị reset về 0)
         val actualStart = if (currentTotalSteps < _startSessionSteps) 0 else _startSessionSteps
         val stepsTaken = (currentTotalSteps - actualStart).coerceAtLeast(0)
 
@@ -249,53 +267,42 @@ class StepViewModel @Inject constructor(
 
         // Tính thời gian
         val now = System.currentTimeMillis()
-        val durationSec = (now - _sessionStartTimeMillis) / 1000
-        _sessionDuration.value = durationSec
+        val duration = (now - _sessionStartTimeMillis) / 1000
+        _sessionDuration.value = duration
 
-        // Tính quãng đường (S = Steps * Stride) -> Km
-        val distKm = (stepsTaken * strideLength) / 1000.0
-        _sessionDistance.value = distKm
+        // Tính quãng đường & Tốc độ
+        val dist = (stepsTaken * strideLength) / 1000.0
+        _sessionDistance.value = dist
 
-        // Tính tốc độ (V = S / T) -> Km/h
-        val hours = durationSec / 3600.0
-        if (hours > 0) {
-            _sessionSpeed.value = distKm / hours
-        } else {
-            _sessionSpeed.value = 0.0
-        }
+        val hours = duration / 3600.0
+        _sessionSpeed.value = if (hours > 0) dist / hours else 0.0
     }
 
     // --- KẾT THÚC ---
     fun finishRunSession(currentTotalSteps: Int) {
-        if (!_isRunning.value) return
-
-        val endTime = LocalDateTime.now()
-        val startTime = java.time.Instant.ofEpochMilli(_sessionStartTimeMillis)
-            .atZone(ZoneId.systemDefault())
-            .toLocalDateTime()
-        val stepsTaken = _sessionSteps.value
-
         viewModelScope.launch {
-            if (stepsTaken > 0) {
-                repository.writeStepsToHealthConnect(startTime, endTime, stepsTaken)
+            val endTime = LocalDateTime.now()
+            val startTime = java.time.Instant.ofEpochMilli(_sessionStartTimeMillis)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDateTime()
+
+            // Lưu database
+            if (sessionSteps.value > 0) {
+                repository.writeStepsToHealthConnect(startTime, endTime, sessionSteps.value)
             }
-            // Xóa dữ liệu phiên chạy
-            dataStore.edit {
-                it.remove(PREF_IS_RUNNING)
-                it.remove(PREF_START_STEPS)
-                it.remove(PREF_START_TIME)
-            }
-            // Reset biến RAM
+
+            // Xóa DataStore
+            dataStore.edit { it.clear() }
+
+            // Reset UI
             _isRunning.value = false
             _sessionSteps.value = 0
             _sessionDuration.value = 0
             _sessionDistance.value = 0.0
-            _sessionSpeed.value = 0.0
-
-            loadData() // Reload chart
+            _startSessionSteps = 0
+            _sessionStartTimeMillis = 0L
         }
-    }
-    fun calculateCalories(steps: Long): Int {
+    }    fun calculateCalories(steps: Long): Int {
         return (0.04 * steps * userWeight / 70).toInt()
     }
     fun formatDuration(seconds: Long): String {

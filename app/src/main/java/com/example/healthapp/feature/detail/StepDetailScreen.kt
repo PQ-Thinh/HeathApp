@@ -1,6 +1,5 @@
 package com.example.healthapp.feature.detail
 
-import android.content.Intent
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -65,7 +64,6 @@ fun StepDetailScreen(
     val selectedTimeRange by stepViewModel.selectedTimeRange.collectAsState()
 
     val currentCalories = stepViewModel.calculateCalories(currentSteps.toLong())
-    val context = LocalContext.current
 
     // Theme Setup
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic

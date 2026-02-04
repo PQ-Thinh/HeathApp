@@ -1,8 +1,11 @@
 package com.example.healthapp.feature.home
 
-import android.annotation.SuppressLint
 import android.preference.PreferenceManager
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,13 +29,13 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.ui.theme.AestheticColors
+import kotlinx.coroutines.delay
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.mylocation.GpsMyLocationProvider
 import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay
 
-@SuppressLint("DefaultLocale")
 @Composable
 fun RunTrackingScreen(
     stepViewModel: StepViewModel,
@@ -44,153 +47,217 @@ fun RunTrackingScreen(
 ) {
     val context = LocalContext.current
 
-    // State từ ViewModel
+    // State
     val totalRealtimeSteps by mainViewModel.realtimeSteps.collectAsState()
     val sessionSteps by stepViewModel.sessionSteps.collectAsState()
     val sessionDuration by stepViewModel.sessionDuration.collectAsState()
     val sessionDistance by stepViewModel.sessionDistance.collectAsState()
     val sessionSpeed by stepViewModel.sessionSpeed.collectAsState()
     val isRunning by stepViewModel.isRunning.collectAsState()
+    val isCountdownActive by stepViewModel.isCountdownActive.collectAsState()
 
-    // Khởi tạo Map
     LaunchedEffect(Unit) {
         Configuration.getInstance().load(context, PreferenceManager.getDefaultSharedPreferences(context))
+        // Khi mới vào, nếu chưa chạy thì bật chế độ chuẩn bị (hiện nút Start overlay)
+        if (!stepViewModel.isRunning.value && sessionSteps == 0) {
+            stepViewModel.prepareRun()
+        }
     }
 
-    // Logic update
     LaunchedEffect(totalRealtimeSteps, isRunning) {
-        if (isRunning && totalRealtimeSteps > 0) {
-            stepViewModel.updateSessionSteps(totalRealtimeSteps)
-        }
+        stepViewModel.updateSessionSteps(totalRealtimeSteps)
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Box(modifier = Modifier.fillMaxSize()) {
 
-        // --- PHẦN 1: BẢN ĐỒ (60%) ---
-        Box(
-            modifier = Modifier
-                .weight(0.6f)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
-        ) {
-            OsmMapView(modifier = Modifier.fillMaxSize())
-
-            IconButton(
-                onClick = onClose,
+        // --- LỚP UI CHÍNH (Map + Stats) ---
+        Column(modifier = Modifier.fillMaxSize()) {
+            // 1. Map
+            Box(
                 modifier = Modifier
-                    .padding(top = 48.dp, start = 16.dp)
-                    .background(Color.White.copy(0.8f), CircleShape)
+                    .weight(0.6f)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
             ) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.Black)
+                OsmMapView(modifier = Modifier.fillMaxSize())
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier
+                        .padding(top = 48.dp, start = 16.dp)
+                        .background(Color.White.copy(0.8f), CircleShape)
+                ) {
+                    Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.Black)
+                }
+            }
+
+            // 2. Stats & Controls
+            Surface(
+                modifier = Modifier
+                    .weight(0.4f)
+                    .fillMaxWidth()
+                    .shadow(16.dp),
+                color = colors.background,
+                tonalElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Timer
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = stepViewModel.formatDuration(sessionDuration),
+                            fontSize = 56.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.textPrimary,
+                            letterSpacing = 2.sp
+                        )
+                        Text("Thời gian chạy", fontSize = 14.sp, color = colors.textSecondary)
+                    }
+
+                    // Stats Grid
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        StatItemCompact(String.format("%.2f", sessionDistance), "Km", colors, Color(0xFF10B981))
+                        StatItemCompact(String.format("%.1f", sessionSpeed), "Km/h", colors)
+                        StatItemCompact("$sessionSteps", "Steps", colors)
+                        StatItemCompact("${stepViewModel.calculateCalories(sessionSteps.toLong())}", "Kcal", colors, Color(0xFFF59E0B))
+                    }
+
+                    // Buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                if (isRunning) {
+                                    stepViewModel.pauseRunSession()
+                                    // Service tự update do lắng nghe DataStore, không cần gọi onToggleService(false) cũng được,
+                                    // nhưng nếu service logic cần pause thì gọi:
+                                    // onToggleService(false) // Tùy logic service của bạn
+                                } else {
+                                    stepViewModel.resumeRunSession()
+                                    // onToggleService(true)
+                                }
+                            },
+                            modifier = Modifier.weight(1f).height(64.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isRunning) Color(0xFFF59E0B) else Color(0xFF10B981)
+                            )
+                        ) {
+                            Icon(if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.White)
+                            Spacer(Modifier.width(8.dp))
+                            Text(if (isRunning) "TẠM DỪNG" else "TIẾP TỤC", fontWeight = FontWeight.Bold)
+                        }
+
+                        Button(
+                            onClick = {
+                                onToggleService(false)
+                                stepViewModel.finishRunSession(totalRealtimeSteps)
+                                onFinishRun(sessionSteps, stepViewModel.calculateCalories(sessionSteps.toLong()), sessionDuration)
+                                onClose()
+                            },
+                            modifier = Modifier.weight(1f).height(64.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
+                        ) {
+                            Icon(Icons.Default.Stop, null, tint = Color.White)
+                            Text("KẾT THÚC", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
             }
         }
 
-        // --- PHẦN 2: THÔNG TIN (40%) ---
-        Surface(
-            modifier = Modifier
-                .weight(0.4f)
-                .fillMaxWidth()
-                .shadow(elevation = 16.dp),
-            color = colors.background,
-            tonalElevation = 8.dp
+        // --- LỚP PHỦ MỜ (OVERLAY) ĐẾM NGƯỢC ---
+        AnimatedVisibility(
+            visible = isCountdownActive,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.fillMaxSize()
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-
-                // 1. Đồng hồ
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = stepViewModel.formatDuration(sessionDuration),
-                        fontSize = 56.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = colors.textPrimary,
-                        letterSpacing = 2.sp
-                    )
-                    Text(text = "Thời gian chạy", fontSize = 14.sp, color = colors.textSecondary)
+            CountDownOverlay(
+                colors = colors,
+                onStartClick = {
+                    // Logic đếm ngược 3s rồi Start
+                },
+                onCancel = {
+                    stepViewModel.cancelRunPreparation()
+                    onClose()
+                },
+                onFinished = {
+                    stepViewModel.startRunSession(totalRealtimeSteps)
+                    onToggleService(true)
                 }
-
-                // 2. Thông số
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    StatItemCompact(String.format("%.2f", sessionDistance), "Km", colors, Color(0xFF10B981))
-                    StatItemCompact(String.format("%.1f", sessionSpeed), "Km/h", colors)
-                    StatItemCompact("$sessionSteps", "Steps", colors)
-                    StatItemCompact("${stepViewModel.calculateCalories(sessionSteps.toLong())}", "Kcal", colors, Color(0xFFF59E0B))
-                }
-
-                // 3. NÚT ĐIỀU KHIỂN (Đã sửa lại có 2 nút)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp) // Khoảng cách giữa 2 nút
-                ) {
-                    // --- NÚT 1: TẠM DỪNG / TIẾP TỤC ---
-                    Button(
-                        onClick = {
-                            if (isRunning) {
-                                // Đang chạy -> Bấm để Tạm dừng
-                                stepViewModel.pauseRunSession()
-                                onToggleService(false) // Tắt service đếm nền
-                            } else {
-                                // Đang dừng -> Bấm để Tiếp tục
-                                stepViewModel.resumeRunSession()
-                                onToggleService(true) // Bật lại service
-                            }
-                        },
-                        modifier = Modifier
-                            .weight(1f) // Chiếm 50% chiều ngang
-                            .height(64.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        // Màu vàng nếu đang chạy (để pause), Màu xanh nếu đang dừng (để resume)
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (isRunning) Color(0xFFF59E0B) else Color(0xFF10B981)
-                        )
-                    ) {
-                        Icon(
-                            imageVector = if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow,
-                            contentDescription = "Toggle",
-                            tint = Color.White
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isRunning) "TẠM DỪNG" else "TIẾP TỤC",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    // --- NÚT 2: KẾT THÚC (STOP) ---
-                    Button(
-                        onClick = {
-                            onToggleService(false)
-                            stepViewModel.finishRunSession(totalRealtimeSteps)
-                            onFinishRun(sessionSteps, stepViewModel.calculateCalories(sessionSteps.toLong()), sessionDuration)
-                            onClose()
-                        },
-                        modifier = Modifier
-                            .weight(1f) // Chiếm 50% chiều ngang còn lại
-                            .height(64.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444))
-                    ) {
-                        Icon(Icons.Default.Stop, null, tint = Color.White)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("KẾT THÚC", fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
+            )
         }
     }
 }
 
-// ... Các hàm helper OsmMapView và StatItemCompact giữ nguyên ...
+@Composable
+fun CountDownOverlay(
+    colors: AestheticColors,
+    onStartClick: () -> Unit,
+    onCancel: () -> Unit,
+    onFinished: () -> Unit
+) {
+    // State quản lý đếm ngược
+    var count by remember { mutableStateOf(3) }
+    var isCounting by remember { mutableStateOf(false) }
 
+    // Logic đếm ngược
+    LaunchedEffect(isCounting) {
+        if (isCounting) {
+            while (count > 0) {
+                delay(1000)
+                count--
+            }
+            // Hết giờ -> Gọi callback finish
+            onFinished()
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(colors.background.copy(alpha = 0.95f)) // Nền mờ che hết UI dưới
+            .clickable(enabled = false) {}, // Chặn click xuống dưới
+        contentAlignment = Alignment.Center
+    ) {
+        if (!isCounting) {
+            // Hiển thị nút Bắt đầu
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Button(
+                    onClick = { isCounting = true }, // Bắt đầu đếm
+                    modifier = Modifier.size(200.dp),
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
+                ) {
+                    Text("BẮT ĐẦU", fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(32.dp))
+                TextButton(onClick = onCancel) {
+                    Text("Hủy bỏ", color = colors.textSecondary, fontSize = 18.sp)
+                }
+            }
+        } else {
+            // Hiển thị số đếm ngược
+            Text(
+                text = if (count > 0) "$count" else "GO!",
+                fontSize = 120.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = if (count > 0) colors.textPrimary else Color(0xFF10B981)
+            )
+        }
+    }
+}
+
+// ... OsmMapView và StatItemCompact giữ nguyên ...
 @Composable
 fun StatItemCompact(value: String, unit: String, colors: AestheticColors, color: Color? = null) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
