@@ -304,6 +304,7 @@ class StepViewModel @Inject constructor(
             _startSessionSteps = 0
             _sessionStartTimeMillis = 0L
         }
+        loadData()
     }
 
     // --- TIMER ---
