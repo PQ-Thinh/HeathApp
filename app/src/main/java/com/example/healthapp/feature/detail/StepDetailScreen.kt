@@ -59,7 +59,6 @@ fun StepDetailScreen(
     // Collect State
     val historyList by stepViewModel.stepHistory.collectAsStateWithLifecycle()
     val currentSteps by mainViewModel.realtimeSteps.collectAsState()
-    val currentMode by mainViewModel.currentMode.collectAsState()
     val chartData by stepViewModel.chartData.collectAsState()
     val selectedTimeRange by stepViewModel.selectedTimeRange.collectAsState()
 
@@ -67,7 +66,7 @@ fun StepDetailScreen(
 
     // Theme Setup
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
-    val stepColor = Color(0xFFF59E0B) // Màu cam chủ đạo cho bước chân
+    val stepColor = Color(0xFFF59E0B)
 
     // State Dialog
     var showHistoryDialog by remember { mutableStateOf(false) }

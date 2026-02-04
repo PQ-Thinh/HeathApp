@@ -10,6 +10,7 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.HealthConnectManager
+import com.example.healthapp.core.data.HealthSensorManager
 import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.model.entity.DailyHealthEntity
 import com.example.healthapp.core.model.entity.UserEntity
@@ -17,6 +18,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -36,12 +38,12 @@ class MainViewModel @Inject constructor(
     private val repository: HealthRepository,
     val healthConnectManager: HealthConnectManager,
     private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val sensorManager: HealthSensorManager
 ) : ViewModel() {
 
     // --- KEYS DATASTORE
     companion object {
-        private val CURRENT_MODE_KEY = stringPreferencesKey("current_mode")
         private val IS_INTRO_SHOWN_KEY = booleanPreferencesKey("is_intro_shown")
     }
 
@@ -49,6 +51,8 @@ class MainViewModel @Inject constructor(
     private var dailyHealthJob: Job? = null
     private val _realtimeSteps = MutableStateFlow(0)
     val realtimeSteps: StateFlow<Int> = _realtimeSteps.asStateFlow()
+
+    val rawSensorSteps: Flow<Int> = sensorManager.stepFlow
 
     private val _realtimeCalories = MutableStateFlow(0f)
     val realtimeCalories: StateFlow<Float> = _realtimeCalories.asStateFlow()
@@ -65,9 +69,7 @@ class MainViewModel @Inject constructor(
     private val _todayHealthData = MutableStateFlow<DailyHealthEntity?>(null)
     val todayHealthData: StateFlow<DailyHealthEntity?> = _todayHealthData.asStateFlow()
 
-    val currentMode: StateFlow<String> = dataStore.data
-        .map { preferences -> preferences[CURRENT_MODE_KEY] ?: "Chạy Bộ" }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "Chạy Bộ")
+
 
     // Trạng thái Login: null (đang check), true, false
     private val _isLoggedIn = MutableStateFlow<Boolean?>(null)

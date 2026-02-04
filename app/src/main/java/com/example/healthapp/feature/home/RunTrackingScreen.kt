@@ -1,6 +1,7 @@
 package com.example.healthapp.feature.home
 
 import android.preference.PreferenceManager
+import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -48,7 +49,7 @@ fun RunTrackingScreen(
     val context = LocalContext.current
 
     // State
-    val totalRealtimeSteps by mainViewModel.realtimeSteps.collectAsState()
+    val rawSensorSteps by mainViewModel.rawSensorSteps.collectAsState(initial = 0)
     val sessionSteps by stepViewModel.sessionSteps.collectAsState()
     val sessionDuration by stepViewModel.sessionDuration.collectAsState()
     val sessionDistance by stepViewModel.sessionDistance.collectAsState()
@@ -64,8 +65,9 @@ fun RunTrackingScreen(
         }
     }
 
-    LaunchedEffect(totalRealtimeSteps) {
-        stepViewModel.updateSessionSteps(totalRealtimeSteps)
+    LaunchedEffect(rawSensorSteps) {
+        Log.d("StepDebug", "UI Received: $rawSensorSteps")
+        stepViewModel.updateSessionSteps(rawSensorSteps)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -158,7 +160,7 @@ fun RunTrackingScreen(
                         Button(
                             onClick = {
                                 onToggleService(false)
-                                stepViewModel.finishRunSession(totalRealtimeSteps)
+                                stepViewModel.finishRunSession(rawSensorSteps)
                                 onFinishRun(sessionSteps, stepViewModel.calculateCalories(sessionSteps.toLong()), sessionDuration)
                                 onClose()
                             },
@@ -191,7 +193,7 @@ fun RunTrackingScreen(
                     onClose()
                 },
                 onFinished = {
-                    stepViewModel.startRunSession(totalRealtimeSteps)
+                    stepViewModel.startRunSession(rawSensorSteps)
                     onToggleService(true)
                 }
             )

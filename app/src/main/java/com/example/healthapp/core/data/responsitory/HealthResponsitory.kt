@@ -121,8 +121,8 @@ class HealthRepository @Inject constructor(
 
         healthConnectManager.writeSteps(start, end, stepsDelta)
 
-        val startTime = start.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val endTime = end.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val startTime = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endTime = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
         val record = StepRecordEntity(
             id = UUID.randomUUID().toString(),
