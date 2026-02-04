@@ -142,7 +142,6 @@ class MainViewModel @Inject constructor(
             repository.getDailyHealth(today, userId)
                 .catch { e ->
                     Log.e("MainViewModel", "Lỗi lắng nghe sức khỏe: ${e.message}")
-                    // Không emit null để tránh UI bị flicker, chỉ log lỗi
                 }
                 .collect { data ->
                     _todayHealthData.value = data

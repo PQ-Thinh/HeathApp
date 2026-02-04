@@ -38,6 +38,7 @@ import com.example.healthapp.core.service.StepForegroundService
 import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.feature.chart.StepChart
+import com.example.healthapp.feature.components.AddStepDialog
 import com.example.healthapp.feature.components.CustomTopMenu
 import com.example.healthapp.feature.components.GenericHistoryDialog
 import com.example.healthapp.feature.components.TopBar
@@ -70,6 +71,7 @@ fun StepDetailScreen(
 
     // State Dialog
     var showHistoryDialog by remember { mutableStateOf(false) }
+    var showAddDialog by remember { mutableStateOf(false) }
 
     // Animation nền
     val infiniteTransition = rememberInfiniteTransition(label = "background")
@@ -120,7 +122,15 @@ fun StepDetailScreen(
             }
         )
     }
-
+    if (showAddDialog) {
+        AddStepDialog(
+            onDismiss = { showAddDialog = false },
+            onSave = { startTime, duration, steps ->
+                stepViewModel.saveManualStepRecord(startTime, duration, steps)
+                showAddDialog = false
+            }
+        )
+    }
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -150,14 +160,16 @@ fun StepDetailScreen(
             // --- FAB (NÚT TRÒN ĐỂ TRỐNG) ---
             floatingActionButton = {
                 FloatingActionButton(
-                    onClick = {
-                        // TODO: Xử lý sự kiện thêm hoạt động thủ công tại đây
-                    },
-                    containerColor = stepColor,
+                    onClick = { showAddDialog = true },
+                    containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
                     shape = CircleShape
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Thêm hoạt động")
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Nhập dữ liệu thủ công",
+                        tint = Color.White
+                    )
                 }
             }
         ) { paddingValues ->

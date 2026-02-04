@@ -331,7 +331,18 @@ class StepViewModel @Inject constructor(
         timerJob?.cancel()
         timerJob = null
     }
-
+    // --- MANUAL INPUT (Chức năng nhập tay) ---
+    fun saveManualStepRecord(startTime: Long, durationMinutes: Int, steps: Int) {
+        viewModelScope.launch {
+            val endTime = startTime + (durationMinutes * 60 * 1000)
+            val startDateTime = java.time.Instant.ofEpochMilli(startTime)
+                .atZone(ZoneId.systemDefault()).toLocalDateTime()
+            val endDateTime = java.time.Instant.ofEpochMilli(endTime)
+                .atZone(ZoneId.systemDefault()).toLocalDateTime()
+            repository.writeStepsToHealthConnect(startDateTime, endDateTime, steps)
+            loadData()
+        }
+    }
      fun calculateCalories(steps: Long): Int {
         return (0.04 * steps * userWeight / 70).toInt()
     }

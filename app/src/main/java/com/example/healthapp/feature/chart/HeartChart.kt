@@ -15,7 +15,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.example.healthapp.core.data.HeartRateBucket
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.github.mikephil.charting.charts.LineChart
-import com.github.mikephil.charting.components.Legend
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
@@ -118,7 +117,7 @@ fun HeartChart(
                                 val time = data[index].startTime
                                 return when (timeRange) {
                                     ChartTimeRange.DAY -> time.format(DateTimeFormatter.ofPattern("HH:mm"))
-                                    ChartTimeRange.WEEK -> time.format(DateTimeFormatter.ofPattern("dd/MM"))
+                                    ChartTimeRange.WEEK -> time.format(DateTimeFormatter.ofPattern("EEE"))
                                     ChartTimeRange.MONTH -> time.format(DateTimeFormatter.ofPattern("dd"))
                                     ChartTimeRange.YEAR -> time.format(DateTimeFormatter.ofPattern("MM/yy"))
                                 }
