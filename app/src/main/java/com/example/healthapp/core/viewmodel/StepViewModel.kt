@@ -34,6 +34,8 @@ import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
 import androidx.datastore.preferences.core.Preferences
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -80,8 +82,12 @@ class StepViewModel @Inject constructor(
     // Biến nội bộ lưu mốc bắt đầu
     private var _sessionStartTimeMillis = 0L
 
+    // Cân nặng (Mặc định 70kg)
+    private var userWeight: Float = 70f
     // Cấu hình (lấy từ User hoặc mặc định)
     private var strideLength = 0.7 // Độ dài sải chân (mét) - Có thể lấy từ chiều cao user
+
+    private var timerJob: Job? =null
 
     // Key lưu trữ
     companion object {
@@ -89,10 +95,6 @@ class StepViewModel @Inject constructor(
         val PREF_START_STEPS = intPreferencesKey("session_start_steps")
         val PREF_START_TIME = longPreferencesKey("session_start_time")
     }
-
-
-    // Cân nặng (Mặc định 70kg)
-    private var userWeight: Float = 70f
 
     // --- State: Thông tin User (Realtime từ Firestore) ---
     //Dùng flatMapLatest để tự động lắng nghe lại khi đổi user
@@ -207,13 +209,15 @@ class StepViewModel @Inject constructor(
                 _startSessionSteps = prefs[PREF_START_STEPS] ?: 0
                 _sessionStartTimeMillis = prefs[PREF_START_TIME] ?: 0L
 
-                // Nếu đang chạy dở, tắt countdown đi để vào thẳng màn hình tracking
-                if (running && _sessionStartTimeMillis > 0) {
-                    _isCountdownActive.value = false
+                if (running) {
+                    startTimer()
+                } else {
+                    stopTimer()
                 }
             }
         }
     }
+
     // --- LOGIC : CHUẨN BỊ ĐẾM NGƯỢC ---
     fun prepareRun() {
         // Kích hoạt màn hình đếm ngược
@@ -224,12 +228,14 @@ class StepViewModel @Inject constructor(
         _isCountdownActive.value = false
     }
     fun pauseRunSession() {
+        stopTimer()
         _isRunning.value = false
         viewModelScope.launch { dataStore.edit { it[PREF_IS_RUNNING] = false } }
     }
 
     fun resumeRunSession() {
         _isRunning.value = true
+        startTimer()
         viewModelScope.launch { dataStore.edit { it[PREF_IS_RUNNING] = true } }
     }
     // --- BẮT ĐẦU CHẠY ---
@@ -249,14 +255,33 @@ class StepViewModel @Inject constructor(
             }
         }
     }
+    private fun startTimer() {
+        if (timerJob?.isActive == true) return
+        timerJob = viewModelScope.launch {
+            while (_isRunning.value) {
+                if (_sessionStartTimeMillis > 0) {
+                    val duration = (System.currentTimeMillis() - _sessionStartTimeMillis) / 1000
+                    _sessionDuration.value = duration
+                    // Tốc độ = (Quãng đường / Thời gian)
+                    if (duration > 0 && sessionDistance.value > 0) {
+                        val hours = duration / 3600.0
+                        _sessionSpeed.value = sessionDistance.value / hours
+                    }
+                }
+                delay(1000)
+            }
+        }
+    }
+
+    private fun stopTimer() {
+        timerJob?.cancel()
+        timerJob = null
+    }
+
 
     // --- LOGIC : CẬP NHẬT SỐ LIỆU (Gọi từ RunTrackingScreen) ---
     fun updateSessionSteps(currentTotalSteps: Int) {
         // Dù đang Pause hay Running, ta vẫn tính toán số liệu dựa trên mốc Start
-        // Tuy nhiên nếu Pause thì thời gian không tăng (xử lý phức tạp hơn),
-        // ở đây ta tạm chấp nhận Pause là dừng tracking nhưng thời gian thực vẫn trôi (logic đơn giản)
-        // Hoặc chỉ update khi isRunning = true
-
         if (_sessionStartTimeMillis == 0L) return
 
         // Xử lý reboot máy (bước bị reset về 0)
@@ -280,6 +305,7 @@ class StepViewModel @Inject constructor(
 
     // --- KẾT THÚC ---
     fun finishRunSession(currentTotalSteps: Int) {
+        stopTimer()
         viewModelScope.launch {
             val endTime = LocalDateTime.now()
             val startTime = java.time.Instant.ofEpochMilli(_sessionStartTimeMillis)

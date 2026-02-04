@@ -64,7 +64,7 @@ fun RunTrackingScreen(
         }
     }
 
-    LaunchedEffect(totalRealtimeSteps, isRunning) {
+    LaunchedEffect(totalRealtimeSteps) {
         stepViewModel.updateSessionSteps(totalRealtimeSteps)
     }
 
