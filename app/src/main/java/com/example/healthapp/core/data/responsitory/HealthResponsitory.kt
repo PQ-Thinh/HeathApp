@@ -1,5 +1,6 @@
 package com.example.healthapp.core.data.responsitory
 
+import android.content.Context
 import android.util.Log
 import com.example.healthapp.core.data.FirebaseSyncManager
 import com.example.healthapp.core.data.HealthConnectManager
@@ -29,6 +30,7 @@ import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.time.TimeRangeFilter
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Inject
@@ -37,7 +39,8 @@ class HealthRepository @Inject constructor(
     private val healthConnectManager: HealthConnectManager,
     private val syncManager: FirebaseSyncManager,
     private val firestore: FirebaseFirestore,
-    private val auth: FirebaseAuth
+    private val auth: FirebaseAuth,
+    @ApplicationContext private val context: Context
 ) {
 
     private val currentUserId: String?
@@ -212,7 +215,8 @@ class HealthRepository @Inject constructor(
             userId = userId,
             startTime = startTime,
             endTime = endTime,
-            count = stepsDelta
+            count = stepsDelta,
+            source = context.packageName
         )
 
         firestore.collection("users").document(userId)

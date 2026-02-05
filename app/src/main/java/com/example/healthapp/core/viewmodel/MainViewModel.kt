@@ -178,7 +178,7 @@ class MainViewModel @Inject constructor(
 
                     val newUser = UserEntity(
                         id = uid,
-                        name = "", // Tên rỗng để kích hoạt màn hình nhập tên
+                        name = "",
                         email = email,
                         targetSteps = 10000,
                         gender = "Male",

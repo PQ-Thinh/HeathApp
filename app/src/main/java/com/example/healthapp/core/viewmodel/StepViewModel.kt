@@ -343,6 +343,23 @@ class StepViewModel @Inject constructor(
             loadData()
         }
     }
+    fun editStepRecord(oldRecord: StepRecordEntity, newStartTime: Long, newDurationMinutes: Int, newSteps: Int) {
+        viewModelScope.launch {
+            // Xóa bản ghi cũ (cả HC và Firestore)
+            repository.deleteStepRecord(oldRecord)
+
+            //  Tính toán thời gian mới
+            val startTime = java.time.Instant.ofEpochMilli(newStartTime)
+                .atZone(ZoneId.systemDefault()).toLocalDateTime()
+            val endTime = startTime.plusMinutes(newDurationMinutes.toLong())
+
+            //  Ghi bản ghi mới (Coi như nhập mới)
+            repository.writeStepsToHealthConnect(startTime, endTime, newSteps)
+
+            //Refresh dữ liệu
+            loadData()
+        }
+    }
      fun calculateCalories(steps: Long): Int {
         return (0.04 * steps * userWeight / 70).toInt()
     }
