@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -41,6 +42,7 @@ import com.example.healthapp.feature.chart.StepChart
 import com.example.healthapp.feature.components.AddStepDialog
 import com.example.healthapp.feature.components.CustomTopMenu
 import com.example.healthapp.feature.components.GenericHistoryDialog
+import com.example.healthapp.feature.components.StepHistoryDetailDialog
 import com.example.healthapp.feature.components.TopBar
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
@@ -62,6 +64,7 @@ fun StepDetailScreen(
     val currentSteps by mainViewModel.realtimeSteps.collectAsState()
     val chartData by stepViewModel.chartData.collectAsState()
     val selectedTimeRange by stepViewModel.selectedTimeRange.collectAsState()
+    var selectedRecord by remember { mutableStateOf<StepRecordEntity?>(null) }
 
     val currentCalories = stepViewModel.calculateCalories(currentSteps.toLong())
 
@@ -94,6 +97,7 @@ fun StepDetailScreen(
             onDelete = { record -> stepViewModel.deleteStepRecord(record) },
             isDarkTheme = isDarkTheme,
             dateExtractor = { it.startTime },
+            onItemClick = { selectedRecord = it },
             itemContent = { item, textColor ->
                 val date = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(item.startTime))
                 // Nội dung Dialog
@@ -128,6 +132,15 @@ fun StepDetailScreen(
             onSave = { startTime, duration, steps ->
                 stepViewModel.saveManualStepRecord(startTime, duration, steps)
                 showAddDialog = false
+            }
+        )
+    }
+    if (selectedRecord != null) {
+        StepHistoryDetailDialog(
+            record = selectedRecord!!,
+            onDismiss = { selectedRecord = null },
+            onDelete = { recordToDelete ->
+                stepViewModel.deleteStepRecord(recordToDelete)
             }
         )
     }
@@ -317,7 +330,8 @@ fun StepDetailScreen(
                                     record = record,
                                     colors = colors,
                                     stepColor = stepColor,
-                                    onDelete = { stepViewModel.deleteStepRecord(record) }
+                                    onDelete = { stepViewModel.deleteStepRecord(record) },
+                                    modifier = Modifier.clickable { selectedRecord = record }
                                 )
                             }
                         }
@@ -325,7 +339,7 @@ fun StepDetailScreen(
                 }
 
                 // Padding bottom để tránh FAB che
-                item { Spacer(modifier = Modifier.height(80.dp)) }
+                item { Spacer(modifier = Modifier.height(50.dp)) }
             }
         }
     }
@@ -337,12 +351,13 @@ fun SimpleStepHistoryRow(
     record: StepRecordEntity,
     colors: AestheticColors,
     stepColor: Color,
-    onDelete: () -> Unit // <--- Thêm tham số
+    onDelete: () -> Unit,
+    modifier: Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(colors.glassContainer)
