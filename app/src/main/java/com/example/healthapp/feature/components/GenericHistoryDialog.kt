@@ -44,7 +44,8 @@ fun <T> GenericHistoryDialog(
     onDismiss: () -> Unit,
     onDelete: (T) -> Unit,
     isDarkTheme: Boolean,
-    dateExtractor: (T) -> Long, // <--- THÊM THAM SỐ MỚI NÀY
+    onItemClick: (T) -> Unit,
+    dateExtractor: (T) -> Long,
     itemContent: @Composable (item: T, textColor: Color) -> Unit
 ) {
     val context = LocalContext.current
@@ -177,7 +178,8 @@ fun <T> GenericHistoryDialog(
                                 contentColor = contentColor,
                                 isDarkTheme = isDarkTheme,
                                 onDelete = { onDelete(item) },
-                                content = { itemContent(item, contentColor) }
+                                content = { itemContent(item, contentColor) },
+                                modifier = Modifier.clickable { onItemClick(item) }
                             )
                         }
                     }
@@ -208,12 +210,13 @@ private fun <T> HistoryItemRow(
     contentColor: Color,
     isDarkTheme: Boolean,
     onDelete: () -> Unit,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
+    modifier: Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(backgroundColor)
