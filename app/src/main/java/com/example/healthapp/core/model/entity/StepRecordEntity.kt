@@ -8,7 +8,8 @@ data class StepRecordEntity(
     var startTime: Long = 0,
     var endTime: Long = 0,
     var count: Int = 0,
-    var updatedAt: Long = System.currentTimeMillis()
+    var updatedAt: Long = System.currentTimeMillis(),
+    val source: String = "Health App"
 ) {
     constructor() : this("", "", 0, 0, 0)
 }
