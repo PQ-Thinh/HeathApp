@@ -25,7 +25,11 @@ import java.util.Calendar
 @Composable
 fun AddStepDialog(
     onDismiss: () -> Unit,
-    onSave: (startTime: Long, durationMinutes: Int, steps: Int) -> Unit
+    onSave: (startTime: Long, durationMinutes: Int, steps: Int) -> Unit,
+    initialSteps: Int = 0,
+    initialDuration: Int = 0,
+    initialDate: LocalDate = LocalDate.now(),
+    initialStartTime: Long = 0
 ) {
     // 1. Start Time States
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }

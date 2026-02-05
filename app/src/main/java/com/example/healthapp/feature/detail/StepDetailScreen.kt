@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
@@ -59,12 +60,15 @@ fun StepDetailScreen(
     isDarkTheme: Boolean,
     modifier: Modifier = Modifier
 ) {
+
     // Collect State
     val historyList by stepViewModel.stepHistory.collectAsStateWithLifecycle()
     val currentSteps by mainViewModel.realtimeSteps.collectAsState()
     val chartData by stepViewModel.chartData.collectAsState()
     val selectedTimeRange by stepViewModel.selectedTimeRange.collectAsState()
     var selectedRecord by remember { mutableStateOf<StepRecordEntity?>(null) }
+
+    var recordToEdit by remember { mutableStateOf<StepRecordEntity?>(null) }
 
     val currentCalories = stepViewModel.calculateCalories(currentSteps.toLong())
 
@@ -95,6 +99,7 @@ fun StepDetailScreen(
             dataList = historyList,
             onDismiss = { showHistoryDialog = false },
             onDelete = { record -> stepViewModel.deleteStepRecord(record) },
+
             isDarkTheme = isDarkTheme,
             dateExtractor = { it.startTime },
             onItemClick = { selectedRecord = it },
@@ -126,21 +131,48 @@ fun StepDetailScreen(
             }
         )
     }
-    if (showAddDialog) {
-        AddStepDialog(
-            onDismiss = { showAddDialog = false },
-            onSave = { startTime, duration, steps ->
-                stepViewModel.saveManualStepRecord(startTime, duration, steps)
-                showAddDialog = false
-            }
-        )
-    }
     if (selectedRecord != null) {
         StepHistoryDetailDialog(
             record = selectedRecord!!,
             onDismiss = { selectedRecord = null },
-            onDelete = { recordToDelete ->
-                stepViewModel.deleteStepRecord(recordToDelete)
+            onDelete = {
+                stepViewModel.deleteStepRecord(it)
+                selectedRecord = null
+            },
+            onEdit = { record ->
+                recordToEdit = record // Lưu bản ghi cần sửa
+                selectedRecord = null // Đóng dialog detail
+                showAddDialog = true  // Mở dialog nhập liệu
+            }
+        )
+    }
+    if (showAddDialog) {
+        // Chuẩn bị dữ liệu: Nếu đang sửa (recordToEdit != null) thì lấy thông tin cũ
+        // Nếu thêm mới thì mặc định là 0
+
+        AddStepDialog(
+            onDismiss = {
+                showAddDialog = false
+                recordToEdit = null
+            },
+            // TRUYỀN DỮ LIỆU CŨ VÀO ĐÂY
+            initialSteps = recordToEdit?.count ?: 0,
+            initialStartTime = recordToEdit?.startTime ?: System.currentTimeMillis(),
+            // Tính duration cũ (nếu có), không thì mặc định 30
+            initialDuration = if (recordToEdit != null)
+                ((recordToEdit!!.endTime - recordToEdit!!.startTime) / 60000).toInt()
+            else 30, // Mặc định 30p nếu thêm mới
+
+            onSave = { startTime, duration, steps ->
+                if (recordToEdit != null) {
+                    // Logic Sửa
+                    stepViewModel.editStepRecord(recordToEdit!!, startTime, duration, steps)
+                } else {
+                    // Logic Thêm
+                    stepViewModel.saveManualStepRecord(startTime, duration, steps)
+                }
+                showAddDialog = false
+                recordToEdit = null
             }
         )
     }
@@ -331,6 +363,7 @@ fun StepDetailScreen(
                                     colors = colors,
                                     stepColor = stepColor,
                                     onDelete = { stepViewModel.deleteStepRecord(record) },
+                                   // onEdit = { stepViewModel.editStepRecord(record.startTime, record.endTime, record.count) },
                                     modifier = Modifier.clickable { selectedRecord = record }
                                 )
                             }
@@ -351,11 +384,15 @@ fun SimpleStepHistoryRow(
     record: StepRecordEntity,
     colors: AestheticColors,
     stepColor: Color,
+    //onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
+    // Kiểm tra quyền sở hữu
+    val isMyData = record.source == context.packageName
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -389,7 +426,11 @@ fun SimpleStepHistoryRow(
                     fontSize = 16.sp
                 )
                 Text(
-                    text = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date(record.startTime)),
+                    text = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(
+                        Date(
+                            record.startTime
+                        )
+                    ),
                     fontSize = 12.sp,
                     color = colors.textSecondary
                 )
@@ -397,23 +438,40 @@ fun SimpleStepHistoryRow(
         }
 
         // --- MENU XÓA ---
-        Box {
-            IconButton(onClick = { expanded = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = null, tint = colors.textSecondary)
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.background(colors.glassContainer)
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Xóa", color = Color.Red) },
-                    onClick = {
-                        expanded = false
-                        onDelete()
-                    },
-                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) }
-                )
+        if (isMyData) {
+            Box {
+                IconButton(onClick = { expanded = true }) {
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = null,
+                        tint = colors.textSecondary
+                    )
+                }
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.background(colors.glassContainer)
+                ) {
+                    // Item 1: Sửa
+                    DropdownMenuItem(
+                        text = { Text("Sửa", color = colors.textPrimary) },
+                        onClick = {
+                            expanded = false
+                            //onEdit() // Gọi hàm sửa
+                        },
+                        leadingIcon = { Icon(Icons.Default.Edit, null, tint = colors.textPrimary) }
+                    )
+
+                    // Item 2: Xóa
+                    DropdownMenuItem(
+                        text = { Text("Xóa", color = Color.Red) },
+                        onClick = {
+                            expanded = false
+                            onDelete()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) }
+                    )
+                }
             }
         }
     }

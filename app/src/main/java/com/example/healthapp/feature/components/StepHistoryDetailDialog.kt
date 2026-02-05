@@ -1,16 +1,17 @@
 package com.example.healthapp.feature.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -26,9 +27,13 @@ fun StepHistoryDetailDialog(
     record: StepRecordEntity,
     onDismiss: () -> Unit,
     onDelete: (StepRecordEntity) -> Unit,
+    onEdit: (StepRecordEntity) -> Unit,
     stepViewModel: StepViewModel = hiltViewModel()
-) {
 
+) {
+    val context = LocalContext.current
+    //Cần đảm bảo khi lưu, bạn đã set source = context.packageName
+    val isMyData = record.source == context.packageName
     val distanceKm = (record.count * 0.7) / 1000.0
 
     // Format thời gian
@@ -96,21 +101,55 @@ fun StepHistoryDetailDialog(
                 // --- PHẦN METADATA QUAN TRỌNG ---
                 DetailRow(
                     label = "Nguồn dữ liệu:",
-                    value = formatSourceName(record.source),
+                    value = formatSourceName(record.source, context.packageName),
                     isHighlight = true
                 )
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 // Nút Xóa
-                Button(
-                    onClick = { onDelete(record); onDismiss() },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFEBEE)),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Xóa bản ghi này", color = Color.Red)
+                if (isMyData) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Nút Sửa
+                        Button(
+                            onClick = { onEdit(record) },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3)),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Edit, contentDescription = null, tint = Color.White) // Cần import icon Edit
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Sửa", color = Color.White)
+                        }
+
+                        // Nút Xóa
+                        Button(
+                            onClick = { onDelete(record); onDismiss() },
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFEBEE)),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Xóa", color = Color.Red)
+                        }
+                    }
+                } else {
+                    // Nếu là dữ liệu nguồn ngoài -> Chỉ hiện nút Đóng
+                    Text(
+                        text = "* Dữ liệu từ ${formatSourceName(record.source, context.packageName)} không thể sửa/xóa.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.LightGray),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Đóng", color = Color.Black)
+                    }
                 }
             }
         }
@@ -141,7 +180,7 @@ fun DetailRow(label: String, value: String, isHighlight: Boolean = false) {
 }
 
 // Hàm làm đẹp tên nguồn
-fun formatSourceName(packageName: String): String {
+fun formatSourceName(packageName: String, myPackageName: String): String {
     return when {
         packageName.contains("com.google.android.apps.healthdata") -> "Health Connect Tool"
         packageName.contains("androidx.health.connect.client.devtool") -> "Health Connect Tool"

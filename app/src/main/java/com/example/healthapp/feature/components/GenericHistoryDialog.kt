@@ -13,7 +13,6 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -43,6 +42,7 @@ fun <T> GenericHistoryDialog(
     dataList: List<T>,
     onDismiss: () -> Unit,
     onDelete: (T) -> Unit,
+   // onEdit: (T) -> Unit,
     isDarkTheme: Boolean,
     onItemClick: (T) -> Unit,
     dateExtractor: (T) -> Long,
@@ -178,6 +178,7 @@ fun <T> GenericHistoryDialog(
                                 contentColor = contentColor,
                                 isDarkTheme = isDarkTheme,
                                 onDelete = { onDelete(item) },
+                               // onEdit = {onEdit(item)},
                                 content = { itemContent(item, contentColor) },
                                 modifier = Modifier.clickable { onItemClick(item) }
                             )
@@ -210,6 +211,7 @@ private fun <T> HistoryItemRow(
     contentColor: Color,
     isDarkTheme: Boolean,
     onDelete: () -> Unit,
+    //onEdit: () -> Unit,
     content: @Composable () -> Unit,
     modifier: Modifier
 ) {
