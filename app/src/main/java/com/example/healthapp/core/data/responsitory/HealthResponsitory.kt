@@ -96,9 +96,64 @@ class HealthRepository @Inject constructor(
             .await()
 
         Log.d("HealthRepo", "Synced HC Steps to Cloud: $hcSteps")
+    syncExternalRecordsToFirestore(userId, startOfDay, now)
+
     }
 
-    suspend fun updateLocalSteps(userId: String?, steps: Int, calories: Float) {
+    private suspend fun syncExternalRecordsToFirestore(userId: String, start: LocalDateTime, end: LocalDateTime) {
+        // Lấy danh sách từ Health Connect
+        val hcRecords = healthConnectManager.readRawStepRecords(start, end)
+        if (hcRecords.isEmpty()) return // Nếu HC không có gì thì không cần check tiếp
+
+        //Chỉ query Firestore lấy records trong khoảng thời gian đang xét
+        val startTimeMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endTimeMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val snapshot = firestore.collection("users").document(userId)
+            .collection("step_records")
+            .whereGreaterThanOrEqualTo("startTime", startTimeMillis)
+            .whereLessThanOrEqualTo("startTime", endTimeMillis)
+            .get().await()
+
+        val firestoreHistory = snapshot.toObjects(StepRecordEntity::class.java)
+
+        // lặp đối chiếu (Logic của bạn đã đúng)
+        for (hcRecord in hcRecords) {
+            val hcStart = hcRecord.startTime.toEpochMilli()
+            val hcCount = hcRecord.count.toInt()
+
+            val isExist = firestoreHistory.any { fsRecord ->
+                val timeDiff = kotlin.math.abs(fsRecord.startTime - hcStart)
+                // Check lệch 1s và khớp số bước
+                timeDiff < 1000 && fsRecord.count == hcCount
+            }
+
+            if (!isExist) {
+                // Lấy nguồn dữ liệu an toàn (tránh null)
+                val packageName = try {
+                    hcRecord.metadata.dataOrigin.packageName
+                } catch (e: Exception) {
+                    "External Source"
+                }
+
+                val newRecord = StepRecordEntity(
+                    id = UUID.randomUUID().toString(),
+                    userId = userId,
+                    startTime = hcStart,
+                    endTime = hcRecord.endTime.toEpochMilli(),
+                    count = hcCount,
+                    source = packageName
+                )
+
+                firestore.collection("users").document(userId)
+                    .collection("step_records").document(newRecord.id)
+                    .set(newRecord)
+                    .await()
+
+                Log.d("Sync", "Đã import bản ghi từ $packageName: $hcCount bước")
+            }
+        }
+    }    suspend fun updateLocalSteps(userId: String?, steps: Int, calories: Float) {
         if (userId.isNullOrEmpty()) return
         val today = LocalDate.now().toString()
 
@@ -158,6 +213,7 @@ class HealthRepository @Inject constructor(
             Log.e("HealthRepository", "Error deleting step record", e)
         }
     }
+
 
     //Lưu Nhịp tim
     suspend fun saveHeartRate(userId: String, bpm: Int) {
