@@ -84,6 +84,7 @@ fun HeartDetailScreen(
             onDelete = { record -> heartViewModel.deleteHeartRecord(record) },
             isDarkTheme = isDarkTheme,
             dateExtractor = { it.time },
+            onItemClick = {},
             itemContent = { item, textColor ->
                 // Nội dung hiển thị trong Dialog (Chi tiết hơn)
                 Row(verticalAlignment = Alignment.CenterVertically) {
