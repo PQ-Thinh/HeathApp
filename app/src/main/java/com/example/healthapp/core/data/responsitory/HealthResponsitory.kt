@@ -71,7 +71,7 @@ class HealthRepository @Inject constructor(
         awaitClose { listener.remove() }
     }
 
-//Đồng bộ Steps & HeartRate Avg từ HC -> Firestore
+    //Đồng bộ Steps & HeartRate Avg từ HC -> Firestore
     suspend fun syncHealthData(userId: String?) {
         if (userId.isNullOrEmpty()) return
 
@@ -79,15 +79,16 @@ class HealthRepository @Inject constructor(
         val startOfDay = now.toLocalDate().atStartOfDay()
         val todayStr = now.toLocalDate().toString()
 
+        // BƯỚC A: Lấy tổng bước "chuẩn" từ Health Connect (Đã sửa ở Bước 1)
+        // Số này chắc chắn đúng và khớp với Google Fit
         val hcSteps = healthConnectManager.readSteps(startOfDay, now)
         val hcHeartRateAvg = healthConnectManager.readHeartRate(startOfDay, now)
 
         val data = mapOf(
             "date" to todayStr,
             "userId" to userId,
-            "steps" to hcSteps,
+            "steps" to hcSteps, // Ghi đè số chuẩn vào Firebase
             "heartRateAvg" to hcHeartRateAvg,
-
         )
 
         firestore.collection("users").document(userId)
@@ -95,17 +96,17 @@ class HealthRepository @Inject constructor(
             .set(data, SetOptions.merge())
             .await()
 
-        Log.d("HealthRepo", "Synced HC Steps to Cloud: $hcSteps")
-    syncExternalRecordsToFirestore(userId, startOfDay, now)
+        Log.d("HealthRepo", "Đã sync tổng bước chuẩn: $hcSteps")
 
+        // BƯỚC B: Gọi hàm đồng bộ chi tiết (Thêm Mới + Xóa Cũ)
+        syncAndCleanStepRecords(userId, startOfDay, now)
     }
 
-    private suspend fun syncExternalRecordsToFirestore(userId: String, start: LocalDateTime, end: LocalDateTime) {
-        // Lấy danh sách từ Health Connect
+    private suspend fun syncAndCleanStepRecords(userId: String, start: LocalDateTime, end: LocalDateTime) {
+        // 1. Lấy tất cả bản ghi từ Health Connect (Nguồn gốc)
         val hcRecords = healthConnectManager.readRawStepRecords(start, end)
-        if (hcRecords.isEmpty()) return // Nếu HC không có gì thì không cần check tiếp
 
-        //Chỉ query Firestore lấy records trong khoảng thời gian đang xét
+        // 2. Lấy tất cả bản ghi từ Firestore (Bản sao)
         val startTimeMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val endTimeMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
@@ -115,27 +116,21 @@ class HealthRepository @Inject constructor(
             .whereLessThanOrEqualTo("startTime", endTimeMillis)
             .get().await()
 
-        val firestoreHistory = snapshot.toObjects(StepRecordEntity::class.java)
+        val firestoreList = snapshot.toObjects(StepRecordEntity::class.java)
 
-        // lặp đối chiếu (Logic của bạn đã đúng)
+        // --- PHA 1: IMPORT (Thêm cái chưa có) ---
         for (hcRecord in hcRecords) {
             val hcStart = hcRecord.startTime.toEpochMilli()
             val hcCount = hcRecord.count.toInt()
+            // Lấy package name an toàn
+            val packageName = try { hcRecord.metadata.dataOrigin.packageName } catch (e: Exception) { "unknown" }
 
-            val isExist = firestoreHistory.any { fsRecord ->
-                val timeDiff = kotlin.math.abs(fsRecord.startTime - hcStart)
-                // Check lệch 1s và khớp số bước
-                timeDiff < 1000 && fsRecord.count == hcCount
+            // Kiểm tra xem record này đã có trong Firestore chưa
+            val exists = firestoreList.any { fsRecord ->
+                isSameRecord(fsRecord, hcStart, hcCount, packageName)
             }
 
-            if (!isExist) {
-                // Lấy nguồn dữ liệu an toàn (tránh null)
-                val packageName = try {
-                    hcRecord.metadata.dataOrigin.packageName
-                } catch (e: Exception) {
-                    "External Source"
-                }
-
+            if (!exists) {
                 val newRecord = StepRecordEntity(
                     id = UUID.randomUUID().toString(),
                     userId = userId,
@@ -144,15 +139,48 @@ class HealthRepository @Inject constructor(
                     count = hcCount,
                     source = packageName
                 )
-
                 firestore.collection("users").document(userId)
                     .collection("step_records").document(newRecord.id)
                     .set(newRecord)
-                    .await()
-
-                Log.d("Sync", "Đã import bản ghi từ $packageName: $hcCount bước")
+                Log.d("Sync", "Đã thêm mới: $packageName - $hcCount")
             }
         }
+
+        // --- PHA 2: CLEANUP (Xóa cái thừa thãi/đã bị xóa ở nguồn) ---
+        // Duyệt qua Firestore, nếu cái nào KHÔNG tìm thấy bên Health Connect -> XÓA
+        for (fsRecord in firestoreList) {
+            val existsInHc = hcRecords.any { hcRecord ->
+                val hcStart = hcRecord.startTime.toEpochMilli()
+                val hcCount = hcRecord.count.toInt()
+                val packageName = try { hcRecord.metadata.dataOrigin.packageName } catch (e: Exception) { "unknown" }
+
+                isSameRecord(fsRecord, hcStart, hcCount, packageName)
+            }
+
+            // Nếu record trên FB không còn tồn tại bên HC (nghĩa là user đã xóa bên kia)
+            if (!existsInHc) {
+                firestore.collection("users").document(userId)
+                    .collection("step_records").document(fsRecord.id)
+                    .delete()
+                Log.d("Sync", "Đã xóa record rác: ${fsRecord.source} - ${fsRecord.count}")
+            }
+        }
+    }
+
+    // Hàm phụ trợ: So sánh xem 2 record có phải là 1 không
+    private fun isSameRecord(fsRecord: StepRecordEntity, hcStart: Long, hcCount: Int, hcSource: String): Boolean {
+        // 1. Số bước phải bằng nhau
+        if (fsRecord.count != hcCount) return false
+
+        // 2. Thời gian bắt đầu lệch không quá 2 giây (do sai số convert)
+        val timeDiff = kotlin.math.abs(fsRecord.startTime - hcStart)
+        if (timeDiff > 2000) return false
+
+        // 3. Nguồn (Source) phải giống nhau (QUAN TRỌNG ĐỂ TRÁNH XÓA NHẦM)
+        // Nếu record cũ chưa có source thì bỏ qua check source
+        if (fsRecord.source.isNotEmpty() && fsRecord.source != hcSource) return false
+
+        return true
     }    suspend fun updateLocalSteps(userId: String?, steps: Int, calories: Float) {
         if (userId.isNullOrEmpty()) return
         val today = LocalDate.now().toString()
@@ -429,7 +457,7 @@ class HealthRepository @Inject constructor(
         // Nếu Health Connect có dữ liệu thì trả về luôn
         if (hcData.isNotEmpty()) return hcData
 
-        // 3. ƯU TIÊN 2: Fallback về Firestore (Nếu không có Health Connect)
+        //  Fallback về Firestore (Nếu không có Health Connect)
         val startTimeL = start.atZone(zoneId).toInstant().toEpochMilli()
         val endTimeL = end.atZone(zoneId).toInstant().toEpochMilli() // Thêm chặn trên để không lấy thừa tương lai
 
