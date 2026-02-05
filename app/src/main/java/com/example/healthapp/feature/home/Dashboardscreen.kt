@@ -99,14 +99,12 @@ fun HealthDashboardScreen(
         onResult = { permissions ->
             val notifGranted = permissions[Manifest.permission.POST_NOTIFICATIONS] ?: false
             val locGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
-
-            // Logic: Cần ít nhất quyền thông báo (trên Android 13+) HOẶC quyền vị trí để chạy tốt
-            // Ở đây mình cho phép chạy nếu có ít nhất 1 trong các quyền quan trọng hoặc Android < 13
             if (notifGranted || locGranted || (Build.VERSION.SDK_INT < 33)) {
                 isRunModeActive = true
                 onToggleService(true) // Bật service
             } else {
                 // Xử lý khi từ chối (Optional: Show Dialog)
+                return@rememberLauncherForActivityResult
             }
         }
     )
@@ -211,7 +209,7 @@ fun HealthDashboardScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Hello, ${user?.name ?: "It's me"}!",
+                                text = "Xin Chào, ${user?.name ?: "It's me"}!",
                                 style = TextStyle(
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.Black,
