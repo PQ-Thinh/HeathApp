@@ -122,6 +122,20 @@ class HealthConnectManager(private val context: Context) {
             return emptyList()
         }
     }
+    //  Đọc danh sách chi tiết các bản ghi bước chân
+    suspend fun readRawStepRecords(startTime: LocalDateTime, endTime: LocalDateTime): List<StepsRecord> {
+        return try {
+            val request = ReadRecordsRequest(
+                recordType = StepsRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
+            )
+            val response = healthConnectClient.readRecords(request)
+            response.records
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Lỗi đọc raw steps: ${e.message}")
+            emptyList()
+        }
+    }
 
     // --- 3. HEART RATE MANAGEMENT ---
 
