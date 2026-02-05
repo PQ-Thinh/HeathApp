@@ -1,5 +1,7 @@
 package com.example.healthapp.feature.components
 
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.os.Build
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -28,6 +30,8 @@ fun AddStepDialog(
     // 1. Start Time States
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var selectedTime by remember { mutableStateOf(LocalTime.now()) }
+    var durationError by remember { mutableStateOf<String?>(null) }
+    var stepsError by remember { mutableStateOf<String?>(null) }
 
     // 2. Duration State
     var durationStr by remember { mutableStateOf("") }
@@ -45,13 +49,13 @@ fun AddStepDialog(
     val context = LocalContext.current
     val calendar = Calendar.getInstance()
 
-    val datePickerDialog = android.app.DatePickerDialog(
+    val datePickerDialog = DatePickerDialog(
         context,
         { _, year, month, day -> selectedDate = LocalDate.of(year, month + 1, day) },
         calendar.get(Calendar.YEAR), calendar.get(Calendar.MONTH), calendar.get(Calendar.DAY_OF_MONTH)
     )
 
-    val timePickerDialog = android.app.TimePickerDialog(
+    val timePickerDialog = TimePickerDialog(
         context,
         { _, hour, minute -> selectedTime = LocalTime.of(hour, minute) },
         calendar.get(Calendar.HOUR_OF_DAY), calendar.get(Calendar.MINUTE), true
@@ -86,14 +90,12 @@ fun AddStepDialog(
                 }
 
                 // Duration (Thời gian di chuyển - phút) ---
-                OutlinedTextField(
-                    value = durationStr,
-                    onValueChange = { if (it.all { char -> char.isDigit() }) durationStr = it },
+                OutlinedTextField( value = durationStr, onValueChange = { if (it.all { char -> char.isDigit() }) durationStr = it },
                     label = { Text("Thời gian di chuyển (phút)") },
+                    isError = durationError != null,
+                    supportingText = { durationError?.let { Text(it, color = MaterialTheme.colorScheme.error) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+                    modifier = Modifier.fillMaxWidth(), singleLine = true )
 
                 // --- HÀNG 3: Metadata (4 cột) ---
                 Text("Metadata thiết bị", style = MaterialTheme.typography.labelMedium)
@@ -114,10 +116,10 @@ fun AddStepDialog(
                     value = stepsStr,
                     onValueChange = { if (it.all { char -> char.isDigit() }) stepsStr = it },
                     label = { Text("Số bước chân") },
+                    isError = stepsError != null,
+                    supportingText = { stepsError?.let { Text(it, color = MaterialTheme.colorScheme.error) } },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+                    modifier = Modifier.fillMaxWidth(), singleLine = true )
 
                 // --- HÀNG CUỐI: Reset & Save Buttons ---
                 Row(
@@ -138,21 +140,38 @@ fun AddStepDialog(
                         Text("Reset")
                     }
 
-                    Button(
-                        onClick = {
-                            val duration = durationStr.toIntOrNull() ?: 0
-                            val steps = stepsStr.toIntOrNull() ?: 0
-                            if (steps > 0) {
-                                // Convert Date+Time to Milliseconds
-                                val startDateTime = selectedDate.atTime(selectedTime)
-                                val startTimeMillis = startDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-                                onSave(startTimeMillis, duration, steps)
-                            }
-                        },
+                    Button(onClick = {
+                        val duration = durationStr.toIntOrNull()
+                        val steps = stepsStr.toIntOrNull()
+
+                        var valid = true
+
+                        if (duration == null || duration <= 0) {
+                            durationError = "Bắt buộc nhập số phút hợp lệ"
+                            valid = false
+                        } else {
+                            durationError = null
+                        }
+
+                        if (steps == null || steps <= 0) {
+                            stepsError = "Bắt buộc nhập số bước chân hợp lệ"
+                            valid = false
+                        } else {
+                            stepsError = null
+                        }
+
+                        if (valid) {
+                            val startDateTime = selectedDate.atTime(selectedTime)
+                            val startTimeMillis = startDateTime.atZone(ZoneId.systemDefault())
+                                .toInstant().toEpochMilli()
+                            onSave(startTimeMillis, duration!!, steps!!)
+                        }
+                    },
                         modifier = Modifier.weight(1f)
                     ) {
                         Text("Lưu")
                     }
+
                 }
             }
         }
