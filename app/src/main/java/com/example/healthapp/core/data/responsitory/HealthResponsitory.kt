@@ -121,7 +121,6 @@ class HealthRepository @Inject constructor(
 
         val firestoreList = snapshot.toObjects(StepRecordEntity::class.java)
 
-        // --- PHA 1: IMPORT (Thêm cái chưa có) ---
         for (hcRecord in hcRecords) {
             val hcStart = hcRecord.startTime.toEpochMilli()
             val hcCount = hcRecord.count.toInt()
@@ -149,7 +148,7 @@ class HealthRepository @Inject constructor(
             }
         }
 
-        // --- PHA 2: CLEANUP (Xóa cái thừa thãi/đã bị xóa ở nguồn) ---
+        // CLEANUP (Xóa cái thừa thãi/đã bị xóa ở nguồn) ---
         // Duyệt qua Firestore, nếu cái nào KHÔNG tìm thấy bên Health Connect -> XÓA
         for (fsRecord in firestoreList) {
             val existsInHc = hcRecords.any { hcRecord ->

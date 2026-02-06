@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -39,6 +40,7 @@ import com.example.healthapp.feature.chart.SleepChart
 import com.example.healthapp.feature.components.GenericHistoryDialog
 import com.example.healthapp.feature.components.SleepSettingDialog
 import com.example.healthapp.feature.components.TopBar
+import com.example.healthapp.feature.detail.history.SleepHistoryDetailDialog
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
@@ -61,8 +63,7 @@ fun SleepDetailScreen(
 
     // Collect State
     val historyList by sleepViewModel.sleepHistory.collectAsStateWithLifecycle()
-    val duration by sleepViewModel.sleepDuration.collectAsState()
-    val assessment by sleepViewModel.sleepAssessment.collectAsState()
+    var selectedRecord by remember { mutableStateOf<SleepSessionEntity?>(null) }
     val chartData by sleepViewModel.chartData.collectAsState()
     val selectedTimeRange by sleepViewModel.selectedTimeRange.collectAsState()
 
@@ -132,6 +133,22 @@ fun SleepDetailScreen(
             }
         )
     }
+    if (selectedRecord != null) {
+        SleepHistoryDetailDialog(
+            session = selectedRecord!!,
+            onDismiss = { selectedRecord = null },
+            onDelete = {
+                sleepViewModel.deleteSleepRecord(it)
+                selectedRecord = null
+            },
+            onEdit = {
+                // Chuyển từ Xem chi tiết -> Sửa
+                recordToEdit = it
+                selectedRecord = null
+                // Không cần set showSleepDialog = true vì logic bên dưới check recordToEdit != null
+            }
+        )
+    }
 
     if (showSleepDialog || recordToEdit != null) {
         // Chuẩn bị dữ liệu khởi tạo
@@ -171,6 +188,7 @@ fun SleepDetailScreen(
             }
         )
     }
+
 
     Box(
         modifier = modifier
@@ -214,52 +232,7 @@ fun SleepDetailScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // 1. Card Tổng quan
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(colors.glassContainer)
-                            .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
-                            .padding(16.dp),
-                        contentAlignment = Alignment.Center
-                    ){
-                        Column(
-                            modifier = Modifier.padding(24.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                text = "Thời lượng ngủ hôm nay",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = colors.textPrimary
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Row() {
-                                Icon(
-                                    Icons.Default.Bedtime,
-                                    contentDescription = null,
-                                    tint = accentColor,
-                                    modifier = Modifier.size(48.dp)
-                                )
-                                Text(
-                                    text = sleepViewModel.formatDuration(duration),
-                                    fontSize = 48.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = colors.textPrimary
-                                )
-                            }
 
-                            Text(
-                                text = "Đánh giá: $assessment",
-                                fontSize = 18.sp,
-                                color = if (assessment.contains("Tốt") || assessment.contains("Khá")) Color(0xFF4CAF50) else Color(0xFFFFC107)
-                            )
-                        }
-                    }
-                }
 
                 // 2. Thanh chọn Thời gian & Biểu đồ
                 item {
@@ -338,7 +311,8 @@ fun SleepDetailScreen(
                                     onDelete = {sleepViewModel.deleteSleepRecord(session)},
                                     onEdit = {
                                         recordToEdit = session
-                                    }
+                                    },
+                                    modifier = Modifier.clickable { selectedRecord = session }
                                 )
                             }
                         }
@@ -351,7 +325,6 @@ fun SleepDetailScreen(
     }
 }
 
-// Composable hiển thị 1 dòng lịch sử giấc ngủ (Ngoài màn hình chính)
 @Composable
 fun SimpleSleepHistoryRow(
     session: SleepSessionEntity,
@@ -359,6 +332,7 @@ fun SimpleSleepHistoryRow(
     accentColor: Color,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
+    modifier: Modifier
 ) {
     var context = LocalContext.current
     val isMyData = session.source == context.packageName
@@ -373,7 +347,7 @@ fun SimpleSleepHistoryRow(
     val m = (durationMillis / (1000 * 60)) % 60
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(colors.glassContainer)

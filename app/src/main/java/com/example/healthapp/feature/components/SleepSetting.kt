@@ -8,8 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,9 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Calendar
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SleepSettingDialog(
     onDismiss: () -> Unit,
@@ -33,57 +31,37 @@ fun SleepSettingDialog(
     initialDate: LocalDate = LocalDate.now(),
     initialStartHour: Int = 22,
     initialStartMinute: Int = 0,
-    initialEndHour: Int = 7,
+    initialEndHour: Int = 6, // Sửa thành 7 nếu bạn muốn mặc định là 7h sáng
     initialEndMinute: Int = 0,
     isEditing: Boolean = false
 ) {
     val context = LocalContext.current
-    var selectedDate by remember { mutableStateOf(initialDate) }
 
-    // Start Time
-    val startState = rememberTimePickerState(
-        initialHour = initialStartHour,
-        initialMinute = initialStartMinute,
-        is24Hour = true
-    )
-    val endState = rememberTimePickerState(
-        initialHour = initialEndHour,
-        initialMinute = initialEndMinute,
-        is24Hour = true
-    )
-    // State lưu trữ
-    var startHour by remember { mutableStateOf(22) } // Mặc định 10h tối
-    var startMinute by remember { mutableStateOf(0) }
-    var endHour by remember { mutableStateOf(6) } // Mặc định 6h sáng
-    var endMinute by remember { mutableStateOf(0) }
+    var selectedDate by remember { mutableStateOf(initialDate) }
+    var startHour by remember { mutableStateOf(initialStartHour) }
+    var startMinute by remember { mutableStateOf(initialStartMinute) }
+    var endHour by remember { mutableStateOf(initialEndHour) }
+    var endMinute by remember { mutableStateOf(initialEndMinute) }
 
     // --- DATE PICKER ---
     val datePickerDialog = DatePickerDialog(
         context,
-        { _: DatePicker, year: Int, month: Int, dayOfMonth: Int ->
+        { _, year, month, dayOfMonth ->
             selectedDate = LocalDate.of(year, month + 1, dayOfMonth)
         },
-        selectedDate.year,
-        selectedDate.monthValue - 1,
-        selectedDate.dayOfMonth
+        selectedDate.year, selectedDate.monthValue - 1, selectedDate.dayOfMonth
     )
 
     // --- TIME PICKERS ---
     val startTimePicker = TimePickerDialog(
         context,
-        { _, hour, minute ->
-            startHour = hour
-            startMinute = minute
-        },
+        { _, hour, minute -> startHour = hour; startMinute = minute },
         startHour, startMinute, true
     )
 
     val endTimePicker = TimePickerDialog(
         context,
-        { _, hour, minute ->
-            endHour = hour
-            endMinute = minute
-        },
+        { _, hour, minute -> endHour = hour; endMinute = minute },
         endHour, endMinute, true
     )
 
@@ -98,14 +76,14 @@ fun SleepSettingDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = if (isEditing) "Chỉnh sửa Giấc ngủ" else "Ghi nhận Giấc ngủ",
+                    text = if (isEditing) "Chỉnh sửa Giấc ngủ" else "Thêm Giấc ngủ",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,
                     modifier = Modifier.padding(bottom = 20.dp)
                 )
 
-                //CHỌN NGÀY BẮT ĐẦU
+                // 1. CHỌN NGÀY BẮT ĐẦU
                 SleepInputRow(
                     label = "Ngày bắt đầu",
                     value = selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
@@ -115,7 +93,7 @@ fun SleepSettingDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                //  CHỌN GIỜ NGỦ (Start)
+                // 2. CHỌN GIỜ NGỦ
                 SleepInputRow(
                     label = "Giờ đi ngủ",
                     value = String.format("%02d:%02d", startHour, startMinute),
@@ -125,7 +103,7 @@ fun SleepSettingDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // CHỌN GIỜ DẬY (End)
+                // 3. CHỌN GIỜ DẬY
                 SleepInputRow(
                     label = "Giờ thức dậy",
                     value = String.format("%02d:%02d", endHour, endMinute),
@@ -144,16 +122,14 @@ fun SleepSettingDialog(
                         Text("Hủy", color = Color.Gray)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Button(onClick = {
-                        onSave(
-                            selectedDate,
-                            startState.hour, startState.minute,
-                            endState.hour, endState.minute
-                        )
-                    },
+                    Button(
+                        onClick = {
+                            onSave(selectedDate, startHour, startMinute, endHour, endMinute)
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1))
-
-                    ) { Text("Lưu", color = Color.White) }
+                    ) {
+                        Text("Lưu", color = Color.White)
+                    }
                 }
             }
         }

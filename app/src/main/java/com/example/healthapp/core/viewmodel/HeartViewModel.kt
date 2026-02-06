@@ -128,7 +128,7 @@ class HeartViewModel @Inject constructor(
         }
     }
     fun deleteHeartRecord(record: HeartRateRecordEntity) {
-        val uid = auth.currentUser?.uid ?: return
+        //val uid = auth.currentUser?.uid ?: return
 
         // Xóa khỏi List hiển thị NGAY LẬP TỨC
         val currentList = _heartHistory.value.toMutableList()
