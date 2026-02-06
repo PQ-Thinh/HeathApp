@@ -79,6 +79,7 @@ class HealthRepository @Inject constructor(
         // Số này chắc chắn đúng và khớp với HC
         val hcSteps = healthConnectManager.readSteps(startOfDay, now)
         val hcHeartRateAvg = healthConnectManager.readHeartRate(startOfDay, now)
+        val hcSleep = healthConnectManager.readSleep(startOfDay, now)
 
         syncAndCleanStepRecords(userId, startOfDay, now)
         recalculateDailySteps(userId, todayStr, startOfDay, now) // Hàm tính lại tổng bước
@@ -97,6 +98,7 @@ class HealthRepository @Inject constructor(
             "userId" to userId,
             "steps" to hcSteps, // Ghi đè số chuẩn vào Firebase
             "heartRateAvg" to hcHeartRateAvg,
+            "sleep" to hcSleep
         )
 
         firestore.collection("users").document(userId)

@@ -199,48 +199,7 @@ fun HeartDetailScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // 1. Card hiển thị BPM và Đánh giá
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(colors.glassContainer)
-                            .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                text = "Nhịp tim Trung Bình Hôm Nay",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = colors.textPrimary
-                            )
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Row() {
-                                Icon(
-                                    Icons.Default.Favorite,
-                                    contentDescription = null,
-                                    tint = heartColor,
-                                    modifier = Modifier.size(48.dp)
-                                )
-                                Text(
-                                    text = "$latestHeartRate BPM",
-                                    fontSize = 48.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = colors.textPrimary
-                                )
-                            }
 
-                            Text(
-                                text = assessment,
-                                fontSize = 18.sp,
-                                color = if (latestHeartRate in 60..100) Color(0xFF22C55E) else Color(0xFFEAB308)
-                            )
-                        }
-                    }
-                }
 
                 // 2. Thanh chọn Thời gian (Ngày/Tuần/Tháng/Năm)
                 item {

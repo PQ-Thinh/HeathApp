@@ -98,7 +98,9 @@ fun SleepDetailScreen(
             onDelete = { session -> sleepViewModel.deleteSleepRecord(session) },
             isDarkTheme = isDarkTheme,
             dateExtractor = { it.startTime },
-            onItemClick = {},
+            onItemClick = {
+                selectedRecord = it
+            },
             onEdit = {
                 recordToEdit = it
             },

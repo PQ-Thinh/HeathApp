@@ -332,6 +332,31 @@ class HealthConnectManager(private val context: Context) {
             return emptyList()
         }
     }
+    suspend fun readSleep(startTime: LocalDateTime, endTime: LocalDateTime): Int {
+        return try {
+            val response = healthConnectClient.readRecords(
+                ReadRecordsRequest(
+                    recordType = SleepSessionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
+                )
+            )
+
+            if (response.records.isNotEmpty()) {
+                //  Tính tổng thời gian của tất cả các phiên ngủ tìm thấy (đơn vị mili-giây)
+                val totalDurationMillis = response.records.sumOf { record ->
+                    Duration.between(record.startTime, record.endTime).toMillis()
+                }
+
+                // 2. Chia cho 60000 để đổi ra Phút
+                (totalDurationMillis / 60000).toInt()
+            } else {
+                0
+            }
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Lỗi đọc giấc ngủ: ${e.message}")
+            0
+        }
+    }
 
     suspend fun deleteRecords(recordType: KClass<out Record>, timeRangeFilter: TimeRangeFilter) {
         try {
