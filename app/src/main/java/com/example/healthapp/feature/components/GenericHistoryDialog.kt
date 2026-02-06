@@ -26,11 +26,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.example.healthapp.ui.theme.AestheticColors
+import com.example.healthapp.ui.theme.DarkAesthetic
+import com.example.healthapp.ui.theme.LightAesthetic
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Calendar
 
 /**
  * Dialog hiển thị lịch sử chung với bộ lọc theo ngày.
@@ -42,7 +44,7 @@ fun <T> GenericHistoryDialog(
     dataList: List<T>,
     onDismiss: () -> Unit,
     onDelete: (T) -> Unit,
-   // onEdit: (T) -> Unit,
+    onEdit: (T) -> Unit,
     isDarkTheme: Boolean,
     onItemClick: (T) -> Unit,
     dateExtractor: (T) -> Long,
@@ -52,6 +54,8 @@ fun <T> GenericHistoryDialog(
     val backgroundColor = if (isDarkTheme) Color(0xFF1E293B) else Color.White
     val contentColor = if (isDarkTheme) Color.White else Color(0xFF1E293B)
     val itemBgColor = if (isDarkTheme) Color(0xFF334155) else Color(0xFFF1F5F9)
+    val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
+
 
     // State quản lý ngày đang chọn (Mặc định là hôm nay)
     var selectedDate by remember { mutableStateOf(LocalDate.now()) }
@@ -178,8 +182,9 @@ fun <T> GenericHistoryDialog(
                                 contentColor = contentColor,
                                 isDarkTheme = isDarkTheme,
                                 onDelete = { onDelete(item) },
-                               // onEdit = {onEdit(item)},
+                                onEdit = {onEdit(item)},
                                 content = { itemContent(item, contentColor) },
+                                colors = colors,
                                 modifier = Modifier.clickable { onItemClick(item) }
                             )
                         }
@@ -209,9 +214,10 @@ private fun <T> HistoryItemRow(
     item: T,
     backgroundColor: Color,
     contentColor: Color,
+    colors: AestheticColors,
     isDarkTheme: Boolean,
     onDelete: () -> Unit,
-    //onEdit: () -> Unit,
+    onEdit: () -> Unit,
     content: @Composable () -> Unit,
     modifier: Modifier
 ) {
@@ -245,7 +251,7 @@ private fun <T> HistoryItemRow(
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
-                modifier = Modifier.background(if (isDarkTheme) Color(0xFF1E293B) else Color.White)
+                modifier = Modifier.background(color = colors.glassContainer)
             ) {
                 DropdownMenuItem(
                     text = { Text("Xóa", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold) },
@@ -255,6 +261,16 @@ private fun <T> HistoryItemRow(
                     },
                     leadingIcon = {
                         Icon(Icons.Default.Delete, null, tint = Color(0xFFEF4444))
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Sửa", color = Color.Black, fontWeight = FontWeight.Bold) },
+                    onClick = {
+                        expanded = false
+                        onEdit()
+                    },
+                    leadingIcon = {
+                        Icon(Icons.Default.Delete, null, tint = Color.Black)
                     }
                 )
             }

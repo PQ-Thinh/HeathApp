@@ -3,6 +3,7 @@ package com.example.healthapp.feature.components
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Build
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
@@ -15,6 +16,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.example.healthapp.ui.theme.AestheticColors
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -26,6 +28,7 @@ import java.util.Calendar
 fun AddStepDialog(
     onDismiss: () -> Unit,
     onSave: (startTime: Long, durationMinutes: Int, steps: Int) -> Unit,
+    colors: AestheticColors,
     initialSteps: Int = 0,
     initialDuration: Int = 0,
     initialDate: LocalDate = LocalDate.now(),
@@ -37,13 +40,13 @@ fun AddStepDialog(
     var durationError by remember { mutableStateOf<String?>(null) }
     var stepsError by remember { mutableStateOf<String?>(null) }
 
-    // 2. Duration State
+    // Duration State
     var durationStr by remember { mutableStateOf("") }
 
-    // 3. Step Count State
+    // Step Count State
     var stepsStr by remember { mutableStateOf("") }
 
-    // 4. Metadata States (Read-only info from device)
+    // 4Metadata States (Read-only info from device)
     val recordingMethod = "Manual"
     val device = "Phone"
     val manufacturer = Build.MANUFACTURER
@@ -69,7 +72,8 @@ fun AddStepDialog(
         Card(
             modifier = Modifier
                 .fillMaxWidth(),
-            shape = MaterialTheme.shapes.large
+            shape = MaterialTheme.shapes.large,
+
         ) {
             Column(
                 modifier = Modifier

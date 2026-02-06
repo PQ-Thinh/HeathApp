@@ -75,7 +75,7 @@ fun StepHistoryDetailDialog(
                     text = "${record.count}",
                     fontSize = 48.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF4CAF50) // Màu xanh lá
+                    color = Color(0xFF4CAF50)
                 )
                 Text(text = "Bước chân", fontSize = 16.sp, color = Color.Gray)
 

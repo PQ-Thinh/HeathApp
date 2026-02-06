@@ -36,12 +36,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.healthapp.core.model.entity.StepRecordEntity
-import com.example.healthapp.core.service.StepForegroundService
 import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.feature.chart.StepChart
 import com.example.healthapp.feature.components.AddStepDialog
-import com.example.healthapp.feature.components.CustomTopMenu
 import com.example.healthapp.feature.components.GenericHistoryDialog
 import com.example.healthapp.feature.components.StepHistoryDetailDialog
 import com.example.healthapp.feature.components.TopBar
@@ -99,7 +97,7 @@ fun StepDetailScreen(
             dataList = historyList,
             onDismiss = { showHistoryDialog = false },
             onDelete = { record -> stepViewModel.deleteStepRecord(record) },
-
+            onEdit = {record -> stepViewModel.editStepRecord(record,record.startTime, (record.startTime - record.endTime).toInt(), record.count)},
             isDarkTheme = isDarkTheme,
             dateExtractor = { it.startTime },
             onItemClick = { selectedRecord = it },
@@ -162,7 +160,7 @@ fun StepDetailScreen(
             initialDuration = if (recordToEdit != null)
                 ((recordToEdit!!.endTime - recordToEdit!!.startTime) / 60000).toInt()
             else 30, // Mặc định 30p nếu thêm mới
-
+            colors = colors,
             onSave = { startTime, duration, steps ->
                 if (recordToEdit != null) {
                     // Logic Sửa
@@ -206,7 +204,7 @@ fun StepDetailScreen(
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = { showAddDialog = true },
-                    containerColor = MaterialTheme.colorScheme.primary,
+                    containerColor = stepColor,
                     contentColor = Color.White,
                     shape = CircleShape
                 ) {
@@ -225,66 +223,66 @@ fun StepDetailScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 // 1. Card Tổng quan (Steps + Calories)
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(colors.glassContainer)
-                            .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceAround,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Cột Bước chân
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    Icons.Default.DirectionsRun,
-                                    contentDescription = null,
-                                    tint = stepColor,
-                                    modifier = Modifier.size(32.dp)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "$currentSteps",
-                                    fontSize = 32.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = colors.textPrimary
-                                )
-                                Text("Bước", color = colors.textSecondary)
-                            }
-                            // Đường kẻ dọc
-                            Divider(
-                                modifier = Modifier
-                                    .height(60.dp)
-                                    .width(1.dp),
-                                color = colors.textSecondary.copy(alpha = 0.5f)
-                            )
-
-                            // Cột Calories
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(
-                                    Icons.Default.LocalFireDepartment,
-                                    contentDescription = null,
-                                    tint = Color(0xFFEF4444),
-                                    modifier = Modifier.size(32.dp)
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "$currentCalories",
-                                    fontSize = 32.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = colors.textPrimary
-                                )
-                                Text("Kcal", color = colors.textSecondary)
-                            }
-                        }
-                    }
-                }
+//                item {
+//                    Box(
+//                        modifier = Modifier
+//                            .fillMaxWidth()
+//                            .clip(RoundedCornerShape(24.dp))
+//                            .background(colors.glassContainer)
+//                            .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
+//                            .padding(24.dp),
+//                        contentAlignment = Alignment.Center
+//                    ) {
+//                        Row(
+//                            modifier = Modifier.fillMaxWidth(),
+//                            horizontalArrangement = Arrangement.SpaceAround,
+//                            verticalAlignment = Alignment.CenterVertically
+//                        ) {
+//                            // Cột Bước chân
+//                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+//                                Icon(
+//                                    Icons.Default.DirectionsRun,
+//                                    contentDescription = null,
+//                                    tint = stepColor,
+//                                    modifier = Modifier.size(32.dp)
+//                                )
+//                                Spacer(modifier = Modifier.height(8.dp))
+//                                Text(
+//                                    text = "$currentSteps",
+//                                    fontSize = 32.sp,
+//                                    fontWeight = FontWeight.Bold,
+//                                    color = colors.textPrimary
+//                                )
+//                                Text("Bước", color = colors.textSecondary)
+//                            }
+//                            // Đường kẻ dọc
+//                            Divider(
+//                                modifier = Modifier
+//                                    .height(60.dp)
+//                                    .width(1.dp),
+//                                color = colors.textSecondary.copy(alpha = 0.5f)
+//                            )
+//
+//                            // Cột Calories
+//                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+//                                Icon(
+//                                    Icons.Default.LocalFireDepartment,
+//                                    contentDescription = null,
+//                                    tint = Color(0xFFEF4444),
+//                                    modifier = Modifier.size(32.dp)
+//                                )
+//                                Spacer(modifier = Modifier.height(8.dp))
+//                                Text(
+//                                    text = "$currentCalories",
+//                                    fontSize = 32.sp,
+//                                    fontWeight = FontWeight.Bold,
+//                                    color = colors.textPrimary
+//                                )
+//                                Text("Kcal", color = colors.textSecondary)
+//                            }
+//                        }
+//                    }
+//                }
 
                 // 2. Biểu đồ
                 item {
@@ -363,7 +361,7 @@ fun StepDetailScreen(
                                     colors = colors,
                                     stepColor = stepColor,
                                     onDelete = { stepViewModel.deleteStepRecord(record) },
-                                   // onEdit = { stepViewModel.editStepRecord(record.startTime, record.endTime, record.count) },
+                                    onEdit = { stepViewModel.editStepRecord(record,record.startTime, (record.startTime - record.endTime).toInt(), record.count) },
                                     modifier = Modifier.clickable { selectedRecord = record }
                                 )
                             }
@@ -384,7 +382,7 @@ fun SimpleStepHistoryRow(
     record: StepRecordEntity,
     colors: AestheticColors,
     stepColor: Color,
-    //onEdit: () -> Unit,
+    onEdit: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier
 ) {
@@ -454,12 +452,12 @@ fun SimpleStepHistoryRow(
                 ) {
                     // Item 1: Sửa
                     DropdownMenuItem(
-                        text = { Text("Sửa", color = colors.textPrimary) },
+                        text = { Text("Sửa", color = Color.Black) },
                         onClick = {
                             expanded = false
-                            //onEdit() // Gọi hàm sửa
+                            onEdit()
                         },
-                        leadingIcon = { Icon(Icons.Default.Edit, null, tint = colors.textPrimary) }
+                        leadingIcon = { Icon(Icons.Default.Edit, null, tint = Color.Black) }
                     )
 
                     // Item 2: Xóa
