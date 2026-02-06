@@ -14,9 +14,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,8 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,10 +38,15 @@ import com.example.healthapp.core.viewmodel.SleepViewModel
 import com.example.healthapp.feature.chart.SleepChart
 import com.example.healthapp.feature.components.GenericHistoryDialog
 import com.example.healthapp.feature.components.SleepSettingDialog
+import com.example.healthapp.feature.components.TopBar
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
+import java.time.LocalTime
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.Date
 import java.util.Locale
 
@@ -53,6 +57,8 @@ fun SleepDetailScreen(
     isDarkTheme: Boolean,
     modifier: Modifier = Modifier
 ) {
+
+
     // Collect State
     val historyList by sleepViewModel.sleepHistory.collectAsStateWithLifecycle()
     val duration by sleepViewModel.sleepDuration.collectAsState()
@@ -67,6 +73,8 @@ fun SleepDetailScreen(
     // Theme Setup
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
     val accentColor = Color(0xFF6366F1) // Màu tím đặc trưng cho giấc ngủ
+
+    var recordToEdit by remember { mutableStateOf<SleepSessionEntity?>(null) }
 
     // Animation nền
     val infiniteTransition = rememberInfiniteTransition(label = "background")
@@ -90,7 +98,9 @@ fun SleepDetailScreen(
             isDarkTheme = isDarkTheme,
             dateExtractor = { it.startTime },
             onItemClick = {},
-           onEdit = {},
+            onEdit = {
+                recordToEdit = it
+            },
             itemContent = { item, textColor ->
                 // Nội dung trong Dialog
                 val start = SimpleDateFormat("HH:mm dd/MM", Locale.getDefault()).format(Date(item.startTime))
@@ -123,13 +133,41 @@ fun SleepDetailScreen(
         )
     }
 
-    // --- DIALOG NHẬP GIỜ NGỦ ---
-    if (showSleepDialog) {
+    if (showSleepDialog || recordToEdit != null) {
+        // Chuẩn bị dữ liệu khởi tạo
+        val initialDate = if (recordToEdit != null)
+            Instant.ofEpochMilli(recordToEdit!!.startTime).atZone(ZoneId.systemDefault()).toLocalDate()
+        else LocalDate.now()
+
+        val startLocal = if (recordToEdit != null)
+            Instant.ofEpochMilli(recordToEdit!!.startTime).atZone(ZoneId.systemDefault()).toLocalTime()
+        else LocalTime.of(22,0)
+
+        val endLocal = if (recordToEdit != null)
+            Instant.ofEpochMilli(recordToEdit!!.endTime).atZone(ZoneId.systemDefault()).toLocalTime()
+        else LocalTime.of(7,0)
+
         SleepSettingDialog(
-            onDismiss = { showSleepDialog = false },
-            onSave = { date, sH, sM, eH, eM ->
-                sleepViewModel.saveSleepTime(date, sH, sM, eH, eM)
+            onDismiss = {
                 showSleepDialog = false
+                recordToEdit = null
+            },
+            initialDate = initialDate,
+            initialStartHour = startLocal.hour,
+            initialStartMinute = startLocal.minute,
+            initialEndHour = endLocal.hour,
+            initialEndMinute = endLocal.minute,
+            isEditing = recordToEdit != null,
+            onSave = { date, sH, sM, eH, eM ->
+                if (recordToEdit != null) {
+                    // EDIT
+                    sleepViewModel.editSleepSession(recordToEdit!!, date, sH, sM, eH, eM)
+                } else {
+                    // ADD NEW
+                    sleepViewModel.saveSleepTime(date, sH, sM, eH, eM)
+                }
+                showSleepDialog = false
+                recordToEdit = null
             }
         )
     }
@@ -159,7 +197,7 @@ fun SleepDetailScreen(
 
         Scaffold(
             containerColor = Color.Transparent,
-            topBar = { SleepTopBar(onBackClick, colors) },
+            topBar = { TopBar(onBackClick, colors,"Giấc ngủ") },
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = { showSleepDialog = true },
@@ -297,7 +335,10 @@ fun SleepDetailScreen(
                                     session = session,
                                     colors = colors,
                                     accentColor = accentColor,
-                                    onDelete = {sleepViewModel.deleteSleepRecord(session)}
+                                    onDelete = {sleepViewModel.deleteSleepRecord(session)},
+                                    onEdit = {
+                                        recordToEdit = session
+                                    }
                                 )
                             }
                         }
@@ -316,8 +357,11 @@ fun SimpleSleepHistoryRow(
     session: SleepSessionEntity,
     colors: AestheticColors,
     accentColor: Color,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onEdit: () -> Unit,
 ) {
+    var context = LocalContext.current
+    val isMyData = session.source == context.packageName
     var expanded by remember { mutableStateOf(false) } // State Menu
 
     val start = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(session.startTime))
@@ -369,23 +413,23 @@ fun SimpleSleepHistoryRow(
         }
 
         // --- MENU XÓA ---
-        Box {
-            IconButton(onClick = { expanded = true }) {
-                Icon(Icons.Default.MoreVert, contentDescription = null, tint = colors.textSecondary)
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.background(colors.glassContainer)
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Xóa", color = Color.Red) },
-                    onClick = {
-                        expanded = false
-                        onDelete()
-                    },
-                    leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) }
-                )
+        if (isMyData) {
+            Box {
+                IconButton(onClick = { expanded = true }) {
+                    Icon(Icons.Default.MoreVert, contentDescription = null, tint = colors.textSecondary)
+                }
+                DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Sửa") },
+                        onClick = { expanded = false; onEdit() },
+                        leadingIcon = { Icon(Icons.Default.Edit, null) }
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Xóa", color = Color.Red) },
+                        onClick = { expanded = false; onDelete() },
+                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) }
+                    )
+                }
             }
         }
     }
@@ -398,6 +442,7 @@ fun TimeRangeSelector(
     activeColor: Color,
     inactiveColor: Color
 ) {
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -428,32 +473,5 @@ fun TimeRangeSelector(
                 Text(text = label, fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal)
             }
         }
-    }
-}
-
-@Composable
-fun SleepTopBar(onBackClick: () -> Unit, colors: AestheticColors) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(onClick = onBackClick) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
-        }
-        Text(
-            text = "Giấc Ngủ",
-            style = TextStyle(
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = colors.textPrimary,
-                shadow = if (colors.background == DarkAesthetic.background)
-                    Shadow(Color.Black.copy(0.3f), blurRadius = 4f)
-                else null
-            ),
-            modifier = Modifier.padding(start = 8.dp)
-        )
     }
 }

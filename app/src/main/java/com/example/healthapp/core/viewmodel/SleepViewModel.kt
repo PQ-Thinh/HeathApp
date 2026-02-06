@@ -154,7 +154,7 @@ class SleepViewModel @Inject constructor(
         return sdf.format(Date(timestamp))
     }
     fun deleteSleepRecord(record: SleepSessionEntity) {
-        val uid = auth.currentUser?.uid ?: return
+        //val uid = auth.currentUser?.uid ?: return
 
         // Xóa khỏi List hiển thị NGAY LẬP TỨC
         val currentList = _sleepHistory.value.toMutableList()
@@ -172,6 +172,28 @@ class SleepViewModel @Inject constructor(
                 loadHistory()
                 Log.e("HeartViewModel", "Xóa thất bại", e)
             }
+        }
+    }
+    fun editSleepSession(oldRecord: SleepSessionEntity, newDate: LocalDate, sH: Int, sM: Int, eH: Int, eM: Int) {
+        val userId = auth.currentUser?.uid ?: return
+        viewModelScope.launch {
+            //Xóa record cũ
+            repository.deleteSleepSession(oldRecord)
+
+            // Tính toán thời gian mới (Logic giống saveSleepTime)
+            var startDateTime = LocalDateTime.of(newDate, LocalTime.of(sH, sM))
+            var endDateTime = LocalDateTime.of(newDate, LocalTime.of(eH, eM))
+
+            if (endDateTime.isBefore(startDateTime)) {
+                endDateTime = endDateTime.plusDays(1)
+            }
+
+            // Lưu record mới
+            repository.saveSleepSession(userId, startDateTime, endDateTime)
+
+            delay(500)
+            loadHistory()
+            loadChartData()
         }
     }
 

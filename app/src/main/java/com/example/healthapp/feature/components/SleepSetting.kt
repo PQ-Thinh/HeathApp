@@ -25,15 +25,33 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SleepSettingDialog(
     onDismiss: () -> Unit,
-    onSave: (LocalDate, Int, Int, Int, Int) -> Unit
+    onSave: (LocalDate, Int, Int, Int, Int) -> Unit,
+    initialDate: LocalDate = LocalDate.now(),
+    initialStartHour: Int = 22,
+    initialStartMinute: Int = 0,
+    initialEndHour: Int = 7,
+    initialEndMinute: Int = 0,
+    isEditing: Boolean = false
 ) {
     val context = LocalContext.current
+    var selectedDate by remember { mutableStateOf(initialDate) }
 
+    // Start Time
+    val startState = rememberTimePickerState(
+        initialHour = initialStartHour,
+        initialMinute = initialStartMinute,
+        is24Hour = true
+    )
+    val endState = rememberTimePickerState(
+        initialHour = initialEndHour,
+        initialMinute = initialEndMinute,
+        is24Hour = true
+    )
     // State lưu trữ
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
     var startHour by remember { mutableStateOf(22) } // Mặc định 10h tối
     var startMinute by remember { mutableStateOf(0) }
     var endHour by remember { mutableStateOf(6) } // Mặc định 6h sáng
@@ -80,14 +98,14 @@ fun SleepSettingDialog(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    "Thêm Giấc Ngủ",
+                    text = if (isEditing) "Chỉnh sửa Giấc ngủ" else "Ghi nhận Giấc ngủ",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black,
                     modifier = Modifier.padding(bottom = 20.dp)
                 )
 
-                // 1. CHỌN NGÀY BẮT ĐẦU
+                //CHỌN NGÀY BẮT ĐẦU
                 SleepInputRow(
                     label = "Ngày bắt đầu",
                     value = selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
@@ -97,7 +115,7 @@ fun SleepSettingDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 2. CHỌN GIỜ NGỦ (Start)
+                //  CHỌN GIỜ NGỦ (Start)
                 SleepInputRow(
                     label = "Giờ đi ngủ",
                     value = String.format("%02d:%02d", startHour, startMinute),
@@ -107,7 +125,7 @@ fun SleepSettingDialog(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // 3. CHỌN GIỜ DẬY (End)
+                // CHỌN GIỜ DẬY (End)
                 SleepInputRow(
                     label = "Giờ thức dậy",
                     value = String.format("%02d:%02d", endHour, endMinute),
@@ -126,14 +144,16 @@ fun SleepSettingDialog(
                         Text("Hủy", color = Color.Gray)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Button(
-                        onClick = {
-                            onSave(selectedDate, startHour, startMinute, endHour, endMinute)
-                        },
+                    Button(onClick = {
+                        onSave(
+                            selectedDate,
+                            startState.hour, startState.minute,
+                            endState.hour, endState.minute
+                        )
+                    },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1))
-                    ) {
-                        Text("Lưu", color = Color.White)
-                    }
+
+                    ) { Text("Lưu", color = Color.White) }
                 }
             }
         }

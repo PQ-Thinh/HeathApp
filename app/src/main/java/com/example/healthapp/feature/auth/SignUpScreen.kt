@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -34,8 +33,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.tooling.preview.Preview
-
 
 
 @Composable
@@ -52,7 +49,7 @@ fun SignUpScreen(
     val isPreview = LocalInspectionMode.current
     var isContentVisible by remember { mutableStateOf(isPreview) }
 
-    val context = LocalContext.current
+
 
     LaunchedEffect(Unit) {
         if (!isPreview) {
@@ -326,12 +323,12 @@ fun SignUpScreen(
     }
 }
 
-@Preview(showBackground = true)
-@Composable
-fun SignUpScreenPreview() {
-    SignUpScreen(
-        onLoginClick = {},
-        onSignUp = { email, password ->
-        }
-    )
-}
+//@Preview(showBackground = true)
+//@Composable
+//fun SignUpScreenPreview() {
+//    SignUpScreen(
+//        onLoginClick = {},
+//        onSignUp = { email, password ->
+//        }
+//    )
+//}

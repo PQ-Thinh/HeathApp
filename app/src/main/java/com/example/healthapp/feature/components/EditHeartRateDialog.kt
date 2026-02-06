@@ -55,7 +55,6 @@ fun EditHeartDialog(
                     Button(
                         onClick = { datePickerDialog.show() },
                         modifier = Modifier.weight(1f),
-                        // --- CHỈNH MÀU Ở ĐÂY ---
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White,
                             contentColor = Color.Black
@@ -67,7 +66,6 @@ fun EditHeartDialog(
                     Button(
                         onClick = { timePickerDialog.show() },
                         modifier = Modifier.weight(1f),
-                        // --- CHỈNH MÀU Ở ĐÂY ---
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.White,
                             contentColor = Color.Black

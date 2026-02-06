@@ -3,20 +3,22 @@ package com.example.healthapp.feature.components
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Build
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.example.healthapp.ui.theme.AestheticColors
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
@@ -34,8 +36,8 @@ fun AddStepDialog(
     initialStartTime: Long = System.currentTimeMillis()
 ) {
 
-    val initialDateTime = java.time.Instant.ofEpochMilli(initialStartTime)
-        .atZone(java.time.ZoneId.systemDefault())
+    val initialDateTime = Instant.ofEpochMilli(initialStartTime)
+        .atZone(ZoneId.systemDefault())
     // 1. Start Time States
     var selectedDate by remember { mutableStateOf(initialDateTime.toLocalDate()) }
     var selectedTime by remember { mutableStateOf(initialDateTime.toLocalTime()) }
@@ -75,6 +77,10 @@ fun AddStepDialog(
             modifier = Modifier
                 .fillMaxWidth(),
             shape = MaterialTheme.shapes.large,
+            colors = CardDefaults.cardColors(
+//                containerColor = Color.White,
+//                contentColor = Color.Black
+            ),
 
         ) {
             Column(
@@ -92,10 +98,20 @@ fun AddStepDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(onClick = { datePickerDialog.show() }, modifier = Modifier.weight(1f)) {
+                    Button(onClick = { datePickerDialog.show() }, modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
+                        ) {
                         Text(selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")))
                     }
-                    Button(onClick = { timePickerDialog.show() }, modifier = Modifier.weight(1f)) {
+                    Button(onClick = { timePickerDialog.show() }, modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                    ),
+                    ) {
                         Text(selectedTime.format(DateTimeFormatter.ofPattern("HH:mm")))
                     }
                 }
@@ -148,7 +164,11 @@ fun AddStepDialog(
                             selectedDate = LocalDate.now()
                             selectedTime = LocalTime.now()
                         },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
                     ) {
                         Text("Reset")
                     }
@@ -180,7 +200,11 @@ fun AddStepDialog(
                             onSave(startTimeMillis, duration!!, steps!!)
                         }
                     },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White,
+                            contentColor = Color.Black
+                        ),
                     ) {
                         Text("Lưu")
                     }
