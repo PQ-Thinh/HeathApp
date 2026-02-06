@@ -7,6 +7,7 @@ data class HeartRateRecordEntity(
     val userId: String,
     var time: Long,
     var bpm: Int,
+    val source: String = ""
 ) {
     constructor() : this("", "", 0, 0)
 }

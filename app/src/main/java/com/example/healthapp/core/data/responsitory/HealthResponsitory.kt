@@ -106,10 +106,10 @@ class HealthRepository @Inject constructor(
     }
 
     private suspend fun syncAndCleanStepRecords(userId: String, start: LocalDateTime, end: LocalDateTime) {
-        // 1. Lấy tất cả bản ghi từ Health Connect (Nguồn gốc)
+        //Lấy tất cả bản ghi từ Health Connect (Nguồn gốc)
         val hcRecords = healthConnectManager.readRawStepRecords(start, end)
 
-        // 2. Lấy tất cả bản ghi từ Firestore (Bản sao)
+        //Lấy tất cả bản ghi từ Firestore (Bản sao)
         val startTimeMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val endTimeMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
@@ -268,13 +268,15 @@ class HealthRepository @Inject constructor(
                 .collection("daily_health").document(todayStr)
                 .set(dailyUpdate, SetOptions.merge())
 
+            val timeMilli = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
             // Lưu log chi tiết bản ghi
-            val timeMilli = now.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
             val record = HeartRateRecordEntity(
                 id = UUID.randomUUID().toString(),
                 userId = userId,
                 time = timeMilli,
-                bpm = bpm
+                bpm = bpm,
+                source = context.packageName
             )
             firestore.collection("users").document(userId)
                 .collection("heart_rate_records").document(record.id)
@@ -329,7 +331,8 @@ class HealthRepository @Inject constructor(
             userId = userId,
             startTime = startTime,
             endTime = endTime,
-            type = "Sleep"
+            type = "Sleep",
+            source = context.packageName
         )
         firestore.collection("users").document(userId)
             .collection("sleep_sessions").document(sessionEntity.id)

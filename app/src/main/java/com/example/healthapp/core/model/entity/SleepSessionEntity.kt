@@ -9,7 +9,8 @@ data class SleepSessionEntity(
     var startTime: Long = 0,
     var endTime: Long = 0,
     var type: String="Light, Deep, REM, Awake",
-    var updatedAt: Long = System.currentTimeMillis()
+    var updatedAt: Long = System.currentTimeMillis(),
+    val source: String = ""
 ) {
     constructor() : this("", "", 0, 0, "", 0)
 }
