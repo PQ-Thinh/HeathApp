@@ -248,17 +248,18 @@ class HealthRepository @Inject constructor(
 
 
     //Lưu Nhịp tim
-    suspend fun saveHeartRate(userId: String, bpm: Int) {
-        val now = LocalDateTime.now()
-        val startOfDay = now.toLocalDate().atStartOfDay()
-        val todayStr = now.toLocalDate().toString()
+    suspend fun saveHeartRate(userId: String, bpm: Int, time: LocalDateTime) {
 
-        val success = healthConnectManager.writeHeartRate(bpm, now)
+        val success = healthConnectManager.writeHeartRate(bpm,time)
 
         if (success) {
-            // TÍNH TOÁN LẠI TRUNG BÌNH CỘNG TRONG NGÀY
-            val avgBpm = healthConnectManager.readHeartRate(startOfDay, now)
+            val startOfDay = time.toLocalDate().atStartOfDay()
+            val endOfDay = LocalDateTime.now()
 
+            // TÍNH TOÁN LẠI TRUNG BÌNH CỘNG TRONG NGÀY
+            val avgBpm = healthConnectManager.readHeartRate(startOfDay, endOfDay)
+
+            val todayStr = time.toLocalDate().toString()
             val dailyUpdate = mapOf(
                 "date" to todayStr,
                 "userId" to userId,
@@ -281,6 +282,7 @@ class HealthRepository @Inject constructor(
             firestore.collection("users").document(userId)
                 .collection("heart_rate_records").document(record.id)
                 .set(record)
+                .await()
         }
     }
     suspend fun deleteHeartRate(record: HeartRateRecordEntity) {

@@ -19,6 +19,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.healthapp.core.model.entity.StepRecordEntity
 import com.example.healthapp.core.viewmodel.StepViewModel
+import com.example.healthapp.feature.components.DetailRow
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -164,20 +165,6 @@ fun InfoItem(label: String, value: String) {
     }
 }
 
-@Composable
-fun DetailRow(label: String, value: String, isHighlight: Boolean = false) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(text = label, color = Color.Gray)
-        Text(
-            text = value,
-            fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Normal,
-            color = if (isHighlight) Color(0xFF1976D2) else Color.Black // Highlight màu xanh dương
-        )
-    }
-}
 
 // Hàm làm đẹp tên nguồn
 fun formatSourceName(packageName: String, myPackageName: String): String {

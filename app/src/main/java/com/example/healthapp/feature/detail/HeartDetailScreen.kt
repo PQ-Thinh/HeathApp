@@ -4,6 +4,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
@@ -11,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.WatchLater
@@ -23,6 +25,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,8 +36,10 @@ import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.example.healthapp.core.model.entity.HeartRateRecordEntity
 import com.example.healthapp.core.viewmodel.HeartViewModel
 import com.example.healthapp.feature.chart.HeartChart
+import com.example.healthapp.feature.components.EditHeartDialog
 import com.example.healthapp.feature.components.GenericHistoryDialog
 import com.example.healthapp.feature.components.TopBar
+import com.example.healthapp.feature.detail.history.HeartHistoryDetailDialog
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
@@ -59,6 +64,9 @@ fun HeartDetailScreen(
     val selectedTimeRange by heartViewModel.selectedTimeRange.collectAsState()
 
     var showHistoryDialog by remember { mutableStateOf(false) }
+    var selectedRecord by remember { mutableStateOf<HeartRateRecordEntity?>(null) }
+    // State chọn sửa
+    var recordToEdit by remember { mutableStateOf<HeartRateRecordEntity?>(null) }
 
     // Setup Theme màu sắc
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
@@ -75,7 +83,35 @@ fun HeartDetailScreen(
         ),
         label = "float"
     )
+// --- 1. DIALOG CHI TIẾT ---
+    if (selectedRecord != null) {
+        HeartHistoryDetailDialog(
+            record = selectedRecord!!,
+            onDismiss = { selectedRecord = null },
+            onDelete = {
+                heartViewModel.deleteHeartRecord(it)
+                selectedRecord = null
+            },
+            onEdit = {
+                // Chuyển từ xem chi tiết sang sửa
+                recordToEdit = it
+                selectedRecord = null
+            }
+        )
+    }
 
+    // --- 2. DIALOG SỬA ---
+    if (recordToEdit != null) {
+        EditHeartDialog(
+            initialBpm = recordToEdit!!.bpm,
+            initialTime = recordToEdit!!.time,
+            onDismiss = { recordToEdit = null },
+            onSave = { newBpm, newTime ->
+                heartViewModel.editHeartRecord(recordToEdit!!, newBpm, newTime)
+                recordToEdit = null
+            }
+        )
+    }
     // --- DIALOG LỊCH SỬ ---
     if (showHistoryDialog) {
         GenericHistoryDialog(
@@ -85,8 +121,13 @@ fun HeartDetailScreen(
             onDelete = { record -> heartViewModel.deleteHeartRecord(record) },
             isDarkTheme = isDarkTheme,
             dateExtractor = { it.time },
-            onItemClick = {},
-            onEdit = {},
+            onItemClick = {
+                selectedRecord = it
+            },
+            onEdit = {
+                recordToEdit = it
+
+            },
             itemContent = { item, textColor ->
                 // Nội dung hiển thị trong Dialog (Chi tiết hơn)
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -296,7 +337,10 @@ fun HeartDetailScreen(
                                     item = item,
                                     colors = colors,
                                     heartColor = heartColor,
-                                    onDelete = { heartViewModel.deleteHeartRecord(item) }
+                                    onDelete = { heartViewModel.deleteHeartRecord(item) },
+                                    onEdit = { recordToEdit = item
+                                             },
+                                    modifier = Modifier.clickable { selectedRecord = item }
                                 )
                             }
                         }
@@ -316,12 +360,17 @@ fun SimpleHeartHistoryRow(
     item: HeartRateRecordEntity,
     colors: AestheticColors,
     heartColor: Color,
-    onDelete: () -> Unit // <--- 1. Thêm tham số callback xóa
+    onDelete: () -> Unit,
+    onEdit: () -> Unit,
+    modifier: Modifier
 ) {
-    var expanded by remember { mutableStateOf(false) } // <--- 2. State cho menu
+    var context = LocalContext.current
+    var expanded by remember { mutableStateOf(false) }
+    val isMyData = item.source == context.packageName
+
 
     Row(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(colors.glassContainer)
@@ -361,29 +410,40 @@ fun SimpleHeartHistoryRow(
         }
 
 
-        Box {
-            IconButton(onClick = { expanded = true }) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "Menu",
-                    tint = colors.textSecondary
-                )
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.background(colors.glassContainer) // Background theo theme
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Xóa", color = Color.Red) },
-                    onClick = {
-                        expanded = false
-                        onDelete()
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Default.Delete, contentDescription = null, tint = Color.Red)
-                    }
-                )
+        if (isMyData) {
+            Box {
+                IconButton(onClick = { expanded = true }) {
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = null,
+                        tint = colors.textSecondary
+                    )
+                }
+                DropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
+                    modifier = Modifier.background(colors.glassContainer)
+                ) {
+                    // Item 1: Sửa
+                    DropdownMenuItem(
+                        text = { Text("Sửa", color = Color.Black) },
+                        onClick = {
+                            expanded = false
+                            onEdit()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Edit, null, tint = Color.Black) }
+                    )
+
+                    // Item 2: Xóa
+                    DropdownMenuItem(
+                        text = { Text("Xóa", color = Color.Red) },
+                        onClick = {
+                            expanded = false
+                            onDelete()
+                        },
+                        leadingIcon = { Icon(Icons.Default.Delete, null, tint = Color.Red) }
+                    )
+                }
             }
         }
     }

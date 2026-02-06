@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
@@ -105,7 +106,7 @@ class HeartViewModel @Inject constructor(
         }
     }
 
-    private fun evaluateHeartRate(bpm: Int) {
+    fun evaluateHeartRate(bpm: Int) {
         _assessment.value = when {
             bpm == 0 -> "Chưa có dữ liệu"
             bpm < 60 -> "Nhịp tim chậm"
@@ -118,7 +119,7 @@ class HeartViewModel @Inject constructor(
     fun saveHeartRateRecord(bpm: Int) {
         val userId = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            repository.saveHeartRate(userId, bpm)
+            repository.saveHeartRate(userId, bpm, LocalDateTime.now())
             _latestHeartRate.value = bpm
             evaluateHeartRate(bpm)
             delay(1000)
@@ -147,9 +148,20 @@ class HeartViewModel @Inject constructor(
             }
         }
     }
-    fun formatDateTime(timestamp: Long): String {
-        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-        return sdf.format(Date(timestamp))
+    fun editHeartRecord(oldRecord: HeartRateRecordEntity, newBpm: Int, newTimeMillis: Long) {
+        val userId = auth.currentUser?.uid ?: return
+        viewModelScope.launch {
+            repository.deleteHeartRate(oldRecord)
+
+            val newTime = java.time.Instant.ofEpochMilli(newTimeMillis)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDateTime()
+
+            repository.saveHeartRate(userId, newBpm, newTime)
+
+            loadHistory()
+            loadChartData()
+        }
     }
 
     // Tiện ích theo dõi Auth
