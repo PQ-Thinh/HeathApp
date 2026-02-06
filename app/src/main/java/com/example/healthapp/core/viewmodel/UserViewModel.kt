@@ -109,9 +109,6 @@ class UserViewModel @Inject constructor(
         }
     }
 
-
-    // Trong UserViewModel.kt
-
     fun addHeight(height: Int) {
         val uid = auth.currentUser?.uid ?: return
 

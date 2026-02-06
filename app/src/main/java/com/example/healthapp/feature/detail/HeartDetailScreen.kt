@@ -34,6 +34,7 @@ import com.example.healthapp.core.model.entity.HeartRateRecordEntity
 import com.example.healthapp.core.viewmodel.HeartViewModel
 import com.example.healthapp.feature.chart.HeartChart
 import com.example.healthapp.feature.components.GenericHistoryDialog
+import com.example.healthapp.feature.components.TopBar
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
@@ -139,7 +140,7 @@ fun HeartDetailScreen(
 
         Scaffold(
             containerColor = Color.Transparent,
-            topBar = { HeartTopBar(onBackClick, colors) },
+            topBar = { TopBar(onBackClick, colors,"Nhịp Tim") },
             // Nút FAB đo nhịp tim
             floatingActionButton = {
                 FloatingActionButton(
@@ -337,7 +338,7 @@ fun SimpleHeartHistoryRow(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.WatchLater,
+                    imageVector = Icons.Default.Favorite,
                     contentDescription = null,
                     tint = heartColor,
                     modifier = Modifier.size(20.dp)

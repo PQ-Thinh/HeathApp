@@ -255,6 +255,20 @@ class HealthConnectManager(private val context: Context) {
             emptyList()
         }
     }
+    //  Đọc danh sách chi tiết các bản ghi bước chân
+    suspend fun readHeartRateRecords(time: LocalDateTime): List<HeartRateRecord> {
+        return try {
+            val request = ReadRecordsRequest(
+                recordType = HeartRateRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(time, time)
+            )
+            val response = healthConnectClient.readRecords(request)
+            response.records
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Lỗi đọc raw steps: ${e.message}")
+            emptyList()
+        }
+    }
 
     // --- 4. SLEEP MANAGEMENT ---
 

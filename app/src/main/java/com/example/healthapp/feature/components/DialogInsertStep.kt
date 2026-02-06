@@ -31,20 +31,22 @@ fun AddStepDialog(
     colors: AestheticColors,
     initialSteps: Int = 0,
     initialDuration: Int = 0,
-    initialDate: LocalDate = LocalDate.now(),
-    initialStartTime: Long = 0
+    initialStartTime: Long = System.currentTimeMillis()
 ) {
+
+    val initialDateTime = java.time.Instant.ofEpochMilli(initialStartTime)
+        .atZone(java.time.ZoneId.systemDefault())
     // 1. Start Time States
-    var selectedDate by remember { mutableStateOf(LocalDate.now()) }
-    var selectedTime by remember { mutableStateOf(LocalTime.now()) }
+    var selectedDate by remember { mutableStateOf(initialDateTime.toLocalDate()) }
+    var selectedTime by remember { mutableStateOf(initialDateTime.toLocalTime()) }
+
     var durationError by remember { mutableStateOf<String?>(null) }
     var stepsError by remember { mutableStateOf<String?>(null) }
 
-    // Duration State
-    var durationStr by remember { mutableStateOf("") }
-
+    // Nếu duration > 0 thì hiện số, ngược lại để trống
+    var durationStr by remember { mutableStateOf(if (initialDuration > 0) initialDuration.toString() else "") }
     // Step Count State
-    var stepsStr by remember { mutableStateOf("") }
+    var stepsStr by remember { mutableStateOf(if (initialSteps > 0) initialSteps.toString() else "") }
 
     // 4Metadata States (Read-only info from device)
     val recordingMethod = "Manual"
@@ -81,7 +83,8 @@ fun AddStepDialog(
                     .verticalScroll(rememberScrollState()), // Cho phép cuộn nếu màn hình nhỏ
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Thêm dữ liệu bước chân", style = MaterialTheme.typography.titleLarge)
+                val title = if (initialSteps > 0) "Chỉnh sửa dữ liệu" else "Thêm dữ liệu mới"
+                Text(title, style = MaterialTheme.typography.headlineSmall)
 
                 // Start Time (Ngày & Giờ) ---
                 Text("Thời gian bắt đầu", style = MaterialTheme.typography.labelMedium)
@@ -98,7 +101,9 @@ fun AddStepDialog(
                 }
 
                 // Duration (Thời gian di chuyển - phút) ---
-                OutlinedTextField( value = durationStr, onValueChange = { if (it.all { char -> char.isDigit() }) durationStr = it },
+                OutlinedTextField(
+                    value = durationStr,
+                    onValueChange = { if (it.all { char -> char.isDigit() }) durationStr = it },
                     label = { Text("Thời gian di chuyển (phút)") },
                     isError = durationError != null,
                     supportingText = { durationError?.let { Text(it, color = MaterialTheme.colorScheme.error) } },

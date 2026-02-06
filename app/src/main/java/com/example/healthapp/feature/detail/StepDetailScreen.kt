@@ -8,7 +8,6 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,7 +18,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -41,7 +39,7 @@ import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.feature.chart.StepChart
 import com.example.healthapp.feature.components.AddStepDialog
 import com.example.healthapp.feature.components.GenericHistoryDialog
-import com.example.healthapp.feature.components.StepHistoryDetailDialog
+import com.example.healthapp.feature.detail.history.StepHistoryDetailDialog
 import com.example.healthapp.feature.components.TopBar
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
@@ -97,7 +95,10 @@ fun StepDetailScreen(
             dataList = historyList,
             onDismiss = { showHistoryDialog = false },
             onDelete = { record -> stepViewModel.deleteStepRecord(record) },
-            onEdit = {record -> stepViewModel.editStepRecord(record,record.startTime, (record.startTime - record.endTime).toInt(), record.count)},
+            onEdit = {
+                recordToEdit = it
+                showAddDialog = true
+            },
             isDarkTheme = isDarkTheme,
             dateExtractor = { it.startTime },
             onItemClick = { selectedRecord = it },
@@ -158,8 +159,8 @@ fun StepDetailScreen(
             initialStartTime = recordToEdit?.startTime ?: System.currentTimeMillis(),
             // Tính duration cũ (nếu có), không thì mặc định 30
             initialDuration = if (recordToEdit != null)
-                ((recordToEdit!!.endTime - recordToEdit!!.startTime) / 60000).toInt()
-            else 30, // Mặc định 30p nếu thêm mới
+                ((recordToEdit!!.endTime - recordToEdit!!.startTime) / 60000).toInt().coerceAtLeast(1)
+            else 30,// Mặc định 30p nếu thêm mới
             colors = colors,
             onSave = { startTime, duration, steps ->
                 if (recordToEdit != null) {
@@ -361,7 +362,9 @@ fun StepDetailScreen(
                                     colors = colors,
                                     stepColor = stepColor,
                                     onDelete = { stepViewModel.deleteStepRecord(record) },
-                                    onEdit = { stepViewModel.editStepRecord(record,record.startTime, (record.startTime - record.endTime).toInt(), record.count) },
+                                    onEdit = { recordToEdit = record
+                                        selectedRecord = null
+                                        showAddDialog = true },
                                     modifier = Modifier.clickable { selectedRecord = record }
                                 )
                             }

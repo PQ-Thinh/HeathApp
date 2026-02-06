@@ -1,4 +1,4 @@
-package com.example.healthapp.feature.components
+package com.example.healthapp.feature.detail.history
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
