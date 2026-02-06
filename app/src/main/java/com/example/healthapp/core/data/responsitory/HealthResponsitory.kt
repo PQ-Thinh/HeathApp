@@ -46,13 +46,6 @@ class HealthRepository @Inject constructor(
     private val currentUserId: String?
         get() = auth.currentUser?.uid
 
-    // Đồng bộ Profile
-    suspend fun syncUserToCloud(user: UserEntity) {
-        firestore.collection("users").document(user.id)
-            .set(user, SetOptions.merge())
-            .await()
-    }
-
     //Lấy DailyHealth (Realtime Flow)
     fun getDailyHealth(date: String, userId: String): Flow<DailyHealthEntity?> = callbackFlow {
         val docRef = firestore.collection("users").document(userId)
@@ -82,10 +75,22 @@ class HealthRepository @Inject constructor(
         val startOfDay = now.toLocalDate().atStartOfDay()
         val todayStr = now.toLocalDate().toString()
 
-        // BƯỚC A: Lấy tổng bước "chuẩn" từ Health Connect (Đã sửa ở Bước 1)
-        // Số này chắc chắn đúng và khớp với Google Fit
+        // Lấy tổng bước "chuẩn" từ Health Connect
+        // Số này chắc chắn đúng và khớp với HC
         val hcSteps = healthConnectManager.readSteps(startOfDay, now)
         val hcHeartRateAvg = healthConnectManager.readHeartRate(startOfDay, now)
+
+        syncAndCleanStepRecords(userId, startOfDay, now)
+        recalculateDailySteps(userId, todayStr, startOfDay, now) // Hàm tính lại tổng bước
+
+        //  Sync Heart Rate
+        syncAndCleanHeartRecords(userId, startOfDay, now)
+        recalculateDailyHeartRate(userId, todayStr, startOfDay, now) // Hàm tính lại trung bình nhịp tim
+
+        //  Sync Sleep
+        // Lấy lùi lại 1 ngày để bao trọn giấc ngủ bắt đầu từ đêm hôm trước
+        syncAndCleanSleepSessions(userId, startOfDay.minusDays(1), now)
+        recalculateDailySleep(userId, todayStr, startOfDay, now) // Hàm tính lại tổng giờ ngủ
 
         val data = mapOf(
             "date" to todayStr,
@@ -101,7 +106,7 @@ class HealthRepository @Inject constructor(
 
         Log.d("HealthRepo", "Đã sync tổng bước chuẩn: $hcSteps")
 
-        // BƯỚC B: Gọi hàm đồng bộ chi tiết (Thêm Mới + Xóa Cũ)
+        //Gọi hàm đồng bộ chi tiết (Thêm Mới + Xóa Cũ)
         syncAndCleanStepRecords(userId, startOfDay, now)
     }
 
@@ -169,16 +174,131 @@ class HealthRepository @Inject constructor(
         }
     }
 
+    private suspend fun syncAndCleanHeartRecords(userId: String, start: LocalDateTime, end: LocalDateTime) {
+        // 1. Đọc từ Health Connect
+        val hcRecords = healthConnectManager.readRawHeartRecords(start, end)
+
+        val startMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        // 2. Đọc từ Firestore
+        val snapshot = firestore.collection("users").document(userId)
+            .collection("heart_rate_records")
+            .whereGreaterThanOrEqualTo("time", startMillis)
+            .whereLessThanOrEqualTo("time", endMillis)
+            .get().await()
+
+        val fsRecords = snapshot.toObjects(HeartRateRecordEntity::class.java)
+
+        // PHA 1: IMPORT (HC -> FB)
+        for (hcItem in hcRecords) {
+            val itemTime = hcItem.startTime.toEpochMilli()
+            val itemBpm = hcItem.samples.firstOrNull()?.beatsPerMinute?.toInt() ?: 0
+            if (itemBpm == 0) continue
+
+            val pkgName = try { hcItem.metadata.dataOrigin.packageName } catch (e: Exception) { "unknown" }
+
+            // Check trùng (BPM bằng nhau và thời gian lệch < 2s)
+            val exists = fsRecords.any { fs ->
+                fs.bpm == itemBpm && kotlin.math.abs(fs.time - itemTime) < 2000
+            }
+
+            if (!exists) {
+                val newRecord = HeartRateRecordEntity(
+                    id = UUID.randomUUID().toString(),
+                    userId = userId,
+                    time = itemTime,
+                    bpm = itemBpm,
+                    source = pkgName
+                )
+                firestore.collection("users").document(userId)
+                    .collection("heart_rate_records").document(newRecord.id).set(newRecord)
+            }
+        }
+
+        // PHA 2: CLEANUP (FB -> Xóa nếu HC mất)
+        for (fsItem in fsRecords) {
+            val existsInHc = hcRecords.any { hcItem ->
+                val itemTime = hcItem.startTime.toEpochMilli()
+                val itemBpm = hcItem.samples.firstOrNull()?.beatsPerMinute?.toInt() ?: 0
+                val pkgName = try { hcItem.metadata.dataOrigin.packageName } catch (e: Exception) { "unknown" }
+
+                // So sánh kỹ cả source để tránh xóa nhầm của app khác nếu chưa kịp sync
+                fsItem.bpm == itemBpm &&
+                        kotlin.math.abs(fsItem.time - itemTime) < 2000 &&
+                        (fsItem.source.isEmpty() || fsItem.source == pkgName)
+            }
+
+            if (!existsInHc) {
+                firestore.collection("users").document(userId)
+                    .collection("heart_rate_records").document(fsItem.id).delete()
+            }
+        }
+    }
+    private suspend fun syncAndCleanSleepSessions(userId: String, start: LocalDateTime, end: LocalDateTime) {
+        // Đọc từ HC
+        val hcRecords = healthConnectManager.readRawSleepRecords(start, end)
+
+        val startMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        // Đọc từ FB
+        val snapshot = firestore.collection("users").document(userId)
+            .collection("sleep_sessions")
+            .whereGreaterThanOrEqualTo("startTime", startMillis)
+            .whereLessThanOrEqualTo("startTime", endMillis)
+            .get().await()
+
+        val fsRecords = snapshot.toObjects(SleepSessionEntity::class.java)
+
+        // IMPORT
+        for (hcItem in hcRecords) {
+            val sTime = hcItem.startTime.toEpochMilli()
+            val eTime = hcItem.endTime.toEpochMilli()
+            val pkg = try { hcItem.metadata.dataOrigin.packageName } catch (e: Exception) { "unknown" }
+
+            val exists = fsRecords.any { fs ->
+                kotlin.math.abs(fs.startTime - sTime) < 2000 &&
+                        kotlin.math.abs(fs.endTime - eTime) < 2000
+            }
+
+            if (!exists) {
+                val newRecord = SleepSessionEntity(
+                    id = UUID.randomUUID().toString(),
+                    userId = userId,
+                    startTime = sTime,
+                    endTime = eTime,
+                    source = pkg
+                )
+                firestore.collection("users").document(userId)
+                    .collection("sleep_sessions").document(newRecord.id).set(newRecord)
+            }
+        }
+
+        //CLEANUP
+        for (fs in fsRecords) {
+            val existsInHc = hcRecords.any { hc ->
+                val sTime = hc.startTime.toEpochMilli()
+                val pkg = try { hc.metadata.dataOrigin.packageName } catch (e: Exception) { "unknown" }
+
+                kotlin.math.abs(fs.startTime - sTime) < 2000 && (fs.source.isEmpty() || fs.source == pkg)
+            }
+            if (!existsInHc) {
+                firestore.collection("users").document(userId)
+                    .collection("sleep_sessions").document(fs.id).delete()
+            }
+        }
+    }
     // Hàm phụ trợ: So sánh xem 2 record có phải là 1 không
     private fun isSameRecord(fsRecord: StepRecordEntity, hcStart: Long, hcCount: Int, hcSource: String): Boolean {
-        // 1. Số bước phải bằng nhau
+        //  Số bước phải bằng nhau
         if (fsRecord.count != hcCount) return false
 
-        // 2. Thời gian bắt đầu lệch không quá 2 giây (do sai số convert)
+        // Thời gian bắt đầu lệch không quá 2 giây (do sai số convert)
         val timeDiff = kotlin.math.abs(fsRecord.startTime - hcStart)
         if (timeDiff > 2000) return false
 
-        // 3. Nguồn (Source) phải giống nhau (QUAN TRỌNG ĐỂ TRÁNH XÓA NHẦM)
+        //  Nguồn (Source) phải giống nhau (QUAN TRỌNG ĐỂ TRÁNH XÓA NHẦM)
         // Nếu record cũ chưa có source thì bỏ qua check source
         if (fsRecord.source.isNotEmpty() && fsRecord.source != hcSource) return false
 
@@ -550,6 +670,66 @@ class HealthRepository @Inject constructor(
     fun stopRealtimeSync() {
         syncManager.stopListening()
     }
+
+
+    //-- AVG ---
+    // Tính tổng bước chân
+    private suspend fun recalculateDailySteps(userId: String, dateStr: String, start: LocalDateTime, end: LocalDateTime) {
+        val startMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val snapshot = firestore.collection("users").document(userId)
+            .collection("step_records")
+            .whereGreaterThanOrEqualTo("startTime", startMillis)
+            .whereLessThanOrEqualTo("startTime", endMillis)
+            .get().await()
+
+        val totalSteps = snapshot.toObjects(StepRecordEntity::class.java).sumOf { it.count }
+
+        firestore.collection("users").document(userId)
+            .collection("daily_health").document(dateStr)
+            .set(mapOf("steps" to totalSteps), SetOptions.merge())
+    }
+
+    // Tính trung bình nhịp tim
+    private suspend fun recalculateDailyHeartRate(userId: String, dateStr: String, start: LocalDateTime, end: LocalDateTime) {
+        val startMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val snapshot = firestore.collection("users").document(userId)
+            .collection("heart_rate_records")
+            .whereGreaterThanOrEqualTo("time", startMillis)
+            .whereLessThanOrEqualTo("time", endMillis)
+            .get().await()
+
+        val records = snapshot.toObjects(HeartRateRecordEntity::class.java)
+        val avg = if (records.isNotEmpty()) records.map { it.bpm }.average().toInt() else 0
+
+        firestore.collection("users").document(userId)
+            .collection("daily_health").document(dateStr)
+            .set(mapOf("heartRateAvg" to avg), SetOptions.merge())
+    }
+
+    // Tính tổng giờ ngủ
+    private suspend fun recalculateDailySleep(userId: String, dateStr: String, start: LocalDateTime, end: LocalDateTime) {
+        val startMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+        val snapshot = firestore.collection("users").document(userId)
+            .collection("sleep_sessions")
+            .whereGreaterThanOrEqualTo("startTime", startMillis)
+            .whereLessThanOrEqualTo("startTime", endMillis)
+            .get().await()
+
+        val totalMinutes = snapshot.toObjects(SleepSessionEntity::class.java).sumOf {
+            (it.endTime - it.startTime) / 60000
+        }
+
+        firestore.collection("users").document(userId)
+            .collection("daily_health").document(dateStr)
+            .set(mapOf("sleepHours" to totalMinutes), SetOptions.merge())
+    }
+
 }
 
 enum class ChartTimeRange { DAY, WEEK, MONTH, YEAR}

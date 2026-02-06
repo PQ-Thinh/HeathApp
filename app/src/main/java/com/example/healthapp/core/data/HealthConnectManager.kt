@@ -36,7 +36,7 @@ class HealthConnectManager(private val context: Context) {
         HealthPermission.getWritePermission(HeartRateRecord::class),
         HealthPermission.getReadPermission(SleepSessionRecord::class),
         HealthPermission.getWritePermission(SleepSessionRecord::class),
-       // HealthPermission.getReadPermission(SleepStageRecord::class)
+        // HealthPermission.getReadPermission(SleepStageRecord::class)
     )
 
     suspend fun hasAllPermissions(): Boolean {
@@ -97,6 +97,7 @@ class HealthConnectManager(private val context: Context) {
             Log.e("HealthConnect", "Lỗi ghi bước chân: ${e.message}")
         }
     }
+
     // Hàm lấy dữ liệu bước chân cho biểu đồ
     suspend fun readStepChartData(
         startTime: LocalDateTime,
@@ -122,8 +123,12 @@ class HealthConnectManager(private val context: Context) {
             return emptyList()
         }
     }
+
     //  Đọc danh sách chi tiết các bản ghi bước chân
-    suspend fun readRawStepRecords(startTime: LocalDateTime, endTime: LocalDateTime): List<StepsRecord> {
+    suspend fun readRawStepRecords(
+        startTime: LocalDateTime,
+        endTime: LocalDateTime
+    ): List<StepsRecord> {
         return try {
             val request = ReadRecordsRequest(
                 recordType = StepsRecord::class,
@@ -146,7 +151,8 @@ class HealthConnectManager(private val context: Context) {
 
             // Dùng zoneOffset để convert, KHÔNG dùng ZoneOffset.UTC ở đây
             val startInstant = time.toInstant(zoneOffset)
-            val endInstant = time.plusSeconds(60).toInstant(zoneOffset) // Tăng độ rộng mẫu lên chút cho chắc
+            val endInstant =
+                time.plusSeconds(60).toInstant(zoneOffset) // Tăng độ rộng mẫu lên chút cho chắc
 
             val record = HeartRateRecord(
                 startTime = startInstant,
@@ -168,6 +174,7 @@ class HealthConnectManager(private val context: Context) {
             false
         }
     }
+
     //Đọc nhịp tim trung bình
     suspend fun readHeartRate(startTime: LocalDateTime, endTime: LocalDateTime): Int {
         return try {
@@ -179,7 +186,8 @@ class HealthConnectManager(private val context: Context) {
             )
             if (response.records.isNotEmpty()) {
                 // Tính trung bình cộng nhịp tim
-                val avg = response.records.flatMap { it.samples }.map { it.beatsPerMinute }.average()
+                val avg =
+                    response.records.flatMap { it.samples }.map { it.beatsPerMinute }.average()
                 avg.toInt()
             } else 0
         } catch (e: Exception) {
@@ -198,7 +206,11 @@ class HealthConnectManager(private val context: Context) {
             val zoneOffset = ZoneId.systemDefault().rules.getOffset(LocalDateTime.now())
 
             val request = AggregateGroupByPeriodRequest(
-                metrics = setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MAX, HeartRateRecord.BPM_MIN),
+                metrics = setOf(
+                    HeartRateRecord.BPM_AVG,
+                    HeartRateRecord.BPM_MAX,
+                    HeartRateRecord.BPM_MIN
+                ),
                 timeRangeFilter = TimeRangeFilter.between(
                     startTime.toInstant(zoneOffset),
                     endTime.toInstant(zoneOffset)
@@ -232,7 +244,11 @@ class HealthConnectManager(private val context: Context) {
             val zoneOffset = zoneId.rules.getOffset(LocalDateTime.now())
 
             val request = AggregateGroupByDurationRequest(
-                metrics = setOf(HeartRateRecord.BPM_AVG, HeartRateRecord.BPM_MAX, HeartRateRecord.BPM_MIN),
+                metrics = setOf(
+                    HeartRateRecord.BPM_AVG,
+                    HeartRateRecord.BPM_MAX,
+                    HeartRateRecord.BPM_MIN
+                ),
                 timeRangeFilter = TimeRangeFilter.between(
                     startTime.toInstant(zoneOffset),
                     endTime.toInstant(zoneOffset)
@@ -252,6 +268,23 @@ class HealthConnectManager(private val context: Context) {
             }.filter { it.avg > 0 }.sortedBy { it.startTime }
         } catch (e: Exception) {
             Log.e("HealthConnectManager", "Lỗi Aggregation Duration: ${e.message}")
+            emptyList()
+        }
+    }
+
+    suspend fun readRawHeartRecords(
+        startTime: LocalDateTime,
+        endTime: LocalDateTime
+    ): List<HeartRateRecord> {
+        return try {
+            val request = ReadRecordsRequest(
+                recordType = HeartRateRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
+            )
+            val response = healthConnectClient.readRecords(request)
+            response.records
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Lỗi đọc raw steps: ${e.message}")
             emptyList()
         }
     }
@@ -299,6 +332,7 @@ class HealthConnectManager(private val context: Context) {
             return emptyList()
         }
     }
+
     suspend fun deleteRecords(recordType: KClass<out Record>, timeRangeFilter: TimeRangeFilter) {
         try {
             healthConnectClient.deleteRecords(recordType, timeRangeFilter)
@@ -307,36 +341,23 @@ class HealthConnectManager(private val context: Context) {
             Log.e("HealthConnect", "Lỗi xóa dữ liệu: ${e.message}")
         }
     }
-    // Hàm đọc chi tiết các giai đoạn ngủ
-//    suspend fun readSleepStages(start: LocalDateTime, end: LocalDateTime): List<SleepSessionEntity> {
-//        // 1 Tạo request đọc SleepStageRecord
-//        val request = ReadRecordsRequest(
-//            recordType = SleepStageRecord::class,
-//            timeRangeFilter = TimeRangeFilter.between(start, end)
-//        )
-//
-//        val response = healthConnectClient.readRecords(request)
-//
-//        // 2. Map dữ liệu sang Entity của bạn
-//        return response.records.map { stageRecord ->
-//            // Ánh xạ Type từ Health Connect sang String của bạn
-//            val typeString = when (stageRecord.stage) {
-//                SleepStageRecord.STAGE_TYPE_AWAKE -> "Awake"
-//                SleepStageRecord.STAGE_TYPE_LIGHT -> "Light"
-//                SleepStageRecord.STAGE_TYPE_DEEP -> "Deep"
-//                SleepStageRecord.STAGE_TYPE_REM -> "REM"
-//                else -> "Unknown"
-//            }
-//
-//            SleepSessionEntity(
-//                id = UUID.randomUUID().toString(), // Tạo ID mới
-//                userId = "",
-//                startTime = stageRecord.startTime.toEpochMilli(),
-//                endTime = stageRecord.endTime.toEpochMilli(),
-//                type = typeString
-//            )
-//        }
-//    }
+
+    suspend fun readRawSleepRecords(
+        startTime: LocalDateTime,
+        endTime: LocalDateTime
+    ): List<SleepSessionRecord> {
+        return try {
+            val request = ReadRecordsRequest(
+                recordType = SleepSessionRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(startTime, endTime)
+            )
+            val response = healthConnectClient.readRecords(request)
+            response.records
+        } catch (e: Exception) {
+            Log.e("HealthConnect", "Lỗi đọc raw steps: ${e.message}")
+            emptyList()
+        }
+    }
 }
 
 // --- DATA CLASSES (Đã chuẩn hóa dùng LocalDateTime) ---
