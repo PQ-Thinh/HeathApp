@@ -10,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -65,6 +66,7 @@ fun HeartDetailScreen(
 
     var showHistoryDialog by remember { mutableStateOf(false) }
     var selectedRecord by remember { mutableStateOf<HeartRateRecordEntity?>(null) }
+    var showAddDialog by remember { mutableStateOf(false) }
     // State chọn sửa
     var recordToEdit by remember { mutableStateOf<HeartRateRecordEntity?>(null) }
 
@@ -110,6 +112,18 @@ fun HeartDetailScreen(
                 heartViewModel.editHeartRecord(recordToEdit!!, newBpm, newTime)
                 recordToEdit = null
             }
+        )
+    }
+    if (showAddDialog) {
+        EditHeartDialog(
+            initialBpm = 0, // Mặc định 0 để ô nhập trống
+            initialTime = System.currentTimeMillis(), // Mặc định giờ hiện tại
+            onDismiss = { showAddDialog = false },
+            onSave = { bpm, time ->
+                heartViewModel.saveManualHeartRate(bpm, time)
+                showAddDialog = false
+            },
+            isEditing = false // Chế độ Thêm
         )
     }
     // --- DIALOG LỊCH SỬ ---
@@ -181,7 +195,7 @@ fun HeartDetailScreen(
 
         Scaffold(
             containerColor = Color.Transparent,
-            topBar = { TopBar(onBackClick, colors,"Nhịp Tim") },
+            topBar = { HeartTopBar(onBackClick, colors, onAddClick = { showAddDialog = true }) },
             // Nút FAB đo nhịp tim
             floatingActionButton = {
                 FloatingActionButton(
@@ -409,28 +423,40 @@ fun SimpleHeartHistoryRow(
 }
 
 @Composable
-fun HeartTopBar(onBackClick: () -> Unit, colors: AestheticColors) {
+fun HeartTopBar(
+    onBackClick: () -> Unit,
+    colors: AestheticColors,
+    onAddClick: () -> Unit // Thêm tham số này
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .statusBarsPadding()
             .padding(horizontal = 8.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween // Để nút Add sang phải
     ) {
-        IconButton(onClick = onBackClick) {
-            Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onBackClick) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = colors.textPrimary)
+            }
+            Text(
+                text = "Nhịp Tim",
+                style = TextStyle(
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.textPrimary,
+                    shadow = if (colors.background == DarkAesthetic.background)
+                        Shadow(Color.Black.copy(0.3f), blurRadius = 4f)
+                    else null
+                ),
+                modifier = Modifier.padding(start = 8.dp)
+            )
         }
-        Text(
-            text = "Nhịp Tim",
-            style = TextStyle(
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = colors.textPrimary,
-                shadow = if (colors.background == DarkAesthetic.background)
-                    Shadow(Color.Black.copy(0.3f), blurRadius = 4f)
-                else null
-            ),
-            modifier = Modifier.padding(start = 8.dp)
-        )
+
+        // Nút Thêm mới
+        IconButton(onClick = onAddClick) {
+            Icon(Icons.Default.Add, contentDescription = "Thêm thủ công", tint = colors.textPrimary)
+        }
     }
 }

@@ -21,7 +21,8 @@ fun EditHeartDialog(
     initialBpm: Int,
     initialTime: Long,
     onDismiss: () -> Unit,
-    onSave: (bpm: Int, time: Long) -> Unit
+    onSave: (bpm: Int, time: Long) -> Unit,
+    isEditing: Boolean = true
 ) {
     val context = LocalContext.current
 
@@ -29,7 +30,9 @@ fun EditHeartDialog(
 
     var selectedDate by remember { mutableStateOf(initialDateTime.toLocalDate()) }
     var selectedTime by remember { mutableStateOf(initialDateTime.toLocalTime()) }
-    var bpmStr by remember { mutableStateOf(initialBpm.toString()) }
+
+    val initialBpmStr = if (initialBpm > 0) initialBpm.toString() else ""
+    var bpmStr by remember { mutableStateOf(initialBpmStr) }
 
     val datePickerDialog = DatePickerDialog(
         context,
@@ -48,9 +51,11 @@ fun EditHeartDialog(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("Chỉnh sửa Nhịp tim", style = MaterialTheme.typography.titleLarge)
+                // [CẬP NHẬT] Tiêu đề thay đổi theo chế độ
+                val title = if (isEditing) "Chỉnh sửa Nhịp tim" else "Thêm Nhịp tim"
+                Text(title, style = MaterialTheme.typography.titleLarge)
 
-                // 1. Chọn ngày giờ (Đã chỉnh màu)
+                // 1. Chọn ngày giờ
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Button(
                         onClick = { datePickerDialog.show() },
@@ -97,7 +102,6 @@ fun EditHeartDialog(
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        // Nút Lưu giữ màu xanh (Primary) hoặc đổi thành màu khác nếu muốn
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary
                         )

@@ -163,6 +163,21 @@ class HeartViewModel @Inject constructor(
             loadChartData()
         }
     }
+    fun saveManualHeartRate(bpm: Int, timeMillis: Long) {
+        val userId = auth.currentUser?.uid ?: return
+        viewModelScope.launch {
+            val time = java.time.Instant.ofEpochMilli(timeMillis)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDateTime()
+
+            repository.saveHeartRate(userId, bpm, time)
+
+            // Refresh dữ liệu
+            delay(500)
+            loadHistory()
+            loadChartData()
+        }
+    }
 
     // Tiện ích theo dõi Auth
     @OptIn(ExperimentalCoroutinesApi::class)
