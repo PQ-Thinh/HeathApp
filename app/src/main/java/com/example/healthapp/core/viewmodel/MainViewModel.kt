@@ -42,6 +42,8 @@ class MainViewModel @Inject constructor(
     companion object {
         private val IS_INTRO_SHOWN_KEY = booleanPreferencesKey("is_intro_shown")
     }
+    // Biến cờ: Đã điều hướng đến màn hình chạy chưa?
+    private var _hasNavigatedToRun = false
 
     // --- STATE FLOWS ---
     private var dailyHealthJob: Job? = null
@@ -262,6 +264,20 @@ class MainViewModel @Inject constructor(
                 }
             }
         }
+    }
+    // --- Run Tracking---
+    // Hàm check xem có nên tự động mở RunScreen không
+    fun shouldAutoOpenRunScreen(isRunning: Boolean): Boolean {
+        if (isRunning && !_hasNavigatedToRun) {
+            _hasNavigatedToRun = true
+            return true
+        }
+        return false
+    }
+
+    // Khi user chủ động bấm vào nút chạy (hoặc từ thông báo), reset cờ này nếu cần
+    fun resetNavigationFlag() {
+        _hasNavigatedToRun = false
     }
 
     fun syncData() {

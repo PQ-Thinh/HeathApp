@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.example.healthapp.core.helperEnum.RunState
 import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.ui.theme.AestheticColors
@@ -54,13 +55,14 @@ fun RunTrackingScreen(
     val sessionDuration by stepViewModel.sessionDuration.collectAsState()
     val sessionDistance by stepViewModel.sessionDistance.collectAsState()
     val sessionSpeed by stepViewModel.sessionSpeed.collectAsState()
-    val isRunning by stepViewModel.isRunning.collectAsState()
+    val runState by stepViewModel.runState.collectAsState()
+    val isRunPrepared by stepViewModel.isRunPrepared.collectAsState()
     val isCountdownActive by stepViewModel.isCountdownActive.collectAsState()
 
     LaunchedEffect(Unit) {
         Configuration.getInstance().load(context, PreferenceManager.getDefaultSharedPreferences(context))
-        // Khi mới vào, nếu chưa chạy thì bật chế độ chuẩn bị (hiện nút Start overlay)
-        if (!stepViewModel.isRunning.value && sessionSteps == 0) {
+        //  Chỉ bật chế độ chuẩn bị (đếm ngược) khi thật sự chưa chạy
+        if (runState == RunState.IDLE && sessionSteps == 0) {
             stepViewModel.prepareRun()
         }
     }
@@ -136,25 +138,21 @@ fun RunTrackingScreen(
                     ) {
                         Button(
                             onClick = {
-                                if (isRunning) {
+                                if (runState == RunState.RUNNING) {
                                     stepViewModel.pauseRunSession()
-                                    // Service tự update do lắng nghe DataStore, không cần gọi onToggleService(false) cũng được,
-                                    // nhưng nếu service logic cần pause thì gọi:
-                                    // onToggleService(false) // Tùy logic service của bạn
                                 } else {
                                     stepViewModel.resumeRunSession()
-                                    // onToggleService(true)
                                 }
                             },
                             modifier = Modifier.weight(1f).height(64.dp),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = if (isRunning) Color(0xFFF59E0B) else Color(0xFF10B981)
+                                containerColor = if (runState == RunState.RUNNING) Color(0xFFF59E0B) else Color(0xFF10B981)
                             )
                         ) {
-                            Icon(if (isRunning) Icons.Default.Pause else Icons.Default.PlayArrow, null, tint = Color.White)
+                            Icon(if (runState == RunState.RUNNING) Icons.Default.Pause else Icons.Default.PlayArrow, null)
                             Spacer(Modifier.width(8.dp))
-                            Text(if (isRunning) "TẠM DỪNG" else "TIẾP TỤC", fontWeight = FontWeight.Bold)
+                            Text(if (runState == RunState.RUNNING) "TẠM DỪNG" else "TIẾP TỤC")
                         }
 
                         Button(
@@ -178,7 +176,7 @@ fun RunTrackingScreen(
 
         // --- LỚP PHỦ MỜ (OVERLAY) ĐẾM NGƯỢC ---
         AnimatedVisibility(
-            visible = isCountdownActive,
+            visible = isRunPrepared,
             enter = fadeIn(),
             exit = fadeOut(),
             modifier = Modifier.fillMaxSize()
@@ -235,7 +233,7 @@ fun CountDownOverlay(
             // Hiển thị nút Bắt đầu
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Button(
-                    onClick = { isCounting = true }, // Bắt đầu đếm
+                    onClick = { isCounting = true },
                     modifier = Modifier.size(200.dp),
                     shape = CircleShape,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF10B981))
@@ -259,7 +257,6 @@ fun CountDownOverlay(
     }
 }
 
-// ... OsmMapView và StatItemCompact giữ nguyên ...
 @Composable
 fun StatItemCompact(value: String, unit: String, colors: AestheticColors, color: Color? = null) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {

@@ -2,6 +2,7 @@ package com.example.healthapp.feature.components
 
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -25,6 +26,7 @@ import com.example.healthapp.ui.theme.AestheticColors
 
 @Composable
 fun FabMenu(
+    isRunActive: Boolean = false,
     modifier: Modifier = Modifier,
     expanded: Boolean,
     onExpandChange: (Boolean) -> Unit,
@@ -57,6 +59,16 @@ fun FabMenu(
                 label = "Lịch sử",
                 onClick = { /* Todo: Open history */ },
                 delay = 50
+            )
+        }
+        if (isRunActive) {
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .clip(CircleShape)
+                    .background(Color.Red)
+                    .align(Alignment.End)
+                    .border(2.dp, Color.White, CircleShape)
             )
         }
 

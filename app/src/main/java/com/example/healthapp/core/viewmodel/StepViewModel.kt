@@ -32,6 +32,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.ZoneId
 import androidx.datastore.preferences.core.Preferences
+import com.example.healthapp.core.helperEnum.RunState
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import java.util.concurrent.TimeUnit
@@ -55,8 +56,12 @@ class StepViewModel @Inject constructor(
 
 
     // --- RUN SESSION STATE ---
-    private val _isRunning = MutableStateFlow(false)
-    val isRunning = _isRunning.asStateFlow()
+    private val _runState = MutableStateFlow(RunState.IDLE)
+    val runState = _runState.asStateFlow()
+
+    // Biến cờ: Đã chuẩn bị chạy hay chưa (để hiện overlay đếm ngược)
+    private val _isRunPrepared = MutableStateFlow(false)
+    val isRunPrepared = _isRunPrepared.asStateFlow()
 
     val sessionSteps = MutableStateFlow(0)
     val sessionDuration = MutableStateFlow(0L)
@@ -197,11 +202,11 @@ class StepViewModel @Inject constructor(
                 val startSteps = prefs[PREF_START_STEPS] ?: 0
                 val startTime = prefs[PREF_START_TIME] ?: 0L
                 Log.d("StepDebug", "VM Restore: Running=$running, StartSteps=$startSteps")
-                if (_isRunning.value != running || _sessionStartTimeMillis != startTime) {
-                    _isRunning.value = running
+                if (_runState.value == RunState.IDLE) {
+                    _runState.value = RunState.RUNNING
                     _startSessionSteps = startSteps
                     _sessionStartTimeMillis = startTime
-
+                    startTimer()
                     if (running) {
                         startTimer()
                     } else {
@@ -212,16 +217,21 @@ class StepViewModel @Inject constructor(
         }
     }
     // --- USER ACTIONS ---
-    fun prepareRun() { _isCountdownActive.value = true }
-    fun cancelRunPreparation() { _isCountdownActive.value = false }
-
+    fun prepareRun() {
+        if (_runState.value == RunState.IDLE) {
+            _isRunPrepared.value = true
+        }
+    }
+    fun cancelRunPreparation() {
+        _isRunPrepared.value = false
+    }
     fun startRunSession(currentTotalSteps: Int) {
+        _isRunPrepared.value = false // Tắt overlay
         Log.d("StepDebug", "VM Start Clicked: InputSteps=$currentTotalSteps")
         viewModelScope.launch {
             _isCountdownActive.value = false
 
             val now = System.currentTimeMillis()
-            _isRunning.value = true
             _startSessionSteps = currentTotalSteps
             _sessionStartTimeMillis = now
 
@@ -242,9 +252,9 @@ class StepViewModel @Inject constructor(
     }
 
     fun updateSessionSteps(currentTotalSteps: Int) {
-        if (!_isRunning.value) return
-        // Nếu vừa Start mà chênh lệch quá lớn (>1000 bước), chứng tỏ mốc Start (29) bị sai.
-        // Cập nhật lại mốc Start = currentTotalSteps (1783)
+        if (_runState.value != RunState.RUNNING) return // Chỉ update khi đang chạy
+        // Nếu vừa Start mà chênh lệch quá lớn (>1000 bước), chứng tỏ mốc Start bị sai.
+        // Cập nhật lại mốc Start = currentTotalSteps
         if (_startSessionSteps > 0 && (currentTotalSteps - _startSessionSteps) > 1000) {
             Log.e(TAG, "AUTO-CORRECT MAJOR DRIFT: Fix Start $_startSessionSteps -> $currentTotalSteps")
             _startSessionSteps = currentTotalSteps
@@ -265,18 +275,17 @@ class StepViewModel @Inject constructor(
     }
 
     fun pauseRunSession() {
-        stopTimer()
-        _isRunning.value = false
-        viewModelScope.launch { dataStore.edit { it[PREF_IS_RUNNING] = false } }
+        _runState.value = RunState.PAUSED
+        pauseTimer()
     }
-
     fun resumeRunSession() {
+        _runState.value = RunState.RUNNING
         startTimer()
-        _isRunning.value = true
-        viewModelScope.launch { dataStore.edit { it[PREF_IS_RUNNING] = true } }
+        //viewModelScope.launch { dataStore.edit { it[PREF_IS_RUNNING] = true } }
     }
 
     fun finishRunSession(currentTotalSteps: Int) {
+        _runState.value = RunState.IDLE
         stopTimer()
         val steps = sessionSteps.value
         val startTime = _sessionStartTimeMillis
@@ -296,8 +305,7 @@ class StepViewModel @Inject constructor(
                 it.remove(PREF_START_TIME)
             }
 
-            // Reset UI
-            _isRunning.value = false
+
             sessionSteps.value = 0
             sessionDuration.value = 0
             sessionDistance.value = 0.0
@@ -311,8 +319,8 @@ class StepViewModel @Inject constructor(
     private fun startTimer() {
         if (timerJob?.isActive == true) return
         timerJob = viewModelScope.launch {
-            while (true) { // Loop vô tận, kiểm tra điều kiện bên trong
-                if (_isRunning.value && _sessionStartTimeMillis > 0) {
+            while (true) {
+                if (_runState.value == RunState.RUNNING && _sessionStartTimeMillis > 0) {
                     val duration = (System.currentTimeMillis() - _sessionStartTimeMillis) / 1000
                     sessionDuration.value = duration
 
@@ -330,6 +338,14 @@ class StepViewModel @Inject constructor(
     private fun stopTimer() {
         timerJob?.cancel()
         timerJob = null
+    }
+    private fun pauseTimer() {
+        timerJob?.cancel()
+        timerJob = null
+    }
+
+    private fun resumeTimer() {
+        startTimer()
     }
     // --- MANUAL INPUT (Chức năng nhập tay) ---
     fun saveManualStepRecord(startTime: Long, durationMinutes: Int, steps: Int) {

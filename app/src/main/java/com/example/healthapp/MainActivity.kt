@@ -363,7 +363,8 @@ class MainActivity : ComponentActivity() {
                                         startService(intent)
                                         mainViewModel.setServiceRunningStatus(false)
                                     }
-                                }
+                                },
+                                onNavigateToRun = { currentScreen = "run" }
                             )
                             "sleep_detail" -> SleepDetailScreen(
                                 onBackClick = { currentScreen = "dashboard" },

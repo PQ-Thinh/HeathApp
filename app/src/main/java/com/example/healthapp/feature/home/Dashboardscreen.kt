@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import com.example.healthapp.core.helperEnum.RunState
 import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.SleepViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
@@ -49,7 +50,6 @@ import com.example.healthapp.feature.detail.StepRunDetail
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
-import kotlinx.serialization.StringFormat
 
 @Composable
 fun HealthDashboardScreen(
@@ -66,9 +66,11 @@ fun HealthDashboardScreen(
     sleepViewModel: SleepViewModel,
     stepViewModel: StepViewModel,
     onToggleService: (Boolean) -> Unit = {},
-    isServiceRunning: Boolean = false
+    isServiceRunning: Boolean = false,
+    onNavigateToRun: () -> Unit
 ) {
-    val isViewModelRunning by stepViewModel.isRunning.collectAsState()
+    val runState by stepViewModel.runState.collectAsState()
+    val isRunningBackground = runState == RunState.RUNNING || runState == RunState.PAUSED
     val context = LocalContext.current
     val isPreview = LocalInspectionMode.current
     var isContentVisible by remember { mutableStateOf(isPreview) }
@@ -133,10 +135,10 @@ fun HealthDashboardScreen(
     }
 
     // 2. Logic tự động mở màn hình khi vào App
-    LaunchedEffect(isViewModelRunning) {
-        if (isViewModelRunning) {
-            isRunModeActive = true // Tự động bật Overlay
-            onToggleService(true)  // Đảm bảo service nền cũng chạy
+    LaunchedEffect(runState) {
+        val isRunning = runState == RunState.RUNNING || runState == RunState.PAUSED
+        if (mainViewModel.shouldAutoOpenRunScreen(isRunning)) {
+            onNavigateToRun()
         }
     }
     LaunchedEffect(Unit) {
@@ -308,6 +310,7 @@ fun HealthDashboardScreen(
 
         // 4. FAB MENU (Góc dưới phải)
         FabMenu(
+            isRunActive = isRunningBackground, // Truyền trạng thái vào FabMenu
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(24.dp),
@@ -316,8 +319,10 @@ fun HealthDashboardScreen(
             onRunClick = {
                 onRunClick() // Gọi hàm xin quyền và mở màn hình chạy
                 isFabExpanded = false // Đóng menu sau khi chọn
+                mainViewModel.resetNavigationFlag() // Reset để lần sau có thể auto lại (nếu cần logic đó)
+                onNavigateToRun()
             },
-            colors = colors
+            colors = colors,
         )
 
         // 5. RUN TRACKING SCREEN (Lớp phủ trên cùng)
@@ -356,7 +361,6 @@ fun HealthDashboardScreen(
     }
 }
 
-// ... (Giữ nguyên các hàm DashboardTopBar và HealthStatCard như cũ)
 @Composable
 fun DashboardTopBar(
     onProfileClick: () -> Unit,
