@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.ui.theme.AestheticColors
+import kotlinx.serialization.StringFormat
 
 @Composable
 fun StepRunDetail(
@@ -130,6 +132,17 @@ fun StepRunDetail(
                     label = "Đốt cháy",
                     value = "$calories",
                     unit = "kcal",
+                    color = Color(0xFFEF4444), // Red
+                    colors = colors
+                )
+                Divider(color = colors.glassBorder)
+
+                // Hàng 3: Calo
+                ResultRow(
+                    icon = Icons.Default.LocationOn,
+                    label = "Đi Được",
+                    value = String.format("%.2f","${(steps*0.7)/1000.0}"),
+                    unit = "km/h",
                     color = Color(0xFFEF4444), // Red
                     colors = colors
                 )

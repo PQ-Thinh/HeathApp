@@ -11,7 +11,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -66,8 +65,7 @@ fun HealthDashboardScreen(
     sleepViewModel: SleepViewModel,
     stepViewModel: StepViewModel,
     onToggleService: (Boolean) -> Unit = {},
-    isServiceRunning: Boolean = false,
-    onNavigateToRun: () -> Unit
+    isServiceRunning: Boolean = false
 ) {
     val runState by stepViewModel.runState.collectAsState()
     val isRunningBackground = runState == RunState.RUNNING || runState == RunState.PAUSED
@@ -78,6 +76,7 @@ fun HealthDashboardScreen(
     val steps by mainViewModel.realtimeSteps.collectAsState()
     val todayHealth by mainViewModel.todayHealthData.collectAsState()
 
+
     val realtimeBpm by mainViewModel.realtimeHeartRate.collectAsState()
     val displayBpm = if (realtimeBpm > 0) realtimeBpm else (todayHealth?.heartRateAvg ?: 0)
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
@@ -85,42 +84,45 @@ fun HealthDashboardScreen(
     val user by userViewModel.currentUserInfo.collectAsState()
     val duration by sleepViewModel.sleepDuration.collectAsState()
 
-    // --- STATE QUẢN LÝ UI MỚI ---
+    // --- STATE UI ---
     var isFabExpanded by remember { mutableStateOf(false) }
-    var isRunModeActive by remember { mutableStateOf(false) } // Trạng thái màn hình chạy bộ
+    // Biến này sẽ bật/tắt lớp phủ màn hình chạy
+    var isRunModeActive by remember { mutableStateOf(false) }
 
     var showResultScreen by remember { mutableStateOf(false) }
     var resultSteps by remember { mutableIntStateOf(0) }
     var resultCalories by remember { mutableIntStateOf(0) }
     var resultTime by remember { mutableLongStateOf(0L) }
 
+    // Kiểm tra ngay khi vào Dashboard, nếu đang chạy ngầm thì mở lại RunTrackingScreen
+    LaunchedEffect(Unit) {
+        val currentState = stepViewModel.runState.value
+        val isRunning = currentState == RunState.RUNNING || currentState == RunState.PAUSED
+        if (mainViewModel.shouldAutoOpenRunScreen(isRunning)) {
+            isRunModeActive = true
+        }
+    }
 
-    // --- PERMISSION LAUNCHER (Quyền Thông báo + Vị trí) ---
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
         onResult = { permissions ->
             val notifGranted = permissions[Manifest.permission.POST_NOTIFICATIONS] ?: false
             val locGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
             if (notifGranted || locGranted || (Build.VERSION.SDK_INT < 33)) {
+                // Đủ quyền -> Mở lớp phủ chạy bộ
+                mainViewModel.resetNavigationFlag()
                 isRunModeActive = true
-                onToggleService(true) // Bật service
-            } else {
-                // Xử lý khi từ chối (Optional: Show Dialog)
-                return@rememberLauncherForActivityResult
+                onToggleService(true)
             }
         }
     )
 
-    // Hàm xử lý khi bấm nút "Chạy bộ" từ FAB
     fun onRunClick() {
         val permissionsToRequest = mutableListOf<String>()
-
-        // 1. Quyền thông báo (Android 13+)
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        // 2. Quyền vị trí (Quan trọng cho tracking)
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
             permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
@@ -128,24 +130,18 @@ fun HealthDashboardScreen(
         if (permissionsToRequest.isNotEmpty()) {
             permissionLauncher.launch(permissionsToRequest.toTypedArray())
         } else {
-            // Đã có đủ quyền -> Chạy luôn
+            // Đủ quyền -> Mở lớp phủ
+            mainViewModel.resetNavigationFlag()
             isRunModeActive = true
             onToggleService(true)
         }
     }
 
-    // 2. Logic tự động mở màn hình khi vào App
-    LaunchedEffect(runState) {
-        val isRunning = runState == RunState.RUNNING || runState == RunState.PAUSED
-        if (mainViewModel.shouldAutoOpenRunScreen(isRunning)) {
-            onNavigateToRun()
-        }
-    }
     LaunchedEffect(Unit) {
         if (!isPreview) isContentVisible = true
     }
 
-    // Background Animation
+    // (Phần Animation nền giữ nguyên...)
     val infiniteTransition = rememberInfiniteTransition(label = "background")
     val floatAnim by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -162,7 +158,6 @@ fun HealthDashboardScreen(
             .fillMaxSize()
             .background(colors.background)
     ) {
-        // 1. Dynamic Background Canvas
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawCircle(
                 brush = Brush.radialGradient(
@@ -183,7 +178,6 @@ fun HealthDashboardScreen(
             )
         }
 
-        // 2. Main Dashboard Content (Scaffold)
         Scaffold(
             containerColor = Color.Transparent,
             topBar = {
@@ -199,11 +193,11 @@ fun HealthDashboardScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
-                    .padding(bottom = 80.dp), // Chừa chỗ cho FAB để không bị che nội dung cuối
+                    .padding(bottom = 80.dp),
                 contentPadding = PaddingValues(24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // Welcome Section
+                // (Phần Card hiển thị giữ nguyên...)
                 item {
                     AnimatedVisibility(
                         visible = isContentVisible,
@@ -211,7 +205,7 @@ fun HealthDashboardScreen(
                     ) {
                         Column {
                             Text(
-                                text = "Xin Chào, ${user?.name ?: "It's me"}!",
+                                text = "Xin Chào, ${user?.name ?: "User"}!",
                                 style = TextStyle(
                                     fontSize = 28.sp,
                                     fontWeight = FontWeight.Black,
@@ -228,16 +222,13 @@ fun HealthDashboardScreen(
                     }
                 }
 
-                // Stats Grid (Tim + Ngủ)
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         HealthStatCard(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { onHeartDetailClick() },
+                            modifier = Modifier.weight(1f).clickable { onHeartDetailClick() },
                             title = "Nhịp Tim",
                             value = displayBpm.toString(),
                             unit = "BPM",
@@ -248,9 +239,7 @@ fun HealthDashboardScreen(
                             delay = 200
                         )
                         HealthStatCard(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clickable { onSleepDetailClick() },
+                            modifier = Modifier.weight(1f).clickable { onSleepDetailClick() },
                             title = "Ngủ",
                             value = sleepViewModel.formatDuration(duration),
                             unit = "",
@@ -263,12 +252,11 @@ fun HealthDashboardScreen(
                     }
                 }
 
-                // BMI Card
                 item {
                     HealthStatCard(
                         modifier = Modifier.fillMaxWidth(),
                         title = "BMI",
-                        value = user?.bmi?.let { String.format("%.2f", it) } ?: "Updating...",
+                        value = user?.bmi?.let { String.format("%.2f", it) } ?: "...",
                         unit = "Kg/m²",
                         icon = Icons.Default.MonitorWeight,
                         accentColor = Color(0xFF8B5CF6),
@@ -278,15 +266,12 @@ fun HealthDashboardScreen(
                     )
                 }
 
-                // Large Step Card
                 item {
                     HealthStatCard(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onStepDetailClick() },
+                        modifier = Modifier.fillMaxWidth().clickable { onStepDetailClick() },
                         title = "Bước Đếm",
                         value = steps.toString(),
-                        unit = "steps today",
+                        unit = "bước hôm nay",
                         icon = Icons.Default.DirectionsRun,
                         accentColor = Color(0xFF10B981),
                         colors = colors,
@@ -298,41 +283,36 @@ fun HealthDashboardScreen(
             }
         }
 
-        // 3. OVERLAY MỜ (Hiện khi mở Menu)
         if (isFabExpanded) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f)) // Màn tối mờ
-                    .clickable { isFabExpanded = false } // Bấm ra ngoài để đóng
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .clickable { isFabExpanded = false }
             )
         }
 
-        // 4. FAB MENU (Góc dưới phải)
         FabMenu(
-            isRunActive = isRunningBackground, // Truyền trạng thái vào FabMenu
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(24.dp),
+            isRunActive = isRunningBackground,
+            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
             expanded = isFabExpanded,
             onExpandChange = { isFabExpanded = it },
             onRunClick = {
-                onRunClick() // Gọi hàm xin quyền và mở màn hình chạy
-                isFabExpanded = false // Đóng menu sau khi chọn
-                mainViewModel.resetNavigationFlag() // Reset để lần sau có thể auto lại (nếu cần logic đó)
-                onNavigateToRun()
+                onRunClick()
+                isFabExpanded = false
             },
             colors = colors,
         )
 
-        // 5. RUN TRACKING SCREEN (Lớp phủ trên cùng)
+        // --- LỚP PHỦ RUN TRACKING ---
+        // Gọi trực tiếp ở đây, KHÔNG chuyển qua MainActivity
         AnimatedVisibility(
             visible = isRunModeActive,
-            enter = slideInVertically(initialOffsetY = { it }), // Trượt từ dưới lên
-            exit = slideOutVertically(targetOffsetY = { it })   // Trượt xuống khi đóng
+            enter = slideInVertically(initialOffsetY = { it }),
+            exit = slideOutVertically(targetOffsetY = { it })
         ) {
             RunTrackingScreen(
-               stepViewModel = stepViewModel,
+                stepViewModel = stepViewModel,
                 onClose = { isRunModeActive = false },
                 onToggleService = onToggleService,
                 colors = colors,
@@ -345,6 +325,7 @@ fun HealthDashboardScreen(
                 },
             )
         }
+
         AnimatedVisibility(
             visible = showResultScreen,
             enter = fadeIn() + scaleIn(),
@@ -362,87 +343,36 @@ fun HealthDashboardScreen(
 }
 
 @Composable
-fun DashboardTopBar(
-    onProfileClick: () -> Unit,
-    onNotificationsClick: () -> Unit,
-    onSettingsClick: () -> Unit,
-    colors: AestheticColors
-) {
+fun DashboardTopBar(onProfileClick: () -> Unit, onNotificationsClick: () -> Unit, onSettingsClick: () -> Unit, colors: AestheticColors) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 16.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(
-            onClick = onSettingsClick,
-            modifier = Modifier.background(colors.glassContainer, CircleShape)
-        ) {
+        IconButton(onClick = onSettingsClick, modifier = Modifier.background(colors.glassContainer, CircleShape)) {
             Icon(Icons.Default.Settings, null, tint = colors.textPrimary)
         }
-
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onNotificationsClick) {
-                Icon(Icons.Default.Notifications, null, tint = colors.textPrimary)
-            }
+            IconButton(onClick = onNotificationsClick) { Icon(Icons.Default.Notifications, null, tint = colors.textPrimary) }
             Spacer(modifier = Modifier.width(8.dp))
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(colors.gradientOrb1, colors.gradientOrb2)))
-                    .border(1.dp, colors.glassBorder, CircleShape)
-                    .clickable { onProfileClick() },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(Icons.Default.Person, contentDescription = "Profile", tint = Color.White, modifier = Modifier.size(24.dp))
+            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(Brush.linearGradient(listOf(colors.gradientOrb1, colors.gradientOrb2))).border(1.dp, colors.glassBorder, CircleShape).clickable { onProfileClick() }, contentAlignment = Alignment.Center) {
+                Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.size(24.dp))
             }
         }
     }
 }
 
 @Composable
-fun HealthStatCard(
-    modifier: Modifier = Modifier,
-    title: String,
-    value: String,
-    unit: String,
-    icon: ImageVector,
-    accentColor: Color,
-    colors: AestheticColors,
-    visible: Boolean,
-    delay: Int,
-    isLarge: Boolean = false
-) {
-    AnimatedVisibility(
-        visible = visible,
-        enter = fadeIn(tween(800, delay)) + scaleIn(initialScale = 0.9f, animationSpec = tween(800, delay)),
-        modifier = modifier
-    ) {
-        Column(
-            modifier = Modifier
-                .clip(RoundedCornerShape(32.dp))
-                .background(colors.glassContainer)
-                .border(1.dp, colors.glassBorder, RoundedCornerShape(32.dp))
-                .padding(24.dp)
-        ) {
-            Icon(
-                imageVector = icon, contentDescription = null, tint = accentColor,
-                modifier = Modifier.size(if (isLarge) 32.dp else 24.dp)
-            )
+fun HealthStatCard(modifier: Modifier = Modifier, title: String, value: String, unit: String, icon: ImageVector, accentColor: Color, colors: AestheticColors, visible: Boolean, delay: Int, isLarge: Boolean = false) {
+    AnimatedVisibility(visible = visible, enter = fadeIn(tween(800, delay)) + scaleIn(initialScale = 0.9f, animationSpec = tween(800, delay)), modifier = modifier) {
+        Column(modifier = Modifier.clip(RoundedCornerShape(32.dp)).background(colors.glassContainer).border(1.dp, colors.glassBorder, RoundedCornerShape(32.dp)).padding(24.dp)) {
+            Icon(imageVector = icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(if (isLarge) 32.dp else 24.dp))
             Spacer(modifier = Modifier.height(16.dp))
             Text(title, color = colors.textSecondary, fontSize = 14.sp)
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = value, color = colors.textPrimary,
-                    fontSize = if (isLarge) 42.sp else 28.sp, fontWeight = FontWeight.Black
-                )
+                Text(text = value, color = colors.textPrimary, fontSize = if (isLarge) 42.sp else 28.sp, fontWeight = FontWeight.Black)
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = unit, color = accentColor.copy(alpha = 0.8f), fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp)
-                )
+                Text(text = unit, color = accentColor.copy(alpha = 0.8f), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
             }
         }
     }

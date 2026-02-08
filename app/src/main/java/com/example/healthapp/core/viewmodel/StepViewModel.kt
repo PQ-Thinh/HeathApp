@@ -3,6 +3,7 @@ package com.example.healthapp.core.viewmodel
 import android.content.ContentValues.TAG
 import android.util.Log
 import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
@@ -12,29 +13,20 @@ import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.StepBucket
 import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.example.healthapp.core.data.responsitory.HealthRepository
+import com.example.healthapp.core.helperEnum.RunState // <--- IMPORT ĐÚNG PACKAGE
 import com.example.healthapp.core.model.entity.StepRecordEntity
 import com.example.healthapp.core.model.entity.UserEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.ZoneId
-import androidx.datastore.preferences.core.Preferences
-import com.example.healthapp.core.helperEnum.RunState
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
@@ -46,7 +38,7 @@ class StepViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>
 ) : ViewModel() {
 
-    // --- CHART & HISTORY (Giữ nguyên) ---
+    // --- CHART & HISTORY ---
     private val _chartData = MutableStateFlow<List<StepBucket>>(emptyList())
     val chartData = _chartData.asStateFlow()
     private val _stepHistory = MutableStateFlow<List<StepRecordEntity>>(emptyList())
@@ -54,12 +46,11 @@ class StepViewModel @Inject constructor(
     private val _selectedTimeRange = MutableStateFlow(ChartTimeRange.WEEK)
     val selectedTimeRange = _selectedTimeRange.asStateFlow()
 
-
     // --- RUN SESSION STATE ---
+    // Sử dụng Enum thay vì Boolean để quản lý trạng thái tốt hơn
     private val _runState = MutableStateFlow(RunState.IDLE)
     val runState = _runState.asStateFlow()
 
-    // Biến cờ: Đã chuẩn bị chạy hay chưa (để hiện overlay đếm ngược)
     private val _isRunPrepared = MutableStateFlow(false)
     val isRunPrepared = _isRunPrepared.asStateFlow()
 
@@ -77,21 +68,15 @@ class StepViewModel @Inject constructor(
     private var userWeight = 70f
     private var strideLength = 0.7
     private var timerJob: Job? = null
-    // --- State cho Chart ---
 
-    private var _sessionStartTime = MutableStateFlow<LocalDateTime?>(null)
-    val sessionStartTime = _sessionStartTime.asStateFlow()
-
-
-    // Key lưu trữ
+    // Key lưu trữ DataStore
     companion object {
         val PREF_IS_RUNNING = booleanPreferencesKey("session_is_running")
         val PREF_START_STEPS = intPreferencesKey("session_start_steps")
         val PREF_START_TIME = longPreferencesKey("session_start_time")
     }
 
-    // --- State: Thông tin User (Realtime từ Firestore) ---
-    //Dùng flatMapLatest để tự động lắng nghe lại khi đổi user
+    // --- State: Thông tin User ---
     @OptIn(ExperimentalCoroutinesApi::class)
     val currentUserInfo: Flow<UserEntity?> = authStateChanges()
         .flatMapLatest { firebaseUser ->
@@ -104,7 +89,7 @@ class StepViewModel @Inject constructor(
                             if (snapshot != null && snapshot.exists()) {
                                 val user = snapshot.toObject(UserEntity::class.java)
                                 if (user != null) {
-                                    userWeight = user.weight ?: 70f // Cập nhật cân nặng để tính Calo
+                                    userWeight = user.weight ?: 70f
                                     trySend(user)
                                 }
                             } else {
@@ -117,29 +102,20 @@ class StepViewModel @Inject constructor(
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
-
     init {
         restoreSession()
-        // Tự động theo dõi trạng thái đăng nhập
+        // Tự động load dữ liệu khi login thành công
         viewModelScope.launch {
             authStateChanges().collectLatest { user ->
-                if (user == null) {
-                    // Logout -> Xóa sạch dữ liệu
-                    clearData()
-                } else {
-                    // Login -> Tải dữ liệu mới
-                    loadData()
-                }
+                if (user == null) clearData() else loadData()
             }
         }
     }
-
 
     private fun clearData() {
         _chartData.value = emptyList()
         _stepHistory.value = emptyList()
         sessionSteps.value = 0
-        _sessionStartTime.value = null
         _startSessionSteps = 0
         userWeight = 70f
     }
@@ -155,94 +131,93 @@ class StepViewModel @Inject constructor(
     }
 
     private fun loadChartData() {
-        // Kiểm tra user trước khi gọi repository để tránh lỗi
         if (auth.currentUser == null) return
-
         viewModelScope.launch {
-            val data = repository.getStepChartData(_selectedTimeRange.value)
-            _chartData.value = data
+            _chartData.value = repository.getStepChartData(_selectedTimeRange.value)
         }
     }
 
     private fun loadHistory() {
         if (auth.currentUser == null) return
-
         viewModelScope.launch {
             _stepHistory.value = repository.getStepRecordHistory()
         }
     }
 
     fun deleteStepRecord(record: StepRecordEntity) {
-        val uid = auth.currentUser?.uid ?: return
-
-        // Xóa khỏi List hiển thị NGAY LẬP TỨC
         val currentList = _stepHistory.value.toMutableList()
         currentList.remove(record)
         _stepHistory.value = currentList
-
         viewModelScope.launch {
             try {
-                //Sau đó mới gọi xuống Database xóa ngầm
                 repository.deleteStepRecord(record)
-                // Load lại chart cho chuẩn số liệu
                 loadChartData()
             } catch (e: Exception) {
-                // Nếu lỗi thì load lại list cũ (hoàn tác)
                 loadHistory()
-                Log.e("HeartViewModel", "Xóa thất bại", e)
+                Log.e("StepViewModel", "Xóa thất bại", e)
             }
         }
     }
-    // --- LOGIC RUNNING SESSION ---
+
+    // --- LOGIC RUNNING SESSION  ---
 
     private fun restoreSession() {
         viewModelScope.launch {
             dataStore.data.collectLatest { prefs ->
-                val running = prefs[PREF_IS_RUNNING] ?: false
+                val isRunningInStore = prefs[PREF_IS_RUNNING] ?: false
                 val startSteps = prefs[PREF_START_STEPS] ?: 0
                 val startTime = prefs[PREF_START_TIME] ?: 0L
-                Log.d("StepDebug", "VM Restore: Running=$running, StartSteps=$startSteps")
-                if (_runState.value == RunState.IDLE) {
-                    _runState.value = RunState.RUNNING
-                    _startSessionSteps = startSteps
-                    _sessionStartTimeMillis = startTime
-                    startTimer()
-                    if (running) {
+
+                Log.d("StepDebug", "VM Restore: Running=$isRunningInStore")
+
+                // Đồng bộ DataStore (Boolean) -> RunState (Enum)
+                if (isRunningInStore) {
+                    // Nếu Store bảo đang chạy mà State đang IDLE -> Khôi phục
+                    if (_runState.value == RunState.IDLE) {
+                        _runState.value = RunState.RUNNING
+                        _startSessionSteps = startSteps
+                        _sessionStartTimeMillis = startTime
                         startTimer()
-                    } else {
-                        stopTimer()
+                    }
+                } else {
+                    // Nếu Store bảo dừng, mà State chưa dừng -> Dừng lại
+                    if (_runState.value != RunState.IDLE) {
+                        // Tạm thời coi như kết thúc hoặc IDLE nếu store bị xóa
+                        // _runState.value = RunState.IDLE
+                        // stopTimer()
                     }
                 }
             }
         }
     }
-    // --- USER ACTIONS ---
+
     fun prepareRun() {
         if (_runState.value == RunState.IDLE) {
             _isRunPrepared.value = true
         }
     }
+
     fun cancelRunPreparation() {
         _isRunPrepared.value = false
     }
+
     fun startRunSession(currentTotalSteps: Int) {
-        _isRunPrepared.value = false // Tắt overlay
-        Log.d("StepDebug", "VM Start Clicked: InputSteps=$currentTotalSteps")
+        _isRunPrepared.value = false
         viewModelScope.launch {
             _isCountdownActive.value = false
+            _runState.value = RunState.RUNNING // Cập nhật trạng thái
 
             val now = System.currentTimeMillis()
             _startSessionSteps = currentTotalSteps
             _sessionStartTimeMillis = now
 
-            // Reset hiển thị ngay lập tức
             sessionSteps.value = 0
             sessionDuration.value = 0
             sessionDistance.value = 0.0
 
-            startTimer() // Chạy đồng hồ ngay
-            Log.d("StepDebug", "VM Started: Set StartSteps=$_startSessionSteps")
-            // Lưu vào DataStore (Service sẽ lắng nghe cái này)
+            startTimer()
+
+            // Lưu DataStore
             dataStore.edit {
                 it[PREF_IS_RUNNING] = true
                 it[PREF_START_STEPS] = currentTotalSteps
@@ -252,25 +227,22 @@ class StepViewModel @Inject constructor(
     }
 
     fun updateSessionSteps(currentTotalSteps: Int) {
-        if (_runState.value != RunState.RUNNING) return // Chỉ update khi đang chạy
-        // Nếu vừa Start mà chênh lệch quá lớn (>1000 bước), chứng tỏ mốc Start bị sai.
-        // Cập nhật lại mốc Start = currentTotalSteps
+        // Chỉ update khi đang ở trạng thái RUNNING
+        if (_runState.value != RunState.RUNNING) return
+
+        // Fix lỗi lệch bước chân (Drift)
         if (_startSessionSteps > 0 && (currentTotalSteps - _startSessionSteps) > 1000) {
-            Log.e(TAG, "AUTO-CORRECT MAJOR DRIFT: Fix Start $_startSessionSteps -> $currentTotalSteps")
+            Log.e(TAG, "AUTO-CORRECT: Fix Start $_startSessionSteps -> $currentTotalSteps")
             _startSessionSteps = currentTotalSteps
-            // Lưu lại vào DataStore để lần sau Service cũng đọc được mốc đúng này
             viewModelScope.launch {
                 dataStore.edit { it[PREF_START_STEPS] = currentTotalSteps }
             }
         }
 
-        // Nếu mốc start vẫn 0 (chưa có sensor), thì bước chân phiên này tạm tính là 0
         if (_startSessionSteps == 0) return
 
         val stepsTaken = (currentTotalSteps - _startSessionSteps).coerceAtLeast(0)
-        Log.d("StepDebug", "VM Calc: Current($currentTotalSteps) - Start($_startSessionSteps) = Result($stepsTaken)")
         sessionSteps.value = stepsTaken
-
         sessionDistance.value = (stepsTaken * strideLength) / 1000.0
     }
 
@@ -278,10 +250,10 @@ class StepViewModel @Inject constructor(
         _runState.value = RunState.PAUSED
         pauseTimer()
     }
+
     fun resumeRunSession() {
         _runState.value = RunState.RUNNING
         startTimer()
-        //viewModelScope.launch { dataStore.edit { it[PREF_IS_RUNNING] = true } }
     }
 
     fun finishRunSession(currentTotalSteps: Int) {
@@ -291,7 +263,7 @@ class StepViewModel @Inject constructor(
         val startTime = _sessionStartTimeMillis
 
         viewModelScope.launch {
-            // Lưu dữ liệu vào DB/HealthConnect
+            // Lưu dữ liệu vào HealthConnect & Firestore
             if (steps > 0 && startTime > 0) {
                 val start = java.time.Instant.ofEpochMilli(startTime).atZone(ZoneId.systemDefault()).toLocalDateTime()
                 val end = LocalDateTime.now()
@@ -305,7 +277,7 @@ class StepViewModel @Inject constructor(
                 it.remove(PREF_START_TIME)
             }
 
-
+            // Reset UI
             sessionSteps.value = 0
             sessionDuration.value = 0
             sessionDistance.value = 0.0
@@ -320,11 +292,11 @@ class StepViewModel @Inject constructor(
         if (timerJob?.isActive == true) return
         timerJob = viewModelScope.launch {
             while (true) {
+                // Chỉ chạy timer khi RUNNING
                 if (_runState.value == RunState.RUNNING && _sessionStartTimeMillis > 0) {
                     val duration = (System.currentTimeMillis() - _sessionStartTimeMillis) / 1000
                     sessionDuration.value = duration
 
-                    // Tính tốc độ (Km/h)
                     if (duration > 0 && sessionDistance.value > 0) {
                         val hours = duration / 3600.0
                         sessionSpeed.value = sessionDistance.value / hours
@@ -335,50 +307,41 @@ class StepViewModel @Inject constructor(
         }
     }
 
-    private fun stopTimer() {
-        timerJob?.cancel()
-        timerJob = null
-    }
     private fun pauseTimer() {
         timerJob?.cancel()
         timerJob = null
     }
 
-    private fun resumeTimer() {
-        startTimer()
+    private fun stopTimer() {
+        timerJob?.cancel()
+        timerJob = null
     }
-    // --- MANUAL INPUT (Chức năng nhập tay) ---
+
+    // --- MANUAL INPUT ---
     fun saveManualStepRecord(startTime: Long, durationMinutes: Int, steps: Int) {
         viewModelScope.launch {
             val endTime = startTime + (durationMinutes * 60 * 1000)
-            val startDateTime = java.time.Instant.ofEpochMilli(startTime)
-                .atZone(ZoneId.systemDefault()).toLocalDateTime()
-            val endDateTime = java.time.Instant.ofEpochMilli(endTime)
-                .atZone(ZoneId.systemDefault()).toLocalDateTime()
+            val startDateTime = java.time.Instant.ofEpochMilli(startTime).atZone(ZoneId.systemDefault()).toLocalDateTime()
+            val endDateTime = java.time.Instant.ofEpochMilli(endTime).atZone(ZoneId.systemDefault()).toLocalDateTime()
             repository.writeStepsToHealthConnect(startDateTime, endDateTime, steps)
             loadData()
         }
     }
+
     fun editStepRecord(oldRecord: StepRecordEntity, newStartTime: Long, newDurationMinutes: Int, newSteps: Int) {
         viewModelScope.launch {
-            // Xóa bản ghi cũ (cả HC và Firestore)
             repository.deleteStepRecord(oldRecord)
-
-            //  Tính toán thời gian mới
-            val startTime = java.time.Instant.ofEpochMilli(newStartTime)
-                .atZone(ZoneId.systemDefault()).toLocalDateTime()
+            val startTime = java.time.Instant.ofEpochMilli(newStartTime).atZone(ZoneId.systemDefault()).toLocalDateTime()
             val endTime = startTime.plusMinutes(newDurationMinutes.toLong())
-
-            //  Ghi bản ghi mới (Coi như nhập mới)
             repository.writeStepsToHealthConnect(startTime, endTime, newSteps)
-
-            //Refresh dữ liệu
             loadData()
         }
     }
-     fun calculateCalories(steps: Long): Int {
+
+    fun calculateCalories(steps: Long): Int {
         return (0.04 * steps * userWeight / 70).toInt()
     }
+
     fun formatDuration(seconds: Long): String {
         val h = TimeUnit.SECONDS.toHours(seconds)
         val m = TimeUnit.SECONDS.toMinutes(seconds) % 60
@@ -386,7 +349,7 @@ class StepViewModel @Inject constructor(
         return if (h > 0) String.format("%02d:%02d:%02d", h, m, s)
         else String.format("%02d:%02d", m, s)
     }
-    // Theo dõi Auth state
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun authStateChanges() = callbackFlow {
         val listener = FirebaseAuth.AuthStateListener { auth -> trySend(auth.currentUser) }

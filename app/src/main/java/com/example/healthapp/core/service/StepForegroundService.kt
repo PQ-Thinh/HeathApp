@@ -110,7 +110,6 @@ class StepForegroundService : Service() {
             // --- CHẾ ĐỘ RUN TRACKING ---
 
             // Nếu runStartSteps = 0 (do ViewModel chưa kịp lưu), ta tạm lấy currentRawSteps làm mốc
-            // Kết quả: 1789 - 1789 = 0 (ĐÚNG)
             val effectiveStartSteps = if (runStartSteps == 0) currentRawSteps else runStartSteps
 
             val sessionSteps = (currentRawSteps - effectiveStartSteps).coerceAtLeast(0)
