@@ -32,6 +32,7 @@ import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.ui.theme.AestheticColors
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch // Cần thêm import này
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.views.MapView
@@ -49,6 +50,9 @@ fun RunTrackingScreen(
 ) {
     val context = LocalContext.current
 
+    // 1. Tạo Scope để xử lý delay an toàn
+    val scope = rememberCoroutineScope()
+
     // State
     val rawSensorSteps by mainViewModel.rawSensorSteps.collectAsState(initial = 0)
     val sessionSteps by stepViewModel.sessionSteps.collectAsState()
@@ -59,31 +63,40 @@ fun RunTrackingScreen(
     val isRunPrepared by stepViewModel.isRunPrepared.collectAsState()
     val isCountdownActive by stepViewModel.isCountdownActive.collectAsState()
 
+    // 2. Biến kiểm soát hiển thị Map (QUAN TRỌNG ĐỂ FIX CRASH)
+    var isMapVisible by remember { mutableStateOf(true) }
+
     LaunchedEffect(Unit) {
         Configuration.getInstance().load(context, PreferenceManager.getDefaultSharedPreferences(context))
-        //  Chỉ bật chế độ chuẩn bị (đếm ngược) khi thật sự chưa chạy
         if (runState == RunState.IDLE && sessionSteps == 0) {
             stepViewModel.prepareRun()
         }
     }
 
     LaunchedEffect(rawSensorSteps) {
-        Log.d("StepDebug", "UI Received: $rawSensorSteps")
+        // Log.d("StepDebug", "UI Received: $rawSensorSteps") // Có thể comment bớt log cho đỡ rối
         stepViewModel.updateSessionSteps(rawSensorSteps)
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // --- LỚP UI CHÍNH (Map + Stats) ---
+        // --- LỚP UI CHÍNH ---
         Column(modifier = Modifier.fillMaxSize()) {
-            // 1. Map
+            // 1. Map Area
             Box(
                 modifier = Modifier
                     .weight(0.6f)
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
             ) {
-                OsmMapView(modifier = Modifier.fillMaxSize())
+                // CHỈ HIỂN THỊ MAP KHI isMapVisible = true
+                if (isMapVisible) {
+                    OsmMapView(modifier = Modifier.fillMaxSize())
+                } else {
+                    // Khi tắt map, hiện nền xám nhẹ để tránh giật màn hình
+                    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFEEEEEE)))
+                }
+
                 IconButton(
                     onClick = onClose,
                     modifier = Modifier
@@ -155,12 +168,48 @@ fun RunTrackingScreen(
                             Text(if (runState == RunState.RUNNING) "TẠM DỪNG" else "TIẾP TỤC")
                         }
 
+                        // --- NÚT KẾT THÚC (LOGIC ĐÃ SỬA) ---
                         Button(
                             onClick = {
+                                val TAG = "CRASH_FIX"
+
+                                // BƯỚC 1: Tắt Map ngay lập tức
+                                isMapVisible = false
+                                Log.d(TAG, "1. Map ẩn đi")
+
+                                // BƯỚC 2: Snapshot dữ liệu (Lấy số liệu ra khỏi ViewModel trước khi reset)
+                                val finalSteps = sessionSteps
+                                val finalDuration = sessionDuration
+                                val finalCalories = stepViewModel.calculateCalories(finalSteps.toLong())
+
+                                // BƯỚC 3: Dừng Service & Lưu DB
                                 onToggleService(false)
                                 stepViewModel.finishRunSession(rawSensorSteps)
-                                onFinishRun(sessionSteps, stepViewModel.calculateCalories(sessionSteps.toLong()), sessionDuration)
-                                onClose()
+
+                                // BƯỚC 4: Quy trình thoát an toàn (Chạy trong Coroutine)
+                                scope.launch {
+                                    // Đợi 500ms: Đủ lâu để MapView chết hẳn và RAM được dọn dẹp
+                                    Log.d(TAG, "2. Đợi 500ms dọn dẹp Map...")
+                                    delay(500)
+
+                                    // QUAN TRỌNG: Gọi onClose() TRƯỚC
+                                    // Để màn hình RunTracking đóng lại, kích hoạt hiệu ứng slideOut
+                                    Log.d(TAG, "3. Đóng màn hình RunTracking (onClose)")
+                                    onClose()
+
+                                    // Đợi thêm 100ms cho hiệu ứng đóng bắt đầu mượt mà
+                                    delay(100)
+
+                                    // CUỐI CÙNG: Mới hiện màn hình kết quả
+                                    // Lúc này Map đã mất, màn hình chạy đã đóng, nên Result hiện lên sẽ an toàn
+                                    Log.d(TAG, "4. Hiện màn hình kết quả (onFinishRun)")
+                                    try {
+                                        onFinishRun(finalSteps, finalCalories, finalDuration)
+                                    } catch (e: Exception) {
+                                        Log.e(TAG, "LỖI KHI MỞ MÀN HÌNH KẾT QUẢ: ${e.message}")
+                                        e.printStackTrace()
+                                    }
+                                }
                             },
                             modifier = Modifier.weight(1f).height(64.dp),
                             shape = RoundedCornerShape(16.dp),
@@ -183,9 +232,7 @@ fun RunTrackingScreen(
         ) {
             CountDownOverlay(
                 colors = colors,
-                onStartClick = {
-                    // Logic đếm ngược 3s rồi Start
-                },
+                onStartClick = {},
                 onCancel = {
                     stepViewModel.cancelRunPreparation()
                     onClose()
@@ -199,6 +246,41 @@ fun RunTrackingScreen(
     }
 }
 
+
+@Composable
+fun OsmMapView(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+
+    val mapView = remember {
+        MapView(context).apply {
+            setTileSource(TileSourceFactory.MAPNIK)
+            setMultiTouchControls(true)
+            controller.setZoom(19.0)
+
+            // Setup Location Overlay
+            val locationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(context), this)
+            locationOverlay.enableMyLocation()
+            locationOverlay.enableFollowLocation()
+            overlays.add(locationOverlay)
+        }
+    }
+
+    // Quản lý vòng đời MapView chặt chẽ hơn
+    DisposableEffect(Unit) {
+        mapView.onResume()
+        onDispose {
+            try {
+                mapView.onPause()
+                mapView.onDetach()
+                mapView.tileProvider = null // Ngắt kết nối tile provider
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    AndroidView(factory = { mapView }, modifier = modifier)
+}
 @Composable
 fun CountDownOverlay(
     colors: AestheticColors,
@@ -272,28 +354,4 @@ fun StatItemCompact(value: String, unit: String, colors: AestheticColors, color:
             color = colors.textSecondary.copy(alpha = 0.8f)
         )
     }
-}
-
-@Composable
-fun OsmMapView(modifier: Modifier = Modifier) {
-    val context = LocalContext.current
-    val mapView = remember {
-        MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
-            setMultiTouchControls(true)
-            controller.setZoom(19.0)
-            val locationOverlay = MyLocationNewOverlay(GpsMyLocationProvider(context), this)
-            locationOverlay.enableMyLocation()
-            locationOverlay.enableFollowLocation()
-            overlays.add(locationOverlay)
-        }
-    }
-    DisposableEffect(Unit) {
-        mapView.onResume()
-        onDispose {
-            mapView.onPause()
-            mapView.onDetach()
-        }
-    }
-    AndroidView(factory = { mapView }, modifier = modifier)
 }

@@ -137,13 +137,13 @@ fun StepRunDetail(
                 )
                 Divider(color = colors.glassBorder)
 
-                // Hàng 3: Calo
+
                 ResultRow(
                     icon = Icons.Default.LocationOn,
-                    label = "Đi Được",
-                    value = String.format("%.2f","${(steps*0.7)/1000.0}"),
-                    unit = "km/h",
-                    color = Color(0xFFEF4444), // Red
+                    label = "Quãng đường",
+                    value = String.format("%.2f", (steps * 0.7) / 1000.0),
+                    unit = "km",
+                    color = Color(0xFFF59E0B),
                     colors = colors
                 )
             }
