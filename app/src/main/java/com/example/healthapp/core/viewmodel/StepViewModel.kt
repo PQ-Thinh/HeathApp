@@ -11,8 +11,8 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.StepBucket
-import com.example.healthapp.core.data.responsitory.ChartTimeRange
 import com.example.healthapp.core.data.responsitory.HealthRepository
+import com.example.healthapp.core.helperEnum.ChartTimeRange
 import com.example.healthapp.core.helperEnum.RunState // <--- IMPORT ĐÚNG PACKAGE
 import com.example.healthapp.core.model.entity.StepRecordEntity
 import com.example.healthapp.core.model.entity.UserEntity

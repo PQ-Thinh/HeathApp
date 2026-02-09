@@ -13,7 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.healthapp.core.data.SleepBucket
-import com.example.healthapp.core.data.responsitory.ChartTimeRange
+import com.example.healthapp.core.helperEnum.ChartTimeRange
 import com.github.mikephil.charting.charts.BarChart
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.BarData

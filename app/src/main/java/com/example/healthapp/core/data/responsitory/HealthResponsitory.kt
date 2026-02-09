@@ -30,6 +30,7 @@ import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.time.TimeRangeFilter
+import com.example.healthapp.core.helperEnum.ChartTimeRange
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
 import java.time.ZoneId
@@ -735,5 +736,3 @@ class HealthRepository @Inject constructor(
     }
 
 }
-
-enum class ChartTimeRange { DAY, WEEK, MONTH, YEAR}
