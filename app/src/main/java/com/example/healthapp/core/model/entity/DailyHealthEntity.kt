@@ -8,7 +8,8 @@ data class DailyHealthEntity(
     var steps: Int = 0,
     var heartRateAvg: Int = 0,
     var caloriesBurned: Float = 0f,
-    var sleepHours: Long = 0
-) {
+    var sleepHours: Long = 0,
+    var targetSteps: Int = 0,
+    ) {
     constructor() : this("", "", 0, 0, 0f, 0)
 }

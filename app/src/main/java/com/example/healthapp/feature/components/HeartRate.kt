@@ -47,7 +47,7 @@ fun HeartRateScreen(
     var currentBpm by remember { mutableIntStateOf(0) }
     var isFingerDetected by remember { mutableStateOf(false) }
 
-    // Logic Kalman Filter (Giữ nguyên từ code cũ của bạn)
+    // Logic Kalman Filter
     val kalman = remember { JKalman(2, 1) }
     val m = remember { Matrix(1, 1) }
 
@@ -100,7 +100,6 @@ fun HeartRateScreen(
             contentAlignment = Alignment.Center
         ) {
             if (cameraPermissionState.status.isGranted) {
-                // SỬA TẠI ĐÂY: Dùng SurfaceView thay vì TextureView
                 AndroidView(
                     factory = { ctx ->
                         SurfaceView(ctx).apply {
@@ -117,7 +116,7 @@ fun HeartRateScreen(
                                 .setFingerDetectionListener { detected ->
                                     isFingerDetected = detected
                                 }
-                                .bpmUpdates(this) // 'this' là SurfaceView -> Hàm này là Public
+                                .bpmUpdates(this)
                                 .subscribe({ bpmData ->
                                     if (bpmData.value == 0) return@subscribe
 

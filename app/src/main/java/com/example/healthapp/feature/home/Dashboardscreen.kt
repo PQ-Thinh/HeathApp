@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsRun
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.NightsStay
@@ -44,6 +45,7 @@ import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.SleepViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.core.viewmodel.UserViewModel
+import com.example.healthapp.feature.components.EditTargetDialog
 import com.example.healthapp.feature.components.FabMenu
 import com.example.healthapp.feature.detail.StepRunDetail
 import com.example.healthapp.ui.theme.AestheticColors
@@ -93,6 +95,11 @@ fun HealthDashboardScreen(
     var resultSteps by remember { mutableIntStateOf(0) }
     var resultCalories by remember { mutableIntStateOf(0) }
     var resultTime by remember { mutableLongStateOf(0L) }
+
+    var showTargetDialog by remember { mutableStateOf(false) }
+
+    // Lấy target từ todayHealth, nếu chưa có (null hoặc 0) thì fallback về 10000
+    val targetSteps = if ((todayHealth?.targetSteps ?: 0) > 0) todayHealth!!.targetSteps else 10000
 
     // Kiểm tra ngay khi vào Dashboard, nếu đang chạy ngầm thì mở lại RunTrackingScreen
     LaunchedEffect(Unit) {
@@ -197,7 +204,7 @@ fun HealthDashboardScreen(
                 contentPadding = PaddingValues(24.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                // (Phần Card hiển thị giữ nguyên...)
+
                 item {
                     AnimatedVisibility(
                         visible = isContentVisible,
@@ -222,6 +229,29 @@ fun HealthDashboardScreen(
                     }
                 }
 
+                item {
+                    StepProgressCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        currentSteps = steps,
+                        targetSteps = targetSteps,
+                        colors = colors,
+                        visible = isContentVisible,
+                        delay = 400,
+                        onClick = { onStepDetailClick() },
+                        onEditTargetClick = { showTargetDialog = true }
+                    )
+
+                    if (showTargetDialog) {
+                        EditTargetDialog(
+                            initialTarget = targetSteps,
+                            onDismiss = { showTargetDialog = false },
+                            onConfirm = { newTarget ->
+                                mainViewModel.updateTargetSteps(newTarget)
+                                showTargetDialog = false
+                            }
+                        )
+                    }
+                }
                 item {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -305,7 +335,6 @@ fun HealthDashboardScreen(
         )
 
         // --- LỚP PHỦ RUN TRACKING ---
-        // Gọi trực tiếp ở đây, KHÔNG chuyển qua MainActivity
         AnimatedVisibility(
             visible = isRunModeActive,
             enter = slideInVertically(initialOffsetY = { it }),
@@ -343,19 +372,30 @@ fun HealthDashboardScreen(
 }
 
 @Composable
-fun DashboardTopBar(onProfileClick: () -> Unit, onNotificationsClick: () -> Unit, onSettingsClick: () -> Unit, colors: AestheticColors) {
+fun DashboardTopBar(
+    onProfileClick: () -> Unit,
+    onNotificationsClick: () -> Unit,
+    onSettingsClick: () -> Unit,
+    colors: AestheticColors) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(onClick = onSettingsClick, modifier = Modifier.background(colors.glassContainer, CircleShape)) {
+        IconButton(
+            onClick = onSettingsClick,
+            modifier = Modifier.background(colors.glassContainer, CircleShape)) {
             Icon(Icons.Default.Settings, null, tint = colors.textPrimary)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onNotificationsClick) { Icon(Icons.Default.Notifications, null, tint = colors.textPrimary) }
+            IconButton(onClick = onNotificationsClick) {
+                Icon(Icons.Default.Notifications, null, tint = colors.textPrimary) }
             Spacer(modifier = Modifier.width(8.dp))
-            Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(Brush.linearGradient(listOf(colors.gradientOrb1, colors.gradientOrb2))).border(1.dp, colors.glassBorder, CircleShape).clickable { onProfileClick() }, contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.size(40.dp)
+                .clip(CircleShape)
+                .background(Brush.linearGradient(listOf(colors.gradientOrb1, colors.gradientOrb2)))
+                .border(1.dp, colors.glassBorder, CircleShape)
+                .clickable { onProfileClick() }, contentAlignment = Alignment.Center) {
                 Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.size(24.dp))
             }
         }
@@ -363,16 +403,158 @@ fun DashboardTopBar(onProfileClick: () -> Unit, onNotificationsClick: () -> Unit
 }
 
 @Composable
-fun HealthStatCard(modifier: Modifier = Modifier, title: String, value: String, unit: String, icon: ImageVector, accentColor: Color, colors: AestheticColors, visible: Boolean, delay: Int, isLarge: Boolean = false) {
-    AnimatedVisibility(visible = visible, enter = fadeIn(tween(800, delay)) + scaleIn(initialScale = 0.9f, animationSpec = tween(800, delay)), modifier = modifier) {
-        Column(modifier = Modifier.clip(RoundedCornerShape(32.dp)).background(colors.glassContainer).border(1.dp, colors.glassBorder, RoundedCornerShape(32.dp)).padding(24.dp)) {
-            Icon(imageVector = icon, contentDescription = null, tint = accentColor, modifier = Modifier.size(if (isLarge) 32.dp else 24.dp))
+fun HealthStatCard(
+    modifier: Modifier = Modifier,
+    title: String, value: String,
+    unit: String, icon: ImageVector,
+    accentColor: Color, colors: AestheticColors,
+    visible: Boolean,
+    delay: Int,
+    isLarge: Boolean = false) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(800, delay)) + scaleIn(initialScale = 0.9f,
+            animationSpec = tween(800, delay)), modifier = modifier) {
+        Column(modifier = Modifier.clip(RoundedCornerShape(32.dp))
+            .background(colors.glassContainer)
+            .border(1.dp, colors.glassBorder, RoundedCornerShape(32.dp))
+            .padding(24.dp)) {
+            Icon(imageVector = icon,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier
+                    .size(if (isLarge) 32.dp else 24.dp))
             Spacer(modifier = Modifier.height(16.dp))
             Text(title, color = colors.textSecondary, fontSize = 14.sp)
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(text = value, color = colors.textPrimary, fontSize = if (isLarge) 42.sp else 28.sp, fontWeight = FontWeight.Black)
+                Text(text = value,
+                    color = colors.textPrimary,
+                    fontSize = if (isLarge) 42.sp else 28.sp,
+                    fontWeight = FontWeight.Black)
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(text = unit, color = accentColor.copy(alpha = 0.8f), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
+                Text(text = unit,
+                    color = accentColor.copy(alpha = 0.8f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 6.dp))
+            }
+        }
+    }
+}
+@Composable
+fun StepProgressCard(
+    modifier: Modifier = Modifier,
+    currentSteps: Int,
+    targetSteps: Int,
+    colors: AestheticColors,
+    visible: Boolean,
+    delay: Int,
+    onClick: () -> Unit,          // Click xem chi tiết
+    onEditTargetClick: () -> Unit // Click sửa mục tiêu
+) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(800, delay)) + scaleIn(initialScale = 0.9f, animationSpec = tween(800, delay)),
+        modifier = modifier
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(32.dp))
+                .background(colors.glassContainer)
+                .border(1.dp, colors.glassBorder, RoundedCornerShape(32.dp))
+                .clickable { onClick() } // Click toàn card -> xem chi tiết
+                .padding(24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            val progress = if (targetSteps > 0) currentSteps.toFloat() / targetSteps else 0f
+            val animatedProgress by animateFloatAsState(
+                targetValue = progress.coerceIn(0f, 1f),
+                animationSpec = tween(1500, delayMillis = 500, easing = FastOutSlowInEasing),
+                label = "stepProgress"
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // --- Phần Text bên trái ---
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.DirectionsRun, null, tint = Color(0xFF10B981), modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Bước chân", color = colors.textSecondary, fontSize = 16.sp)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "$currentSteps",
+                        style = TextStyle(
+                            fontSize = 40.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.textPrimary
+                        )
+                    )
+
+                    // Dòng hiển thị mục tiêu + Nút Edit
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = "/ $targetSteps mục tiêu",
+                            style = TextStyle(fontSize = 14.sp, color = colors.textSecondary)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        // Nút Edit nhỏ
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Sửa mục tiêu",
+                            tint = colors.textSecondary,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clickable { onEditTargetClick() } // Click vào bút -> Sửa
+                        )
+                    }
+                }
+
+                // --- Phần Vòng tròn bên phải ---
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(120.dp)
+                        .clickable { onEditTargetClick() } // Click vào vòng tròn -> Sửa
+                ) {
+                    Canvas(modifier = Modifier.size(120.dp)) {
+                        val strokeWidth = 12.dp.toPx()
+
+                        // 1. Vòng tròn Target (Nền mờ - Vòng 1)
+                        drawArc(
+                            color = Color(0xFF10B981).copy(alpha = 0.2f),
+                            startAngle = 0f,
+                            sweepAngle = 360f,
+                            useCenter = false,
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                        )
+
+                        // 2. Vòng tròn Steps (Tiến độ thực tế - Vòng 2)
+                        drawArc(
+                            brush = Brush.sweepGradient(
+                                colors = listOf(Color(0xFF10B981), Color(0xFF34D399), Color(0xFF10B981))
+                            ),
+                            startAngle = -90f,
+                            sweepAngle = 360 * animatedProgress,
+                            useCenter = false,
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                        )
+                    }
+                    // Số % ở giữa
+                    Text(
+                        text = "${(progress * 100).toInt()}%",
+                        style = TextStyle(
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = colors.textPrimary
+                        )
+                    )
+                }
             }
         }
     }

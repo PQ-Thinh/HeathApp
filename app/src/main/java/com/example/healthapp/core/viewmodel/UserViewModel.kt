@@ -166,7 +166,6 @@ class UserViewModel @Inject constructor(
         year: Int,
         height: Float,
         weight: Float,
-        targetSteps: Int
     ) {
         val uid = auth.currentUser?.uid ?: return
 
@@ -181,7 +180,6 @@ class UserViewModel @Inject constructor(
             "height" to height,
             "weight" to weight,
             "bmi" to bmi,
-            "targetSteps" to targetSteps,
             "updatedAt" to System.currentTimeMillis()
         )
 

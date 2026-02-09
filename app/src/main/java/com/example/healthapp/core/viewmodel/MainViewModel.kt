@@ -153,6 +153,20 @@ class MainViewModel @Inject constructor(
                 }
         }
     }
+    fun updateTargetSteps(newTarget: Int) {
+        val uid = auth.currentUser?.uid ?: return
+        viewModelScope.launch {
+            // Gọi hàm repository mà chúng ta đã viết ở bước trước
+            repository.updateTargetSteps(uid, newTarget)
+
+            // Cập nhật lại dữ liệu hiển thị ngay lập tức (Optional, vì Firestore listener sẽ tự lo)
+            val currentData = _todayHealthData.value
+            if (currentData != null) {
+                currentData.targetSteps = newTarget
+                _todayHealthData.value = currentData
+            }
+        }
+    }
 
     // ĐĂNG KÝ & ĐĂNG NHẬP
 
@@ -178,7 +192,6 @@ class MainViewModel @Inject constructor(
                         id = uid,
                         name = "",
                         email = email,
-                        targetSteps = 10000,
                         gender = "Male",
                         updatedAt = System.currentTimeMillis()
                     )

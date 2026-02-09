@@ -10,9 +10,8 @@ data class UserEntity(
     var height: Float? = null,
     var weight: Float? = null,
     var bmi: Float? = null,
-    var targetSteps: Int = 10000,
     var updatedAt: Long = System.currentTimeMillis()
 ) {
 
-    constructor() : this("","", "", null, "Male", null, null, null, 10000,0)
+    constructor() : this("","", "", null, "Male", null, null, null)
 }

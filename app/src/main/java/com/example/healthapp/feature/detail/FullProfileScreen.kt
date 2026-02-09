@@ -54,7 +54,7 @@ fun FullProfileScreen(
     var gender by remember { mutableStateOf("Male") }
     var height by remember { mutableStateOf("") }
     var weight by remember { mutableStateOf("") }
-    var targetSteps by remember { mutableStateOf("") }
+   // var targetSteps by remember { mutableStateOf("") }
 
     var selectedDate by remember { mutableStateOf(Calendar.getInstance()) }
 
@@ -65,7 +65,7 @@ fun FullProfileScreen(
             gender = user.gender ?: "Male"
             height = user.height.toString()
             weight = user.weight.toString()
-            targetSteps = user.targetSteps.toString()
+            //targetSteps = user.targetSteps.toString()
 
 //            if (user.birthYear > 0) {
 //                selectedDate.set(user.birthYear, (user.birthMonth - 1).coerceAtLeast(0), user.birthDay)
@@ -106,8 +106,8 @@ fun FullProfileScreen(
                                 month = selectedDate.get(Calendar.MONTH) + 1,
                                 year = selectedDate.get(Calendar.YEAR),
                                 height = height.toFloatOrNull() ?: 0f,
-                                weight = weight.toFloatOrNull() ?: 0f,
-                                targetSteps = targetSteps.toIntOrNull() ?: 10000
+                                weight = weight.toFloatOrNull() ?: 0f
+                               // targetSteps = targetSteps.toIntOrNull() ?: 10000
                             )
                             isEditing = false
                             Toast.makeText(context, "Đã cập nhật!", Toast.LENGTH_SHORT).show()
@@ -252,15 +252,15 @@ fun FullProfileScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            ProfileField(
-                label = "Mục tiêu (bước/ngày)",
-                value = targetSteps,
-                onValueChange = { if (it.all { char -> char.isDigit() }) targetSteps = it },
-                icon = Icons.Default.DirectionsRun,
-                enabled = isEditing,
-                keyboardType = KeyboardType.Number,
-                isDarkTheme = isDarkTheme
-            )
+//            ProfileField(
+//                label = "Mục tiêu (bước/ngày)",
+//                value = targetSteps,
+//                onValueChange = { if (it.all { char -> char.isDigit() }) targetSteps = it },
+//                icon = Icons.Default.DirectionsRun,
+//                enabled = isEditing,
+//                keyboardType = KeyboardType.Number,
+//                isDarkTheme = isDarkTheme
+//            )
 
             Spacer(modifier = Modifier.height(24.dp))
             val h = height.toFloatOrNull() ?: 0f

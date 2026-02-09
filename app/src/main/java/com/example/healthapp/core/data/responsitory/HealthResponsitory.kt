@@ -82,6 +82,21 @@ class HealthRepository @Inject constructor(
         val hcHeartRateAvg = healthConnectManager.readHeartRate(startOfDay, now)
         val hcSleep = healthConnectManager.readSleep(startOfDay, now)
 
+        var currentTarget = 10000
+        // Kiểm tra xem hôm nay đã có bản ghi chưa và đã có target chưa
+        val todayDocRef = firestore.collection("users").document(userId)
+            .collection("daily_health").document(todayStr)
+
+        val todaySnapshot = todayDocRef.get().await()
+
+        if (todaySnapshot.exists() && (todaySnapshot.getLong("targetSteps") ?: 0) > 0) {
+            // Nếu hôm nay đã có target rồi thì giữ nguyên (để không bị reset về 10000 nếu user đã chỉnh)
+            currentTarget = todaySnapshot.getLong("targetSteps")!!.toInt()
+        } else {
+            // Nếu hôm nay CHƯA có (ngày mới), đi lấy từ quá khứ
+            currentTarget = getLastTargetSteps(userId)
+        }
+
         syncAndCleanStepRecords(userId, startOfDay, now)
         recalculateDailySteps(userId, todayStr, startOfDay, now) // Hàm tính lại tổng bước
 
@@ -111,6 +126,40 @@ class HealthRepository @Inject constructor(
 
         //Gọi hàm đồng bộ chi tiết (Thêm Mới + Xóa Cũ)
         syncAndCleanStepRecords(userId, startOfDay, now)
+    }
+    //--- Lấy Target Steps từ ngày gần nhất ---
+    private suspend fun getLastTargetSteps(userId: String): Int {
+        return try {
+            // Lấy 1 bản ghi DailyHealth gần nhất của user này
+            val snapshot = firestore.collection("users").document(userId)
+                .collection("daily_health")
+                .orderBy("date", Query.Direction.DESCENDING)
+                .limit(1)
+                .get().await()
+
+            if (!snapshot.isEmpty) {
+                // Lấy target của ngày hôm đó
+                val lastTarget = snapshot.documents[0].getLong("targetSteps")?.toInt() ?: 0
+                if (lastTarget > 0) lastTarget else 10000
+            } else {
+                10000 // Nếu chưa có lịch sử nào (User mới) -> Mặc định 10000
+            }
+        } catch (e: Exception) {
+            Log.e("HealthRepo", "Lỗi lấy target cũ: ${e.message}")
+            10000
+        }
+    }
+    // --- Cập nhật Target (Gọi từ Settings/UserViewModel) ---
+    suspend fun updateTargetSteps(userId: String, newTarget: Int) {
+        val todayStr = LocalDate.now().toString()
+        // Chỉ cần update vào ngày hôm nay.
+        // Ngày mai hàm syncHealthData sẽ tự động query ra ngày hôm nay (là ngày gần nhất) để kế thừa.
+        val updateData = mapOf("targetSteps" to newTarget)
+
+        firestore.collection("users").document(userId)
+            .collection("daily_health").document(todayStr)
+            .set(updateData, SetOptions.merge())
+            .await()
     }
 
     private suspend fun syncAndCleanStepRecords(userId: String, start: LocalDateTime, end: LocalDateTime) {
