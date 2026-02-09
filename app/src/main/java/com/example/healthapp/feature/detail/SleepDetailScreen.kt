@@ -170,23 +170,9 @@ fun SleepDetailScreen(
                 showSleepDialog = false
                 recordToEdit = null
             },
-            initialDate = initialDate,
-            initialStartHour = startLocal.hour,
-            initialStartMinute = startLocal.minute,
-            initialEndHour = endLocal.hour,
-            initialEndMinute = endLocal.minute,
-            isEditing = recordToEdit != null,
-            onSave = { date, sH, sM, eH, eM ->
-                if (recordToEdit != null) {
-                    // EDIT
-                    sleepViewModel.editSleepSession(recordToEdit!!, date, sH, sM, eH, eM)
-                } else {
-                    // ADD NEW
-                    sleepViewModel.saveSleepTime(date, sH, sM, eH, eM)
-                }
-                showSleepDialog = false
-                recordToEdit = null
-            }
+            sleepViewModel = sleepViewModel,
+            sessionToEdit = recordToEdit,
+            isDarkTheme = isDarkTheme
         )
     }
 

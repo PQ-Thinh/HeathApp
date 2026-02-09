@@ -87,35 +87,49 @@ class SleepViewModel @Inject constructor(
         }
     }
 
-    fun saveSleepTime(
+
+    fun saveSleepWithStages(
         date: LocalDate,
         startHour: Int,
         startMinute: Int,
-        endHour: Int,
-        endMinute: Int
+        stages: List<SleepStageInput> // Nhận danh sách từ UI
     ) {
         val userId = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            //Tạo thời gian bắt đầu chính xác theo Ngày đã chọn
-            var startDateTime = LocalDateTime.of(date, LocalTime.of(startHour, startMinute))
+            //  Tính toán ngày giờ bắt đầu
+            val startDateTime = LocalDateTime.of(date, LocalTime.of(startHour, startMinute))
 
-            //Tạo thời gian kết thúc
-            var endDateTime = LocalDateTime.of(date, LocalTime.of(endHour, endMinute))
+            //  Cộng dồn thời gian từ danh sách
+            var deep = 0L
+            var rem = 0L
+            var light = 0L
+            var awake = 0L
+            var totalMinutes = 0L
 
-            // Xử lý logic qua đêm (Nếu giờ kết thúc nhỏ hơn giờ bắt đầu -> Là ngày hôm sau)
-            // Ví dụ: Ngủ 23:00 (ngày 1) -> Dậy 07:00 (thì phải là ngày 2)
-            // Hoặc: Ngủ 23:00 -> Dậy 01:00 sáng
-            if (endDateTime.isBefore(startDateTime)) {
-                endDateTime = endDateTime.plusDays(1)
+            stages.forEach {
+                totalMinutes += it.durationMinutes
+                when (it.type) {
+                    "Deep", "Ngủ sâu (Deep)" -> deep += it.durationMinutes
+                    "REM" -> rem += it.durationMinutes
+                    "Light", "Ngủ nông (Light)" -> light += it.durationMinutes
+                    "Awake", "Đã thức (Awake)" -> awake += it.durationMinutes
+                }
             }
 
-            // Lưu vào Repository
-            repository.saveSleepSession(userId, startDateTime, endDateTime)
+            //  Tính ngày giờ kết thúc
+            val endDateTime = startDateTime.plusMinutes(totalMinutes)
 
-            // Refresh dữ liệu
-            delay(500) // Đợi DB cập nhật một chút
-            loadHistory()
-            loadChartData()
+            //Lưu vào Repository
+            repository.saveSleepSessionWithDetails(
+                userId = userId,
+                start = startDateTime,
+                end = endDateTime,
+                deep = deep,
+                rem = rem,
+                light = light,
+                awake = awake
+            )
+           loadChartData()
         }
     }
 
@@ -217,26 +231,48 @@ class SleepViewModel @Inject constructor(
             }
         }
     }
-    fun editSleepSession(oldRecord: SleepSessionEntity, newDate: LocalDate, sH: Int, sM: Int, eH: Int, eM: Int) {
+    fun editSleepSessionWithStages(
+        oldRecord: SleepSessionEntity,
+        newDate: LocalDate,
+        startHour: Int,
+        startMinute: Int,
+        stages: List<SleepStageInput>
+    ) {
         val userId = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            //Xóa record cũ
             repository.deleteSleepSession(oldRecord)
 
-            // Tính toán thời gian mới (Logic giống saveSleepTime)
-            var startDateTime = LocalDateTime.of(newDate, LocalTime.of(sH, sM))
-            var endDateTime = LocalDateTime.of(newDate, LocalTime.of(eH, eM))
+            val startDateTime = LocalDateTime.of(newDate, LocalTime.of(startHour, startMinute))
 
-            if (endDateTime.isBefore(startDateTime)) {
-                endDateTime = endDateTime.plusDays(1)
+            var deep = 0L
+            var rem = 0L
+            var light = 0L
+            var awake = 0L
+            var totalMinutes = 0L
+
+            stages.forEach {
+                totalMinutes += it.durationMinutes
+                when (it.type) {
+                    "Deep", "Ngủ sâu (Deep)" -> deep += it.durationMinutes
+                    "REM" -> rem += it.durationMinutes
+                    "Light", "Ngủ nông (Light)" -> light += it.durationMinutes
+                    "Awake", "Đã thức (Awake)" -> awake += it.durationMinutes
+                }
             }
 
-            // Lưu record mới
-            repository.saveSleepSession(userId, startDateTime, endDateTime)
+            val endDateTime = startDateTime.plusMinutes(totalMinutes)
 
-            delay(500)
-            loadHistory()
+            repository.saveSleepSessionWithDetails(
+                userId = userId,
+                start = startDateTime,
+                end = endDateTime,
+                deep = deep,
+                rem = rem,
+                light = light,
+                awake = awake
+            )
             loadChartData()
+            loadHistory()
         }
     }
 
@@ -248,3 +284,8 @@ class SleepViewModel @Inject constructor(
     }
 }
 data class SleepQualityResult(val text: String, val colorHex: Long)
+data class SleepStageInput(
+    val type: String,
+    val durationMinutes: Int,
+    val color: androidx.compose.ui.graphics.Color
+)

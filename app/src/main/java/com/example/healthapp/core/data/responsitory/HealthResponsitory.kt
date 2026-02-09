@@ -519,35 +519,51 @@ class HealthRepository @Inject constructor(
     }
 
     // Lưu Giấc ngủ
-    suspend fun saveSleepSession(userId: String, start: LocalDateTime, end: LocalDateTime) {
-        healthConnectManager.writeSleepSession(start, end)
+    suspend fun saveSleepSessionWithDetails(
+        userId: String,
+        start: LocalDateTime,
+        end: LocalDateTime,
+        deep: Long,
+        rem: Long,
+        light: Long,
+        awake: Long
+    ) {
+        // Ghi vào HC
+        try {
+            healthConnectManager.writeSleepSession(start, end)
+        } catch (e: Exception) { Log.e("HealthRepo", "HC write fail: $e") }
 
+        // Tính toán cho DailyHealth
         val durationMinutes = Duration.between(start, end).toMinutes()
-        val today = LocalDate.now().toString()
-
+        val todayStr = start.toLocalDate().toString()
         val dailyUpdate = mapOf(
-            "date" to today,
+            "date" to todayStr,
             "userId" to userId,
             "sleepHours" to durationMinutes
         )
         firestore.collection("users").document(userId)
-            .collection("daily_health").document(today)
+            .collection("daily_health").document(todayStr)
             .set(dailyUpdate, SetOptions.merge())
 
-        val startTime = start.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val endTime = end.atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+        // Lưu vào Firestore với đầy đủ chi tiết
+        val startTimeMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endTimeMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
         val sessionEntity = SleepSessionEntity(
             id = UUID.randomUUID().toString(),
             userId = userId,
-            startTime = startTime,
-            endTime = endTime,
+            startTime = startTimeMillis,
+            endTime = endTimeMillis,
             type = "Sleep",
+            deepSleepDuration = deep,
+            remSleepDuration = rem,
+            lightSleepDuration = light,
+            awakeDuration = awake,
             source = context.packageName
         )
         firestore.collection("users").document(userId)
             .collection("sleep_sessions").document(sessionEntity.id)
-            .set(sessionEntity)
+            .set(sessionEntity).await()
     }
     suspend fun deleteSleepSession(session: SleepSessionEntity) {
         try {
