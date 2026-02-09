@@ -11,8 +11,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import java.time.Instant
+import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
@@ -51,9 +53,10 @@ fun EditHeartDialog(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // [CẬP NHẬT] Tiêu đề thay đổi theo chế độ
                 val title = if (isEditing) "Chỉnh sửa Nhịp tim" else "Thêm Nhịp tim"
                 Text(title, style = MaterialTheme.typography.titleLarge)
+
+                Text("Không Nhập Quá thời gian Hiện tại", color = Color.Red, fontSize = 12.sp)
 
                 // 1. Chọn ngày giờ
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -66,7 +69,9 @@ fun EditHeartDialog(
                         ),
                         shape = MaterialTheme.shapes.small
                     ) {
-                        Text(selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")))
+                        Text(
+                            selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                        )
                     }
                     Button(
                         onClick = { timePickerDialog.show() },
@@ -77,6 +82,9 @@ fun EditHeartDialog(
                         ),
                         shape = MaterialTheme.shapes.small
                     ) {
+                        if(selectedTime > LocalTime.now())
+                            Text("Thời gian không hợp lệ")
+                        else
                         Text(selectedTime.format(DateTimeFormatter.ofPattern("HH:mm")))
                     }
                 }

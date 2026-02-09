@@ -147,7 +147,6 @@ fun SleepDetailScreen(
                 // Chuyển từ Xem chi tiết -> Sửa
                 recordToEdit = it
                 selectedRecord = null
-                // Không cần set showSleepDialog = true vì logic bên dưới check recordToEdit != null
             }
         )
     }

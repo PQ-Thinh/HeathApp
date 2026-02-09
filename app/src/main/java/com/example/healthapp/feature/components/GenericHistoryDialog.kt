@@ -236,44 +236,44 @@ private fun <T> HistoryItemRow(
             content()
         }
 
-        Box {
-            IconButton(
-                onClick = { expanded = true },
-                modifier = Modifier.size(24.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.MoreVert,
-                    contentDescription = "Menu",
-                    tint = contentColor.copy(0.6f)
-                )
-            }
-
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier.background(color = colors.glassContainer)
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Xóa", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold) },
-                    onClick = {
-                        expanded = false
-                        onDelete()
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Default.Delete, null, tint = Color(0xFFEF4444))
-                    }
-                )
-                DropdownMenuItem(
-                    text = { Text("Sửa", color = Color.Black, fontWeight = FontWeight.Bold) },
-                    onClick = {
-                        expanded = false
-                        onEdit()
-                    },
-                    leadingIcon = {
-                        Icon(Icons.Default.Delete, null, tint = Color.Black)
-                    }
-                )
-            }
-        }
+//        Box {
+//            IconButton(
+//                onClick = { expanded = true },
+//                modifier = Modifier.size(24.dp)
+//            ) {
+//                Icon(
+//                    imageVector = Icons.Default.MoreVert,
+//                    contentDescription = "Menu",
+//                    tint = contentColor.copy(0.6f)
+//                )
+//            }
+////
+//            DropdownMenu(
+//                expanded = expanded,
+//                onDismissRequest = { expanded = false },
+//                modifier = Modifier.background(color = colors.glassContainer)
+//            ) {
+//                DropdownMenuItem(
+//                    text = { Text("Xóa", color = Color(0xFFEF4444), fontWeight = FontWeight.Bold) },
+//                    onClick = {
+//                        expanded = false
+//                        onDelete()
+//                    },
+//                    leadingIcon = {
+//                        Icon(Icons.Default.Delete, null, tint = Color(0xFFEF4444))
+//                    }
+//                )
+//                DropdownMenuItem(
+//                    text = { Text("Sửa", color = Color.Black, fontWeight = FontWeight.Bold) },
+//                    onClick = {
+//                        expanded = false
+//                        onEdit()
+//                    },
+//                    leadingIcon = {
+//                        Icon(Icons.Default.Delete, null, tint = Color.Black)
+//                    }
+//                )
+//            }
+       // }
     }
 }

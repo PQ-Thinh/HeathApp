@@ -392,7 +392,7 @@ class HealthRepository @Inject constructor(
                 .collection("daily_health").document(todayStr)
                 .set(dailyUpdate, SetOptions.merge())
 
-            val timeMilli = LocalDateTime.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+            val timeMilli =time.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
             // Lưu log chi tiết bản ghi
             val record = HeartRateRecordEntity(
