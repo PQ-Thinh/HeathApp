@@ -40,11 +40,9 @@ fun SleepHistoryDetailDialog(
     // Tính toán thời lượng tổng
     val durationMillis = session.endTime - session.startTime
     val durationMinutes = durationMillis / 60000
-    val totalHours = durationMinutes / 60.0
     val hours = durationMinutes / 60
     val minutes = durationMinutes % 60
 
-    // Đánh giá chất lượng (Logic mới: Ưu tiên Stage nếu có)
     val evaluation = sleepViewModel.evaluateSessionQuality(session)
 
     val dateFormat = SimpleDateFormat("EEEE, dd/MM/yyyy", Locale("vi", "VN"))

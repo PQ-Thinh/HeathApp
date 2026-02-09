@@ -96,18 +96,11 @@ class HealthRepository @Inject constructor(
             // Nếu hôm nay CHƯA có (ngày mới), đi lấy từ quá khứ
             currentTarget = getLastTargetSteps(userId)
         }
-
         syncAndCleanStepRecords(userId, startOfDay, now)
-        recalculateDailySteps(userId, todayStr, startOfDay, now) // Hàm tính lại tổng bước
-
         //  Sync Heart Rate
         syncAndCleanHeartRecords(userId, startOfDay, now)
-        recalculateDailyHeartRate(userId, todayStr, startOfDay, now) // Hàm tính lại trung bình nhịp tim
-
-        //  Sync Sleep
         // Lấy lùi lại 1 ngày để bao trọn giấc ngủ bắt đầu từ đêm hôm trước
         syncAndCleanSleepSessions(userId, startOfDay.minusDays(1), now)
-        recalculateDailySleep(userId, todayStr, startOfDay, now) // Hàm tính lại tổng giờ ngủ
 
         val data = mapOf(
             "date" to todayStr,
@@ -290,10 +283,8 @@ class HealthRepository @Inject constructor(
         }
     }
     private suspend fun syncAndCleanSleepSessions(userId: String, start: LocalDateTime, end: LocalDateTime) {
-        // 1. Đọc từ Health Connect
         val hcRecords = healthConnectManager.readRawSleepRecords(start, end)
 
-        // 2. Đọc từ Firestore
         val startTimeMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val endMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
@@ -305,13 +296,12 @@ class HealthRepository @Inject constructor(
 
         val fsRecords = snapshot.toObjects(SleepSessionEntity::class.java)
 
-        // IMPORT HOẶC UPDATE
         for (hcItem in hcRecords) {
             val sTime = hcItem.startTime.toEpochMilli()
             val eTime = hcItem.endTime.toEpochMilli()
             val pkg = try { hcItem.metadata.dataOrigin.packageName } catch (e: Exception) { "unknown" }
 
-            // --- TÍNH TOÁN STAGES TRƯỚC ---
+            // Tính toán chi tiết
             var deep = 0L
             var rem = 0L
             var light = 0L
@@ -329,14 +319,13 @@ class HealthRepository @Inject constructor(
                 }
             }
 
-            // Tìm bản ghi trùng khớp trong Firestore
+            // Tìm bản ghi cũ trong Firestore
             val existingRecord = fsRecords.find { fs ->
                 kotlin.math.abs(fs.startTime - sTime) < 2000 &&
                         kotlin.math.abs(fs.endTime - eTime) < 2000
             }
 
             if (existingRecord == null) {
-                // A. CHƯA CÓ -> THÊM MỚI
                 val newRecord = SleepSessionEntity(
                     id = UUID.randomUUID().toString(),
                     userId = userId,
@@ -352,34 +341,30 @@ class HealthRepository @Inject constructor(
                 firestore.collection("users").document(userId)
                     .collection("sleep_sessions").document(newRecord.id)
                     .set(newRecord).await()
-                Log.d("Sync", "Đã thêm mới Sleep: $deep deep, $rem rem")
-
             } else {
-                // B. ĐÃ CÓ -> KIỂM TRA UPDATE
-                // Nếu bản ghi cũ chưa có dữ liệu chi tiết (deep = 0) NHƯNG Health Connect lại có (deep > 0)
-                // Thì ta cập nhật lại bản ghi đó.
-                val hasNewDetails = (deep > 0 || rem > 0 || light > 0)
-                val missingDetails = (existingRecord.deepSleepDuration == 0L && existingRecord.remSleepDuration == 0L && existingRecord.lightSleepDuration == 0L)
+                // Nếu bản ghi cũ thiếu chi tiết (các chỉ số = 0) mà dữ liệu mới lại có (deep > 0...)
+                val oldDataMissing = existingRecord.deepSleepDuration == 0L && existingRecord.remSleepDuration == 0L
+                val newDataAvailable = (deep > 0 || rem > 0 || light > 0)
 
-                if (hasNewDetails && missingDetails) {
+                if (oldDataMissing && newDataAvailable) {
                     val updates = mapOf(
                         "deepSleepDuration" to deep,
                         "remSleepDuration" to rem,
                         "lightSleepDuration" to light,
                         "awakeDuration" to awake,
-                        "source" to pkg // Cập nhật luôn source nếu trước đó là manual
+                        "source" to pkg
                     )
                     firestore.collection("users").document(userId)
                         .collection("sleep_sessions").document(existingRecord.id)
                         .update(updates).await()
-                    Log.d("Sync", "Đã update chi tiết cho Sleep: ${existingRecord.id}")
+                    Log.d("Sync", "Đã cập nhật chi tiết giấc ngủ: ${existingRecord.id}")
                 }
             }
         }
 
-        // CLEANUP (Xóa bản ghi rác)
+        // Cleanup (Xóa bản ghi rác nếu bên Health Connect đã xóa)
         for (fs in fsRecords) {
-            // Chỉ xóa nếu source là từ HC (để tránh xóa nhầm dữ liệu nhập tay)
+            // Chỉ xóa nếu source là external (để không xóa nhầm cái nhập tay của app mình)
             if (fs.source != context.packageName && fs.source.isNotEmpty()) {
                 val existsInHc = hcRecords.any { hc ->
                     val sTime = hc.startTime.toEpochMilli()
@@ -392,7 +377,8 @@ class HealthRepository @Inject constructor(
                 }
             }
         }
-    }    // Hàm phụ trợ: So sánh xem 2 record có phải là 1 không
+    }
+    // Hàm phụ trợ: So sánh xem 2 record có phải là 1 không
     private fun isSameRecord(fsRecord: StepRecordEntity, hcStart: Long, hcCount: Int, hcSource: String): Boolean {
         //  Số bước phải bằng nhau
         if (fsRecord.count != hcCount) return false
@@ -406,7 +392,8 @@ class HealthRepository @Inject constructor(
         if (fsRecord.source.isNotEmpty() && fsRecord.source != hcSource) return false
 
         return true
-    }    suspend fun updateLocalSteps(userId: String?, steps: Int, calories: Float) {
+    }
+    suspend fun updateLocalSteps(userId: String?, steps: Int, calories: Float) {
         if (userId.isNullOrEmpty()) return
         val today = LocalDate.now().toString()
 
@@ -786,65 +773,6 @@ class HealthRepository @Inject constructor(
     // Hàm hủy lắng nghe (Gọi khi đăng xuất)
     fun stopRealtimeSync() {
         syncManager.stopListening()
-    }
-
-
-    //-- AVG ---
-    // Tính tổng bước chân
-    private suspend fun recalculateDailySteps(userId: String, dateStr: String, start: LocalDateTime, end: LocalDateTime) {
-        val startMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val endMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-
-        val snapshot = firestore.collection("users").document(userId)
-            .collection("step_records")
-            .whereGreaterThanOrEqualTo("startTime", startMillis)
-            .whereLessThanOrEqualTo("startTime", endMillis)
-            .get().await()
-
-        val totalSteps = snapshot.toObjects(StepRecordEntity::class.java).sumOf { it.count }
-
-        firestore.collection("users").document(userId)
-            .collection("daily_health").document(dateStr)
-            .set(mapOf("steps" to totalSteps), SetOptions.merge())
-    }
-
-    // Tính trung bình nhịp tim
-    private suspend fun recalculateDailyHeartRate(userId: String, dateStr: String, start: LocalDateTime, end: LocalDateTime) {
-        val startMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val endMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-
-        val snapshot = firestore.collection("users").document(userId)
-            .collection("heart_rate_records")
-            .whereGreaterThanOrEqualTo("time", startMillis)
-            .whereLessThanOrEqualTo("time", endMillis)
-            .get().await()
-
-        val records = snapshot.toObjects(HeartRateRecordEntity::class.java)
-        val avg = if (records.isNotEmpty()) records.map { it.bpm }.average().toInt() else 0
-
-        firestore.collection("users").document(userId)
-            .collection("daily_health").document(dateStr)
-            .set(mapOf("heartRateAvg" to avg), SetOptions.merge())
-    }
-
-    // Tính tổng giờ ngủ
-    private suspend fun recalculateDailySleep(userId: String, dateStr: String, start: LocalDateTime, end: LocalDateTime) {
-        val startMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val endMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-
-        val snapshot = firestore.collection("users").document(userId)
-            .collection("sleep_sessions")
-            .whereGreaterThanOrEqualTo("startTime", startMillis)
-            .whereLessThanOrEqualTo("startTime", endMillis)
-            .get().await()
-
-        val totalMinutes = snapshot.toObjects(SleepSessionEntity::class.java).sumOf {
-            (it.endTime - it.startTime) / 60000
-        }
-
-        firestore.collection("users").document(userId)
-            .collection("daily_health").document(dateStr)
-            .set(mapOf("sleepHours" to totalMinutes), SetOptions.merge())
     }
 
 }
