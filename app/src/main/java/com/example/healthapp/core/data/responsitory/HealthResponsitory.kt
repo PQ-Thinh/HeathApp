@@ -150,7 +150,7 @@ class HealthRepository @Inject constructor(
                 )
                 firestore.collection("users").document(userId)
                     .collection("step_records").document(newRecord.id)
-                    .set(newRecord)
+                    .set(newRecord).await()
                 Log.d("Sync", "Đã thêm mới: $packageName - $hcCount")
             }
         }
@@ -170,7 +170,7 @@ class HealthRepository @Inject constructor(
             if (!existsInHc) {
                 firestore.collection("users").document(userId)
                     .collection("step_records").document(fsRecord.id)
-                    .delete()
+                    .delete().await()
                 Log.d("Sync", "Đã xóa record rác: ${fsRecord.source} - ${fsRecord.count}")
             }
         }
@@ -214,7 +214,9 @@ class HealthRepository @Inject constructor(
                     source = pkgName
                 )
                 firestore.collection("users").document(userId)
-                    .collection("heart_rate_records").document(newRecord.id).set(newRecord)
+                    .collection("heart_rate_records")
+                    .document(newRecord.id)
+                    .set(newRecord).await()
             }
         }
 
@@ -233,7 +235,7 @@ class HealthRepository @Inject constructor(
 
             if (!existsInHc) {
                 firestore.collection("users").document(userId)
-                    .collection("heart_rate_records").document(fsItem.id).delete()
+                    .collection("heart_rate_records").document(fsItem.id).delete().await()
             }
         }
     }
@@ -273,7 +275,7 @@ class HealthRepository @Inject constructor(
                     source = pkg
                 )
                 firestore.collection("users").document(userId)
-                    .collection("sleep_sessions").document(newRecord.id).set(newRecord)
+                    .collection("sleep_sessions").document(newRecord.id).set(newRecord).await()
             }
         }
 
@@ -287,7 +289,7 @@ class HealthRepository @Inject constructor(
             }
             if (!existsInHc) {
                 firestore.collection("users").document(userId)
-                    .collection("sleep_sessions").document(fs.id).delete()
+                    .collection("sleep_sessions").document(fs.id).delete().await()
             }
         }
     }
