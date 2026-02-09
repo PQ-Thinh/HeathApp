@@ -86,7 +86,12 @@ fun SleepSettingDialog(
                 // 1. CHỌN NGÀY BẮT ĐẦU
                 SleepInputRow(
                     label = "Ngày bắt đầu",
-                    value = selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    value =
+                        if (selectedDate > LocalDate.now())
+                            "Không nhập ngày trong tương Lai"
+                        else
+                        selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+                    ,
                     icon = Icons.Default.CalendarToday,
                     onClick = { datePickerDialog.show() }
                 )

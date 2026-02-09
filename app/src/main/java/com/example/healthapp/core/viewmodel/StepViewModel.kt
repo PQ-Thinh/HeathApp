@@ -69,6 +69,7 @@ class StepViewModel @Inject constructor(
     private var strideLength = 0.7
     private var timerJob: Job? = null
 
+
     // Key lưu trữ DataStore
     companion object {
         val PREF_IS_RUNNING = booleanPreferencesKey("session_is_running")

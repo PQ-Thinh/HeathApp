@@ -62,7 +62,7 @@ class SleepViewModel @Inject constructor(
     }
 
     private fun clearData() {
-        _sleepDuration.value = 0
+       _sleepDuration.value = 0
         _sleepAssessment.value = "Chưa có dữ liệu"
         _chartData.value = emptyList()
         _sleepHistory.value = emptyList()
