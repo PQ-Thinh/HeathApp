@@ -47,6 +47,7 @@ import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.core.viewmodel.UserViewModel
 import com.example.healthapp.feature.components.EditTargetDialog
 import com.example.healthapp.feature.components.FabMenu
+import com.example.healthapp.feature.detail.LatestActivityCard
 import com.example.healthapp.feature.detail.StepRunDetail
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
@@ -67,7 +68,8 @@ fun HealthDashboardScreen(
     sleepViewModel: SleepViewModel,
     stepViewModel: StepViewModel,
     onToggleService: (Boolean) -> Unit = {},
-    isServiceRunning: Boolean = false
+    isServiceRunning: Boolean = false,
+   // onRecordClick: (String) -> Unit = {}
 ) {
     val runState by stepViewModel.runState.collectAsState()
     val isRunningBackground = runState == RunState.RUNNING || runState == RunState.PAUSED
@@ -101,6 +103,10 @@ fun HealthDashboardScreen(
     // Lấy target từ todayHealth, nếu chưa có (null hoặc 0) thì fallback về 10000
     val targetSteps = if ((todayHealth?.targetSteps ?: 0) > 0) todayHealth!!.targetSteps else 10000
 
+    val stepHistory by stepViewModel.stepHistory.collectAsState(initial = emptyList())
+    val latestRecord = stepHistory.firstOrNull() // Lấy phần tử đầu tiên (mới nhất)
+    var resultTimestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
     // Kiểm tra ngay khi vào Dashboard, nếu đang chạy ngầm thì mở lại RunTrackingScreen
     LaunchedEffect(Unit) {
         val currentState = stepViewModel.runState.value
@@ -127,10 +133,14 @@ fun HealthDashboardScreen(
     fun onRunClick() {
         val permissionsToRequest = mutableListOf<String>()
         if (Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            ContextCompat.checkSelfPermission(
+                context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
             permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
         }
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        if (ContextCompat.checkSelfPermission(
+                context, Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
             permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
 
@@ -148,7 +158,6 @@ fun HealthDashboardScreen(
         if (!isPreview) isContentVisible = true
     }
 
-    // (Phần Animation nền giữ nguyên...)
     val infiniteTransition = rememberInfiniteTransition(label = "background")
     val floatAnim by infiniteTransition.animateFloat(
         initialValue = 0f,
@@ -199,10 +208,14 @@ fun HealthDashboardScreen(
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues)
-                    .padding(bottom = 80.dp),
-                contentPadding = PaddingValues(24.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+                    .padding(paddingValues),
+                verticalArrangement = Arrangement.spacedBy(24.dp),
+                contentPadding = PaddingValues(
+                    top = 24.dp,
+                    start = 24.dp,
+                    end = 24.dp,
+                    bottom = 100.dp
+                ),
             ) {
 
                 item {
@@ -296,19 +309,39 @@ fun HealthDashboardScreen(
                     )
                 }
 
+
                 item {
-                    HealthStatCard(
-                        modifier = Modifier.fillMaxWidth().clickable { onStepDetailClick() },
-                        title = "Bước Đếm",
-                        value = steps.toString(),
-                        unit = "bước hôm nay",
-                        icon = Icons.Default.DirectionsRun,
-                        accentColor = Color(0xFF10B981),
-                        colors = colors,
-                        visible = isContentVisible,
-                        delay = 400,
-                        isLarge = true
-                    )
+                    if (latestRecord != null) {
+                        LatestActivityCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            record = latestRecord!!,
+                            colors = colors,
+                            visible = isContentVisible,
+                            delay = 400,
+                            onClick = { _ ->
+                                resultSteps = latestRecord!!.count
+                                resultCalories = (latestRecord!!.count * 0.04).toInt()
+                                resultTime = (latestRecord!!.endTime - latestRecord!!.startTime) / 1000
+                                // Lưu thời gian bắt đầu để hiển thị ngày giờ
+                                resultTimestamp = latestRecord!!.startTime
+                                // Bật màn hình chi tiết lên
+                                showResultScreen = true
+                            }
+                        )
+                    } else {
+                        HealthStatCard(
+                            modifier = Modifier.fillMaxWidth().clickable { onStepDetailClick() },
+                            title = "Bước Đếm",
+                            value = steps.toString(),
+                            unit = "bước hôm nay",
+                            icon = Icons.Default.DirectionsRun,
+                            accentColor = Color(0xFF10B981),
+                            colors = colors,
+                            visible = isContentVisible,
+                            delay = 400,
+                            isLarge = true
+                        )
+                    }
                 }
             }
         }
@@ -449,8 +482,8 @@ fun StepProgressCard(
     colors: AestheticColors,
     visible: Boolean,
     delay: Int,
-    onClick: () -> Unit,          // Click xem chi tiết
-    onEditTargetClick: () -> Unit // Click sửa mục tiêu
+    onClick: () -> Unit,
+    onEditTargetClick: () -> Unit
 ) {
     AnimatedVisibility(
         visible = visible,
