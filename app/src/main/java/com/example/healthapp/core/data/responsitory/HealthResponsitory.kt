@@ -114,7 +114,7 @@ class HealthRepository @Inject constructor(
             "userId" to userId,
             "steps" to hcSteps, // Ghi đè số chuẩn vào Firebase
             "heartRateAvg" to hcHeartRateAvg,
-            "sleep" to hcSleep
+            "sleepHours" to hcSleep
         )
 
         firestore.collection("users").document(userId)
