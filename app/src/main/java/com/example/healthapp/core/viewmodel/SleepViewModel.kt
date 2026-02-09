@@ -48,6 +48,7 @@ class SleepViewModel @Inject constructor(
     val sleepHistory = _sleepHistory.asStateFlow()
 
     private var realtimeJob: Job? = null
+    private var historyJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -80,6 +81,7 @@ class SleepViewModel @Inject constructor(
                 if (data != null) {
                     _sleepDuration.value = data.sleepHours
                     evaluateSleep(data.sleepHours)
+
                 }
             }
         }
@@ -118,7 +120,16 @@ class SleepViewModel @Inject constructor(
     }
 
     private fun loadHistory() {
-        viewModelScope.launch { _sleepHistory.value = repository.getSleepHistory() }
+        historyJob?.cancel()
+        historyJob = viewModelScope.launch {
+            repository.getSleepHistory().collect { historyList ->
+                _sleepHistory.value = historyList
+
+                if (historyList.isNotEmpty()) {
+                    loadChartData()
+                }
+            }
+        }
     }
 
     fun setTimeRange(range: ChartTimeRange) {
@@ -132,6 +143,7 @@ class SleepViewModel @Inject constructor(
         }
     }
 
+
     private fun evaluateSleep(minutes: Long) {
         val hours = minutes / 60.0
         _sleepAssessment.value = when {
@@ -142,16 +154,47 @@ class SleepViewModel @Inject constructor(
             else -> "Ngủ nhiều (Cần vận động)"
         }
     }
+    fun evaluateSessionQuality(session: SleepSessionEntity): SleepQualityResult {
+        val durationMillis = session.endTime - session.startTime
+        val totalMinutes = durationMillis / 60000
+        val totalHours = totalMinutes / 60.0
 
+        // Ưu tiên 1: Đánh giá theo Stages (nếu có dữ liệu Deep/REM)
+        if (session.hasDetailedStages()) {
+            val totalSleep = (session.deepSleepDuration + session.remSleepDuration + session.lightSleepDuration).toDouble()
+            // Tránh chia cho 0
+            if (totalSleep > 0) {
+                val restorative = session.deepSleepDuration + session.remSleepDuration
+                val percentRestorative = (restorative / totalSleep) * 100
+
+                return when {
+                    percentRestorative >= 45 -> SleepQualityResult("Rất Tốt (Hồi phục cao)", 0xFF22C55E) // Xanh lá đậm
+                    percentRestorative >= 25 -> SleepQualityResult("Tốt (Đủ độ sâu)", 0xFF10B981) // Xanh lá
+                    session.awakeDuration > 60 -> SleepQualityResult("Chập chờn (Thức nhiều)", 0xFFF59E0B) // Vàng cam
+                    else -> SleepQualityResult("Bình thường", 0xFF3B82F6) // Xanh dương
+                }
+            }
+        }
+
+        // Fallback về đánh giá theo tổng thời gian (Logic cũ)
+        return when {
+            totalHours < 5 -> SleepQualityResult("Kém (Quá ít)", 0xFFEF4444) // Đỏ
+            totalHours in 5.0..6.5 -> SleepQualityResult("Khá (Cần ngủ thêm)", 0xFFF59E0B) // Vàng
+            totalHours in 6.5..9.0 -> SleepQualityResult("Tốt (Lý tưởng)", 0xFF22C55E) // Xanh lá
+            else -> SleepQualityResult("Ngủ nhiều", 0xFF3B82F6) // Xanh dương
+        }
+    }
+
+    fun formatMinToHr(minutes: Long): String {
+        if (minutes == 0L) return "0m"
+        val h = minutes / 60
+        val m = minutes % 60
+        return if (h > 0) "${h}h ${m}m" else "${m}m"
+    }
     fun formatDuration(minutes: Long): String {
         val h = minutes / 60
         val m = minutes % 60
         return "${h}h ${m}m"
-    }
-    // Hàm tiện ích format ngày giờ
-    fun formatDateTime(timestamp: Long): String {
-        val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-        return sdf.format(Date(timestamp))
     }
     fun deleteSleepRecord(record: SleepSessionEntity) {
         //val uid = auth.currentUser?.uid ?: return
@@ -204,3 +247,4 @@ class SleepViewModel @Inject constructor(
         awaitClose { auth.removeAuthStateListener(listener) }
     }
 }
+data class SleepQualityResult(val text: String, val colorHex: Long)

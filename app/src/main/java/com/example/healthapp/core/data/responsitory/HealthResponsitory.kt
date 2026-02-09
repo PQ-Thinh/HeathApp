@@ -290,60 +290,109 @@ class HealthRepository @Inject constructor(
         }
     }
     private suspend fun syncAndCleanSleepSessions(userId: String, start: LocalDateTime, end: LocalDateTime) {
-        // Đọc từ HC
+        // 1. Đọc từ Health Connect
         val hcRecords = healthConnectManager.readRawSleepRecords(start, end)
 
-        val startMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        // 2. Đọc từ Firestore
+        val startTimeMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val endMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
-        // Đọc từ FB
         val snapshot = firestore.collection("users").document(userId)
             .collection("sleep_sessions")
-            .whereGreaterThanOrEqualTo("startTime", startMillis)
+            .whereGreaterThanOrEqualTo("startTime", startTimeMillis)
             .whereLessThanOrEqualTo("startTime", endMillis)
             .get().await()
 
         val fsRecords = snapshot.toObjects(SleepSessionEntity::class.java)
 
-        // IMPORT
+        // IMPORT HOẶC UPDATE
         for (hcItem in hcRecords) {
             val sTime = hcItem.startTime.toEpochMilli()
             val eTime = hcItem.endTime.toEpochMilli()
             val pkg = try { hcItem.metadata.dataOrigin.packageName } catch (e: Exception) { "unknown" }
 
-            val exists = fsRecords.any { fs ->
+            // --- TÍNH TOÁN STAGES TRƯỚC ---
+            var deep = 0L
+            var rem = 0L
+            var light = 0L
+            var awake = 0L
+
+            for (stage in hcItem.stages) {
+                val duration = Duration.between(stage.startTime, stage.endTime).toMinutes()
+                when (stage.stage) {
+                    SleepSessionRecord.STAGE_TYPE_DEEP -> deep += duration
+                    SleepSessionRecord.STAGE_TYPE_REM -> rem += duration
+                    SleepSessionRecord.STAGE_TYPE_LIGHT -> light += duration
+                    SleepSessionRecord.STAGE_TYPE_AWAKE,
+                    SleepSessionRecord.STAGE_TYPE_AWAKE_IN_BED,
+                    SleepSessionRecord.STAGE_TYPE_OUT_OF_BED -> awake += duration
+                }
+            }
+
+            // Tìm bản ghi trùng khớp trong Firestore
+            val existingRecord = fsRecords.find { fs ->
                 kotlin.math.abs(fs.startTime - sTime) < 2000 &&
                         kotlin.math.abs(fs.endTime - eTime) < 2000
             }
 
-            if (!exists) {
+            if (existingRecord == null) {
+                // A. CHƯA CÓ -> THÊM MỚI
                 val newRecord = SleepSessionEntity(
                     id = UUID.randomUUID().toString(),
                     userId = userId,
                     startTime = sTime,
                     endTime = eTime,
+                    type = "Sleep",
+                    deepSleepDuration = deep,
+                    remSleepDuration = rem,
+                    lightSleepDuration = light,
+                    awakeDuration = awake,
                     source = pkg
                 )
                 firestore.collection("users").document(userId)
-                    .collection("sleep_sessions").document(newRecord.id).set(newRecord).await()
+                    .collection("sleep_sessions").document(newRecord.id)
+                    .set(newRecord).await()
+                Log.d("Sync", "Đã thêm mới Sleep: $deep deep, $rem rem")
+
+            } else {
+                // B. ĐÃ CÓ -> KIỂM TRA UPDATE
+                // Nếu bản ghi cũ chưa có dữ liệu chi tiết (deep = 0) NHƯNG Health Connect lại có (deep > 0)
+                // Thì ta cập nhật lại bản ghi đó.
+                val hasNewDetails = (deep > 0 || rem > 0 || light > 0)
+                val missingDetails = (existingRecord.deepSleepDuration == 0L && existingRecord.remSleepDuration == 0L && existingRecord.lightSleepDuration == 0L)
+
+                if (hasNewDetails && missingDetails) {
+                    val updates = mapOf(
+                        "deepSleepDuration" to deep,
+                        "remSleepDuration" to rem,
+                        "lightSleepDuration" to light,
+                        "awakeDuration" to awake,
+                        "source" to pkg // Cập nhật luôn source nếu trước đó là manual
+                    )
+                    firestore.collection("users").document(userId)
+                        .collection("sleep_sessions").document(existingRecord.id)
+                        .update(updates).await()
+                    Log.d("Sync", "Đã update chi tiết cho Sleep: ${existingRecord.id}")
+                }
             }
         }
 
-        //CLEANUP
+        // CLEANUP (Xóa bản ghi rác)
         for (fs in fsRecords) {
-            val existsInHc = hcRecords.any { hc ->
-                val sTime = hc.startTime.toEpochMilli()
-                val pkg = try { hc.metadata.dataOrigin.packageName } catch (e: Exception) { "unknown" }
-
-                kotlin.math.abs(fs.startTime - sTime) < 2000 && (fs.source.isEmpty() || fs.source == pkg)
-            }
-            if (!existsInHc) {
-                firestore.collection("users").document(userId)
-                    .collection("sleep_sessions").document(fs.id).delete().await()
+            // Chỉ xóa nếu source là từ HC (để tránh xóa nhầm dữ liệu nhập tay)
+            if (fs.source != context.packageName && fs.source.isNotEmpty()) {
+                val existsInHc = hcRecords.any { hc ->
+                    val sTime = hc.startTime.toEpochMilli()
+                    val pkg = try { hc.metadata.dataOrigin.packageName } catch (e: Exception) { "unknown" }
+                    kotlin.math.abs(fs.startTime - sTime) < 2000 && (fs.source == pkg)
+                }
+                if (!existsInHc) {
+                    firestore.collection("users").document(userId)
+                        .collection("sleep_sessions").document(fs.id).delete().await()
+                }
             }
         }
-    }
-    // Hàm phụ trợ: So sánh xem 2 record có phải là 1 không
+    }    // Hàm phụ trợ: So sánh xem 2 record có phải là 1 không
     private fun isSameRecord(fsRecord: StepRecordEntity, hcStart: Long, hcCount: Int, hcSource: String): Boolean {
         //  Số bước phải bằng nhau
         if (fsRecord.count != hcCount) return false
@@ -535,6 +584,7 @@ class HealthRepository @Inject constructor(
         }
     }
 
+
     // --- BIỂU ĐỒ & LỊCH SỬ ---
 
     suspend fun getStepChartData(range: ChartTimeRange): List<StepBucket> {
@@ -695,13 +745,26 @@ class HealthRepository @Inject constructor(
             .toObjects(HeartRateRecordEntity::class.java)
     }
 
-    suspend fun getSleepHistory(): List<SleepSessionEntity> {
-        val uid = currentUserId ?: return emptyList()
-        return firestore.collection("users").document(uid)
+    fun getSleepHistory(): Flow<List<SleepSessionEntity>> = callbackFlow {
+        val uid = currentUserId
+        if (uid == null) {
+            trySend(emptyList())
+            awaitClose {}
+            return@callbackFlow
+        }
+
+        val listener = firestore.collection("users").document(uid)
             .collection("sleep_sessions")
             .orderBy("startTime", Query.Direction.DESCENDING)
-            .get().await()
-            .toObjects(SleepSessionEntity::class.java)
+            .addSnapshotListener { snapshot, e ->
+                if (e != null) {
+                    Log.e("HealthRepo", "Lỗi getSleepHistory: $e")
+                    return@addSnapshotListener
+                }
+                val data = snapshot?.toObjects(SleepSessionEntity::class.java) ?: emptyList()
+                trySend(data)
+            }
+        awaitClose { listener.remove() }
     }
 
 

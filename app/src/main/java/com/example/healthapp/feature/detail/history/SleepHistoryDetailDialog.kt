@@ -1,6 +1,8 @@
 package com.example.healthapp.feature.detail.history
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -10,13 +12,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.healthapp.core.model.entity.SleepSessionEntity
+import com.example.healthapp.core.viewmodel.SleepViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -25,33 +31,28 @@ fun SleepHistoryDetailDialog(
     session: SleepSessionEntity,
     onDismiss: () -> Unit,
     onDelete: (SleepSessionEntity) -> Unit,
-    onEdit: (SleepSessionEntity) -> Unit
+    onEdit: (SleepSessionEntity) -> Unit,
+    sleepViewModel: SleepViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
-    // Check nguồn dữ liệu
     val isMyData = session.source == context.packageName
 
-    // Tính toán thời lượng
+    // Tính toán thời lượng tổng
     val durationMillis = session.endTime - session.startTime
     val durationMinutes = durationMillis / 60000
+    val totalHours = durationMinutes / 60.0
     val hours = durationMinutes / 60
     val minutes = durationMinutes % 60
 
-    // Đánh giá chất lượng giấc ngủ
-    val totalHours = durationMinutes / 60.0
-    val (assessmentText, assessmentColor) = when {
-        totalHours < 5 -> "Kém (Quá ít)" to Color(0xFFEF4444) // Đỏ
-        totalHours in 5.0..6.5 -> "Khá (Cần thêm)" to Color(0xFFF59E0B) // Vàng
-        totalHours in 6.5..9.0 -> "Tốt (Lý tưởng)" to Color(0xFF22C55E) // Xanh lá
-        else -> "Ngủ nhiều" to Color(0xFF3B82F6) // Xanh dương
-    }
+    // Đánh giá chất lượng (Logic mới: Ưu tiên Stage nếu có)
+    val evaluation = sleepViewModel.evaluateSessionQuality(session)
 
-    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    val dateFormat = SimpleDateFormat("EEEE, dd/MM/yyyy", Locale("vi", "VN"))
     val timeFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
     Dialog(onDismissRequest = onDismiss) {
         Card(
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White),
             modifier = Modifier.fillMaxWidth().padding(16.dp)
         ) {
@@ -59,7 +60,7 @@ fun SleepHistoryDetailDialog(
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Header
+                // --- Header ---
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -71,85 +72,138 @@ fun SleepHistoryDetailDialog(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(dateFormat.format(Date(session.startTime)), color = Color.Gray, fontSize = 14.sp)
 
-                // Hiển thị Giờ ngủ to rõ
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // --- Tổng thời gian ---
                 Text(
                     text = "${hours}h ${minutes}m",
-                    fontSize = 48.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = Color(0xFF6366F1) // Màu tím
+                    fontSize = 56.sp,
+                    fontWeight = FontWeight.Black,
+                    color = Color(0xFF6366F1),
+                    lineHeight = 56.sp
                 )
-
-                // Hiển thị Đánh giá
-                Text(
-                    text = assessmentText,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = assessmentColor
-                )
+                Text(text = evaluation.text, color = Color(evaluation.colorHex))
 
                 Spacer(modifier = Modifier.height(24.dp))
-                HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f))
+
+                // --- PHẦN MỚI: BIỂU ĐỒ GIAI ĐOẠN (Chỉ hiện nếu có dữ liệu) ---
+                if (session.hasDetailedStages()) {
+                    SleepStagesChart(session)
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Grid thông số chi tiết
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        StageStatItem("Ngủ sâu", session.deepSleepDuration, Color(0xFF4F46E5))
+                        StageStatItem("REM", session.remSleepDuration, Color(0xFF8B5CF6))
+                        StageStatItem("Ngủ nông", session.lightSleepDuration, Color(0xFF60A5FA))
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                        StageStatItem("Đã thức", session.awakeDuration, Color(0xFFF59E0B))
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
+
+                HorizontalDivider(color = Color.LightGray.copy(0.3f))
                 Spacer(modifier = Modifier.height(16.dp))
 
-                // Thông tin chi tiết
-                DetailRow(label = "Ngày:", value = dateFormat.format(Date(session.startTime)))
-                DetailRow(label = "Bắt đầu:", value = timeFormat.format(Date(session.startTime)))
-                DetailRow(label = "Thức dậy:", value = timeFormat.format(Date(session.endTime)))
-
-                // Nguồn dữ liệu
-                val sourceText = if (isMyData) "Nhập thủ công" else session.source.ifEmpty { "Nguồn ngoài" }
-                DetailRow(label = "Nguồn:", value = sourceText, isHighlight = true)
+                // --- Thông tin thời gian ---
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    TimeInfoItem("Đi ngủ", timeFormat.format(Date(session.startTime)))
+                    TimeInfoItem("Thức dậy", timeFormat.format(Date(session.endTime)))
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Nút bấm (Chỉ hiện nếu là data của mình)
+                // --- Buttons ---
                 if (isMyData) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         Button(
                             onClick = { onEdit(session) },
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEFF6FF), contentColor = Color(0xFF3B82F6))
                         ) {
-                            Icon(Icons.Default.Edit, null, tint = Color.White)
+                            Icon(Icons.Default.Edit, null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Sửa")
                         }
                         Button(
                             onClick = { onDelete(session); onDismiss() },
                             modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFFEBEE))
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFEF2F2), contentColor = Color(0xFFEF4444))
                         ) {
-                            Icon(Icons.Default.Delete, null, tint = Color.Red)
+                            Icon(Icons.Default.Delete, null, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(4.dp))
-                            Text("Xóa", color = Color.Red)
+                            Text("Xóa")
                         }
                     }
                 } else {
-                    Text(
-                        "* Dữ liệu nguồn ngoài chỉ có thể xem.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Gray
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("Nguồn: ${session.source.ifEmpty { "Health Connect" }}", fontSize = 12.sp, color = Color.Gray)
+                    }
                 }
             }
         }
     }
 }
 
-// Helper Row
+// --- Các Composable phụ trợ ---
+
 @Composable
-fun DetailRow(label: String, value: String, isHighlight: Boolean = false) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(text = label, color = Color.Gray)
+fun SleepStagesChart(session: SleepSessionEntity) {
+    val total = (session.deepSleepDuration + session.remSleepDuration + session.lightSleepDuration + session.awakeDuration).toFloat()
+    if (total == 0f) return
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Thanh Bar Chart
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(12.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color(0xFFE5E7EB))
+        ) {
+            if (session.deepSleepDuration > 0) Box(Modifier.weight(session.deepSleepDuration.toFloat()).fillMaxHeight().background(Color(0xFF4F46E5)))
+            if (session.remSleepDuration > 0) Box(Modifier.weight(session.remSleepDuration.toFloat()).fillMaxHeight().background(Color(0xFF8B5CF6)))
+            if (session.lightSleepDuration > 0) Box(Modifier.weight(session.lightSleepDuration.toFloat()).fillMaxHeight().background(Color(0xFF60A5FA)))
+            if (session.awakeDuration > 0) Box(Modifier.weight(session.awakeDuration.toFloat()).fillMaxHeight().background(Color(0xFFF59E0B)))
+        }
+    }
+}
+
+@Composable
+fun StageStatItem(
+    label: String, minutes: Long, color: Color,
+    sleepViewModel: SleepViewModel = hiltViewModel()
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+            Spacer(Modifier.width(4.dp))
+            Text(label, fontSize = 12.sp, color = Color.Gray)
+        }
         Text(
-            text = value,
-            fontWeight = if (isHighlight) FontWeight.Bold else FontWeight.Normal,
-            color = if (isHighlight) Color(0xFF1976D2) else Color.Black
+            text = sleepViewModel.formatMinToHr(minutes),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color.Black
         )
+    }
+}
+
+@Composable
+fun TimeInfoItem(label: String, time: String) {
+    Column(horizontalAlignment = Alignment.Start) {
+        Text(label, fontSize = 12.sp, color = Color.Gray)
+        Text(time, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
     }
 }

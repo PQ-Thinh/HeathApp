@@ -9,8 +9,15 @@ data class SleepSessionEntity(
     var startTime: Long = 0,
     var endTime: Long = 0,
     var type: String="Light, Deep, REM, Awake",
+    var deepSleepDuration: Long = 0,
+    var remSleepDuration: Long = 0,
+    var lightSleepDuration: Long = 0,
+    var awakeDuration: Long = 0,
     var updatedAt: Long = System.currentTimeMillis(),
     val source: String = ""
 ) {
     constructor() : this("", "", 0, 0, "", 0)
+    fun hasDetailedStages(): Boolean {
+        return deepSleepDuration > 0 || remSleepDuration > 0 || lightSleepDuration > 0
+    }
 }
