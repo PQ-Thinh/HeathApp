@@ -94,7 +94,19 @@ fun SleepSettingDialog(
     val stageTypes = listOf("Light", "Deep", "REM", "Awake")
     val stageColors = listOf(Color(0xFF60A5FA), Color(0xFF4F46E5), Color(0xFF8B5CF6), Color(0xFFF59E0B))
     var selectedStageIndex by remember { mutableIntStateOf(0) }
-    var durationInput by remember { mutableStateOf("30") } // Mặc định 30p
+    var durationHour by remember { mutableIntStateOf(0) }
+    var durationMinute by remember { mutableIntStateOf(30) } // Mặc định 30p
+
+    val durationPickerDialog = TimePickerDialog(
+        context,
+        { _, h, m ->
+            durationHour = h
+            durationMinute = m
+        },
+        durationHour,
+        durationMinute,
+        true // true = 24h view (để tránh hiện AM/PM gây hiểu nhầm là chọn giờ trong ngày)
+    )
 
     // Tính toán tổng & End Time
     val totalDurationMinutes = addedStages.sumOf { it.durationMinutes }
@@ -136,7 +148,9 @@ fun SleepSettingDialog(
                 // 1. CHỌN NGÀY (Giữ nguyên theo yêu cầu)
                 SleepInputRow(
                     label = "Ngày bắt đầu",
-                    value = selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
+                    value =
+                        if(selectedDate > LocalDate.now()) "Ngày hiện tại"
+                        else selectedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")),
                     icon = Icons.Default.CalendarToday,
                     onClick = { datePickerDialog.show() }
                 )
@@ -193,13 +207,16 @@ fun SleepSettingDialog(
                             selected = selectedStageIndex == index,
                             onClick = {
                                 selectedStageIndex = index
-                                durationInput = "30" // Reset về mặc định
+                                durationHour = 0
+                                durationMinute = 30
                             },
                             label = { Text(type) },
                             modifier = Modifier.padding(end = 4.dp),
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = stageColors[index].copy(alpha = 0.2f),
-                                selectedLabelColor = stageColors[index]
+                                selectedLabelColor = stageColors[index],
+                                labelColor = contentColor
+
                             )
                         )
                     }
@@ -207,31 +224,50 @@ fun SleepSettingDialog(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Nhập số phút & Nút Thêm
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(IntrinsicSize.Min)
+                ) {
                     OutlinedTextField(
-                        value = durationInput,
-                        onValueChange = { if (it.all { c -> c.isDigit() }) durationInput = it },
+                        value = if (durationHour > 0) "${durationHour}h ${durationMinute}m" else "${durationMinute} phút",
+                        onValueChange = {},
                         label = { Text("Phút") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = stageColors[selectedStageIndex],
-                            focusedLabelColor = stageColors[selectedStageIndex]
-                        )
+                            focusedLabelColor = stageColors[selectedStageIndex],
+                            focusedContainerColor = Color.White,
+                            unfocusedTextColor = contentColor,
+                            focusedTextColor = contentColor,
+                        ),
+                        readOnly = true,
+                        leadingIcon = {
+                            IconButton(onClick = { durationPickerDialog.show() }) {
+                                Icon(Icons.Default.AccessTime, null, tint = stageColors[selectedStageIndex])
+                            }
+                        },
                     )
+
                     Spacer(modifier = Modifier.width(12.dp))
+
                     Button(
                         onClick = {
-                            val mins = durationInput.toIntOrNull() ?: 0
+                            val mins = (durationHour * 60 + durationMinute)
                             if (mins > 0) {
                                 addedStages.add(SleepStageInput(stageTypes[selectedStageIndex], mins, stageColors[selectedStageIndex]))
                             }
                         },
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.height(56.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = stageColors[selectedStageIndex])
+                        modifier = Modifier
+                            .fillMaxHeight()
+                            .width(64.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = stageColors[selectedStageIndex]),
+                        contentPadding = PaddingValues(0.dp) // Căn icon vào giữa nếu nút bị nhỏ
                     ) {
                         Icon(Icons.Default.Add, null)
                     }
@@ -261,7 +297,7 @@ fun SleepSettingDialog(
                                     Spacer(modifier = Modifier.width(8.dp))
                                     Text(stage.type, fontWeight = FontWeight.Bold, color = Color.Black, fontSize = 14.sp)
                                     Spacer(modifier = Modifier.weight(1f))
-                                    Text("${stage.durationMinutes}m", color = Color.Gray, fontSize = 14.sp)
+                                    Text("${sleepViewModel.formatMinToHr(stage.durationMinutes.toLong())}", color = Color.Gray, fontSize = 14.sp)
                                     IconButton(onClick = { addedStages.remove(stage) }, modifier = Modifier.size(24.dp)) {
                                         Icon(Icons.Default.Delete, null, tint = Color.Red, modifier = Modifier.size(16.dp))
                                     }
