@@ -530,12 +530,23 @@ class HealthRepository @Inject constructor(
     ) {
         // Ghi vào HC
         try {
-            healthConnectManager.writeSleepSession(start, end)
-        } catch (e: Exception) { Log.e("HealthRepo", "HC write fail: $e") }
+            healthConnectManager.writeSleepSession(
+                startTime = start,
+                endTime = end,
+                lightMinutes = light,
+                deepMinutes = deep,
+                remMinutes = rem,
+                awakeMinutes = awake
+            )
+            Log.d("HealthRepo", "Đã ghi Sleep Stages vào Health Connect")
+        } catch (e: Exception) {
+            Log.e("HealthRepo", "Lỗi ghi HC: ${e.message}")
+        }
 
-        // Tính toán cho DailyHealth
+        //Tính toán tổng hợp cho DailyHealth (Firestore)
         val durationMinutes = Duration.between(start, end).toMinutes()
         val todayStr = start.toLocalDate().toString()
+
         val dailyUpdate = mapOf(
             "date" to todayStr,
             "userId" to userId,
@@ -545,7 +556,7 @@ class HealthRepository @Inject constructor(
             .collection("daily_health").document(todayStr)
             .set(dailyUpdate, SetOptions.merge())
 
-        // Lưu vào Firestore với đầy đủ chi tiết
+        //Lưu chi tiết vào SleepSessionEntity (Firestore)
         val startTimeMillis = start.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         val endTimeMillis = end.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
@@ -561,9 +572,11 @@ class HealthRepository @Inject constructor(
             awakeDuration = awake,
             source = context.packageName
         )
+
         firestore.collection("users").document(userId)
             .collection("sleep_sessions").document(sessionEntity.id)
-            .set(sessionEntity).await()
+            .set(sessionEntity)
+            .await()
     }
     suspend fun deleteSleepSession(session: SleepSessionEntity) {
         try {

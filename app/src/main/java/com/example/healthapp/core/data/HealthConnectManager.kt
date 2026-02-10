@@ -290,22 +290,58 @@ class HealthConnectManager(private val context: Context) {
     }
     // --- 4. SLEEP MANAGEMENT ---
 
-    suspend fun writeSleepSession(start: LocalDateTime, end: LocalDateTime) {
-        try {
-            val zoneOffset = ZoneId.systemDefault().rules.getOffset(start)
-            val record = SleepSessionRecord(
-                startTime = start.toInstant(zoneOffset),
-                startZoneOffset = zoneOffset,
-                endTime = end.toInstant(zoneOffset),
-                endZoneOffset = zoneOffset,
-                metadata = Metadata.manualEntry()
-            )
-            healthConnectClient.insertRecords(listOf(record))
-        } catch (e: Exception) {
-            Log.e("HealthConnect", "Lỗi lưu giấc ngủ: ${e.message}")
-        }
-    }
+    suspend fun writeSleepSession(
+        startTime: LocalDateTime,
+        endTime: LocalDateTime,
+        lightMinutes: Long = 0,
+        deepMinutes: Long = 0,
+        remMinutes: Long = 0,
+        awakeMinutes: Long = 0
+    ) {
+        val zoneOffset = ZoneId.systemDefault().rules.getOffset(startTime)
 
+        // Tạo danh sách các giai đoạn (Stages)
+        val stages = mutableListOf<SleepSessionRecord.Stage>()
+
+        // Dùng con trỏ thời gian để xếp chồng các giai đoạn
+        // Thứ tự giả định: Light -> Deep -> REM -> Awake
+        var currentCursor = startTime.toInstant(zoneOffset)
+
+        // Helper function để thêm stage
+        fun addStage(minutes: Long, type: Int) {
+            if (minutes > 0) {
+                val stageEnd = currentCursor.plusSeconds(minutes * 60)
+                stages.add(
+                    SleepSessionRecord.Stage(
+                        startTime = currentCursor,
+                        endTime = stageEnd,
+                        stage = type
+                    )
+                )
+                currentCursor = stageEnd // Cập nhật con trỏ cho stage tiếp theo
+            }
+        }
+
+        addStage(lightMinutes, SleepSessionRecord.STAGE_TYPE_LIGHT)
+        addStage(deepMinutes, SleepSessionRecord.STAGE_TYPE_DEEP)
+        addStage(remMinutes, SleepSessionRecord.STAGE_TYPE_REM)
+        addStage(awakeMinutes, SleepSessionRecord.STAGE_TYPE_AWAKE)
+
+        // Lưu ý: Nếu tổng duration nhập vào < (endTime - startTime), khoảng trống còn lại sẽ là "Unknown"
+        // Nếu tổng duration > khoảng thời gian, ta chấp nhận lấy duration làm chuẩn cho record.
+
+        // Tạo bản ghi Session
+        val sleepRecord = SleepSessionRecord(
+            startTime = startTime.toInstant(zoneOffset),
+            startZoneOffset = zoneOffset,
+            endTime = endTime.toInstant(zoneOffset),
+            endZoneOffset = zoneOffset,
+            stages = stages,
+            metadata = Metadata.manualEntry()
+        )
+
+        healthConnectClient.insertRecords(listOf(sleepRecord))
+    }
     // Dùng cho biểu đồ Giấc ngủ (Tuần/Tháng)
     suspend fun readSleepChartData(
         startTime: LocalDateTime,
@@ -388,7 +424,7 @@ class HealthConnectManager(private val context: Context) {
 // --- DATA CLASSES (Đã chuẩn hóa dùng LocalDateTime) ---
 
 data class HeartRateBucket(
-    val startTime: LocalDateTime, // Đã đổi từ Instant -> LocalDateTime để vẽ chart dễ hơn
+    val startTime: LocalDateTime,
     val min: Long,
     val max: Long,
     val avg: Long

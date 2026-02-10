@@ -2,6 +2,7 @@ package com.example.healthapp.feature.detail.history
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -93,15 +94,18 @@ fun SleepHistoryDetailDialog(
                     Spacer(modifier = Modifier.height(24.dp))
 
                     // Grid thông số chi tiết
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        StageStatItem("Ngủ sâu", session.deepSleepDuration, Color(0xFF4F46E5))
-                        StageStatItem("REM", session.remSleepDuration, Color(0xFF8B5CF6))
-                        StageStatItem("Ngủ nông", session.lightSleepDuration, Color(0xFF60A5FA))
+                    Row (horizontalArrangement = Arrangement.SpaceBetween) {
+                       Column( verticalArrangement = Arrangement.Center) {
+                            StageStatItem("Ngủ sâu", session.deepSleepDuration, Color(0xFF4F46E5))
+                            StageStatItem("REM", session.remSleepDuration, Color(0xFF8B5CF6))
+                        }
+                        Spacer(Modifier.width(24.dp))
+                        Column(verticalArrangement = Arrangement.Center) {
+                            StageStatItem("Ngủ nông", session.lightSleepDuration, Color(0xFF60A5FA))
+                            StageStatItem("Đã thức", session.awakeDuration, Color(0xFFF59E0B))
+                        }
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                        StageStatItem("Đã thức", session.awakeDuration, Color(0xFFF59E0B))
-                    }
+
 
                     Spacer(modifier = Modifier.height(24.dp))
                 }
@@ -183,12 +187,12 @@ fun StageStatItem(
     label: String, minutes: Long, color: Color,
     sleepViewModel: SleepViewModel = hiltViewModel()
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).clip(CircleShape).background(color))
-            Spacer(Modifier.width(4.dp))
-            Text(label, fontSize = 12.sp, color = Color.Gray)
-        }
+
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+        Spacer(Modifier.width(4.dp))
+        Text(label + " :", fontSize = 12.sp, color = Color.Gray)
+        Spacer(Modifier.width(4.dp))
         Text(
             text = sleepViewModel.formatMinToHr(minutes),
             fontSize = 16.sp,
@@ -196,6 +200,8 @@ fun StageStatItem(
             color = Color.Black
         )
     }
+
+
 }
 
 @Composable
