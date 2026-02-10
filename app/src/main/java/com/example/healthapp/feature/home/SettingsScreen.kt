@@ -1,5 +1,6 @@
 package com.example.healthapp.feature.home
 
+import android.widget.Toast
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
@@ -30,6 +31,16 @@ import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.window.Dialog
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.healthapp.core.viewmodel.UserViewModel
 
 @Composable
 fun SettingsScreen(
@@ -37,21 +48,26 @@ fun SettingsScreen(
     onBackClick: () -> Unit = {},
     onThemeChanged: (Boolean) -> Unit,
     isDarkTheme: Boolean,
-    onChangePassword: () -> Unit = {},
+   onChangePassword: () -> Unit = {},
+    userViewModel: UserViewModel = hiltViewModel()
 ) {
     val isPreview = LocalInspectionMode.current
     var isVisible by remember { mutableStateOf(isPreview) }
     var isServiceRunning by remember { mutableStateOf(false) }
+    val context = LocalContext.current // Cần biến context để hiện Toast
+
+    // --- THÊM STATE CHO DIALOG ---
+    var showChangePassDialog by remember { mutableStateOf(false) }
 
     // State for demo purposes
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission(),
-        onResult = { isGranted ->
-//            if (isGranted) {
-//                onToggleService(true) // Có quyền -> Bật service
-//            }
-        }
-    )
+//    val permissionLauncher = rememberLauncherForActivityResult(
+//        contract = ActivityResultContracts.RequestPermission(),
+//        onResult = { isGranted ->
+////            if (isGranted) {
+////                onToggleService(true) // Có quyền -> Bật service
+////            }
+//        }
+//    )
     var biometricEnabled by remember { mutableStateOf(false) }
 
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
@@ -144,10 +160,31 @@ fun SettingsScreen(
                             icon = Icons.Default.VpnKey,
                             title = "Đổi Mật Khẩu",
                             colors = colors,
-                            onChangePassword = onChangePassword
+                            onChangePassword = { showChangePassDialog = true}
+                        )
+                    }
+                    if (showChangePassDialog) {
+                        ChangePasswordDialog(
+                            onDismiss = { showChangePassDialog = false },
+                            colors = colors,
+                            onConfirm = { oldPass, newPass ->
+                                // Gọi ViewModel xử lý
+                                userViewModel.changePassword(
+                                    currentPass = oldPass,
+                                    newPass = newPass,
+                                    onSuccess = {
+                                        Toast.makeText(context, "Đổi mật khẩu thành công!", Toast.LENGTH_SHORT).show()
+                                        showChangePassDialog = false
+                                    },
+                                    onError = { errorMsg ->
+                                        Toast.makeText(context, errorMsg, Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                            }
                         )
                     }
                 }
+
 
                 // Data & Localization
                 item {
@@ -279,7 +316,8 @@ fun ActionSettingItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(16.dp)
+            .clickable{ onChangePassword() },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -302,23 +340,139 @@ fun ActionSettingItem(
         }
     }
 }
+@Composable
+fun ChangePasswordDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (String, String) -> Unit,
+    colors: AestheticColors
+) {
+    var oldPass by remember { mutableStateOf("") }
+    var newPass by remember { mutableStateOf("") }
+    var confirmPass by remember { mutableStateOf("") }
 
-//@Preview(name = "Dark Mode")
-//@Composable
-//fun SettingsScreenDarkPreview() {
-//    SettingsScreen(
-//        onBackClick = {},
-//        onThemeChanged = {},
-//        isDarkTheme = true
-//    )
-//}
-//
-//@Preview(name = "Light Mode")
-//@Composable
-//fun SettingsScreenLightPreview() {
-//    SettingsScreen(
-//        onBackClick = {},
-//        onThemeChanged = {},
-//        isDarkTheme = false
-//    )
-//}
+    // State ẩn/hiện mật khẩu
+    var showOldPass by remember { mutableStateOf(false) }
+    var showNewPass by remember { mutableStateOf(false) }
+    var showConfirmPass by remember { mutableStateOf(false) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = colors.background),
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(1.dp, colors.glassBorder, RoundedCornerShape(16.dp))
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Đổi Mật Khẩu",
+                    style = TextStyle(fontSize = 20.sp, fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Input Mật khẩu cũ
+                PasswordInputInfo(
+                    label = "Mật khẩu hiện tại",
+                    value = oldPass,
+                    onValueChange = { oldPass = it },
+                    isVisible = showOldPass,
+                    onToggleVisibility = { showOldPass = !showOldPass },
+                    colors = colors
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Input Mật khẩu mới
+                PasswordInputInfo(
+                    label = "Mật khẩu mới",
+                    value = newPass,
+                    onValueChange = { newPass = it },
+                    isVisible = showNewPass,
+                    onToggleVisibility = { showNewPass = !showNewPass },
+                    colors = colors
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Input Xác nhận mật khẩu mới
+                PasswordInputInfo(
+                    label = "Nhập lại mật khẩu mới",
+                    value = confirmPass,
+                    onValueChange = { confirmPass = it },
+                    isVisible = showConfirmPass,
+                    onToggleVisibility = { showConfirmPass = !showConfirmPass },
+                    colors = colors
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Hàng nút bấm
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(onClick = onDismiss) {
+                        Text("Hủy", color = colors.textSecondary)
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = {
+                            if (newPass == confirmPass) {
+                                onConfirm(oldPass, newPass)
+                            }
+                        },
+                        // Chỉ enable nút khi điền đủ và mật khẩu khớp
+                        enabled = oldPass.isNotBlank() && newPass.isNotBlank() && newPass == confirmPass,
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.accent)
+                    ) {
+                        Text("Xác nhận", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// Component nhập mật khẩu tái sử dụng (giúp code gọn hơn)
+@Composable
+fun PasswordInputInfo(
+    label: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    isVisible: Boolean,
+    onToggleVisibility: () -> Unit,
+    colors: AestheticColors
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, color = colors.textSecondary) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+        visualTransformation = if (isVisible) VisualTransformation.None else PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Password,
+            imeAction = ImeAction.Next
+        ),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = colors.accent,
+            unfocusedBorderColor = colors.glassBorder,
+            focusedTextColor = colors.textPrimary,
+            unfocusedTextColor = colors.textPrimary,
+            cursorColor = colors.accent,
+            // Đảm bảo nền trong suốt hoặc theo theme kính
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent
+        ),
+        trailingIcon = {
+            IconButton(onClick = onToggleVisibility) {
+                Icon(
+                    imageVector = if (isVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                    contentDescription = null,
+                    tint = colors.textSecondary
+                )
+            }
+        }
+    )
+}

@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.model.entity.UserEntity
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
@@ -198,6 +199,32 @@ class UserViewModel @Inject constructor(
         val heightM = heightCm / 100f
         val bmi = weightKg / (heightM * heightM)
         return (bmi * 10).roundToInt() / 10f // Làm tròn 1 chữ số thập phân
+    }
+    fun changePassword(currentPass: String, newPass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val user = auth.currentUser
+        if (user != null && user.email != null) {
+            // Tạo credential từ email và mật khẩu cũ để xác thực lại
+            val credential = EmailAuthProvider.getCredential(user.email!!, currentPass)
+
+            // Xác thực lại (Re-authenticate)
+            user.reauthenticate(credential)
+                .addOnSuccessListener {
+                    //Nếu mật khẩu cũ đúng -> Tiến hành cập nhật mật khẩu mới
+                    user.updatePassword(newPass)
+                        .addOnSuccessListener {
+                            onSuccess()
+                        }
+                        .addOnFailureListener { e ->
+                            onError("Không thể cập nhật mật khẩu: ${e.message}")
+                        }
+                }
+                .addOnFailureListener { e ->
+                    // Mật khẩu cũ không khớp
+                    onError("Mật khẩu hiện tại không đúng")
+                }
+        } else {
+            onError("Lỗi xác thực người dùng. Vui lòng đăng nhập lại.")
+        }
     }
 }
 fun FirebaseAuth.authStateChanges() = callbackFlow {
