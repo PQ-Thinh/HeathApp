@@ -176,7 +176,7 @@ class SleepViewModel @Inject constructor(
         val totalMinutes = durationMillis / 60000
         val totalHours = totalMinutes / 60.0
 
-        // Ưu tiên 1: Đánh giá theo Stages (nếu có dữ liệu Deep/REM)
+        //Đánh giá theo Stages (nếu có dữ liệu Deep/REM)
         if (session.hasDetailedStages()) {
             val totalSleep = (session.deepSleepDuration + session.remSleepDuration + session.lightSleepDuration).toDouble()
             // Tránh chia cho 0
