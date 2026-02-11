@@ -88,6 +88,7 @@ fun FabMenu(
                         .background(Color.Red)
                         .align(Alignment.TopStart)
                         .border(2.dp, Color.White, CircleShape)
+                        .offset(x = (-4).dp, y = (-4).dp)
                 )
             }
         }

@@ -1,5 +1,6 @@
 package com.example.healthapp.core.data
 
+import android.nfc.Tag
 import android.util.Log
 import com.example.healthapp.core.model.entity.InvitationEntity
 import com.example.healthapp.core.model.entity.NotificationEntity
@@ -20,14 +21,27 @@ class FirebaseSyncManager @Inject constructor(
     private var invitationListener: ListenerRegistration? = null
     private var sentInvitationListener: ListenerRegistration? = null
 
-        // 1. Lấy danh sách tất cả user (Trừ bản thân)
+        //Lấy danh sách tất cả user (Trừ bản thân)
         suspend fun getAllUsers(currentUid: String): List<UserEntity> {
             return try {
                 val snapshot = firestore.collection("users").get().await()
-                // Map sang UserEntity và lọc bỏ chính mình
-                snapshot.toObjects(UserEntity::class.java).filter { it.id != currentUid }
+                val userList = snapshot.documents.mapNotNull { doc ->
+                    try {
+                        val user = doc.toObject(UserEntity::class.java)
+                        // Gán ID từ document ID để đảm bảo không bị rỗng
+                        user?.apply {
+                            id = doc.id
+                        }
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                // Lọc bỏ bản thân
+                val finalResult = userList.filter { it.id != currentUid }
+                finalResult
             } catch (e: Exception) {
-                Log.e("Sync", "Lỗi lấy danh sách user: ${e.message}")
+                e.printStackTrace()
+                Log.e("FirebaseSync", "Lỗi quyền truy cập: ${e.message}")// In toàn bộ stack trace để check lỗi Permission
                 emptyList()
             }
         }
