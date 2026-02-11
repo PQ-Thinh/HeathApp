@@ -6,7 +6,7 @@ import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.model.entity.InvitationEntity
 import com.example.healthapp.core.model.entity.UserEntity
 import com.google.firebase.auth.FirebaseAuth
-import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -22,18 +22,33 @@ class SocialViewModel @Inject constructor(
     // Danh sách tất cả user (để tìm và gửi lời mời)
     private val _users = MutableStateFlow<List<UserEntity>>(emptyList())
     val users = _users.asStateFlow()
+    private val _sentInvitations = MutableStateFlow<List<InvitationEntity>>(emptyList())
+    val sentInvitations = _sentInvitations.asStateFlow()
 
     // Danh sách lời mời ĐẾN (mình nhận được)
     private val _incomingInvitations = MutableStateFlow<List<InvitationEntity>>(emptyList())
     val incomingInvitations = _incomingInvitations.asStateFlow()
 
     private val currentUserId = auth.currentUser?.uid
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
 
     init {
         loadUsers()
         startListening()
     }
 
+
+    // Hàm gọi khi người dùng vuốt xuống
+    fun refreshNotifications() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+
+            delay(1500)
+
+            _isRefreshing.value = false
+        }
+    }
     // Lấy danh sách user để hiển thị trong dialog "Mời bạn bè"
     fun loadUsers() {
         if (currentUserId == null) return
@@ -48,12 +63,11 @@ class SocialViewModel @Inject constructor(
 
         repository.startSocialListening(
             onIncomingInvites = { list ->
-                // Chỉ hiển thị những lời mời đang chờ (PENDING)
                 _incomingInvitations.value = list.filter { it.status == "PENDING" }
             },
-            onSentInviteStatusChange = { invite ->
-                // Xử lý khi lời mời mình gửi đi có thay đổi (VD: Họ từ chối)
-                // Có thể bắn Notification cục bộ ở đây nếu muốn
+            onSentInvites = { list ->
+                // Cập nhật toàn bộ danh sách lời mời đã gửi
+                _sentInvitations.value = list
             }
         )
     }

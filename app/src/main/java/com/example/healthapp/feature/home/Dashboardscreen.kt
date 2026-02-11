@@ -270,6 +270,16 @@ fun HealthDashboardScreen(
                             }
                         }
                     }
+                    item {
+                        // Hiển thị Banner nếu có lời mời
+                        if (invitations.isNotEmpty()) {
+                            InvitationAlertBanner(
+                                count = invitations.size,
+                                onClick = onNotificationsClick
+
+                            )
+                        }
+                    }
 
                     item {
                         StepProgressCard(
@@ -374,16 +384,7 @@ fun HealthDashboardScreen(
                             )
                         }
                     }
-                    item {
-                        // Hiển thị Banner nếu có lời mời
-                        if (invitations.isNotEmpty()) {
-                            InvitationAlertBanner(
-                                count = invitations.size,
-                                onClick = onNotificationsClick
 
-                            )
-                        }
-                    }
                     item {
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
@@ -690,14 +691,23 @@ fun InvitationAlertBanner(count: Int, onClick: () -> Unit) {
 fun UserInviteDashboardItem(
     user: UserEntity,
     colors: AestheticColors,
-    onInvite: () -> Unit
+    onInvite: () -> Unit,
+    socialViewModel: SocialViewModel = hiltViewModel()
 ) {
-    var isInvited by remember { mutableStateOf(false) }
+    //Lấy danh sách tất cả lời mời mình đã gửi (được cập nhật Realtime từ Firestore)
+    val sentList by socialViewModel.sentInvitations.collectAsState()
+
+    // Logic QUAN TRỌNG: Kiểm tra xem User này có nằm trong danh sách "PENDING" không
+    val isInvited = remember(sentList, user.id) {
+        sentList.any { invite ->
+            invite.receiverId == user.id && invite.status == "PENDING"
+        }
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp)) // Bo góc giống các card khác
+            .clip(RoundedCornerShape(24.dp))
             .background(colors.glassContainer)
             .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
             .padding(16.dp),
@@ -709,7 +719,7 @@ fun UserInviteDashboardItem(
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(Brush.linearGradient(listOf(Color(0xFF6366F1), Color(0xFF8B5CF6)))), // Gradient tím
+                    .background(Brush.linearGradient(listOf(Color(0xFF6366F1), Color(0xFF8B5CF6)))),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -727,22 +737,16 @@ fun UserInviteDashboardItem(
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
-//                Text(
-//                    text = "Mục tiêu: ${user.targetSteps} bước",
-//                    color = colors.textSecondary,
-//                    fontSize = 14.sp
-//                )
             }
         }
 
         Button(
             onClick = {
                 onInvite()
-                isInvited = true
             },
             enabled = !isInvited,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isInvited) Color.Gray else Color(0xFF10B981) // Màu xanh
+                containerColor = if (isInvited) Color.Gray else Color(0xFF10B981)
             ),
             shape = RoundedCornerShape(12.dp),
             modifier = Modifier.height(40.dp)

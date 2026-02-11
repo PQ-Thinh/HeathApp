@@ -822,18 +822,18 @@ class HealthRepository @Inject constructor(
         syncManager.respondToInvitation(invite.id, uid, isAccepted, invite.targetSteps)
     }
 
-    //Lắng nghe Realtime (Gộp cả nhận và gửi vào 1 hàm init hoặc tách rời tùy ViewModel)
+    //Lắng nghe Realtime
     fun startSocialListening(
         onIncomingInvites: (List<InvitationEntity>) -> Unit,
-        onSentInviteStatusChange: (InvitationEntity) -> Unit
+        onSentInvites: (List<InvitationEntity>) -> Unit // Đổi tên và kiểu dữ liệu
     ) {
         val uid = currentUserId ?: return
 
         // Nghe lời mời đến
         syncManager.startListeningForIncomingInvitations(uid, onIncomingInvites)
 
-        // Nghe trạng thái lời mời đi (để biết họ từ chối/chấp nhận)
-        syncManager.startListeningForSentInvitations(uid, onSentInviteStatusChange)
+        // Nghe lời mời đi (Full danh sách)
+        syncManager.startListeningForSentInvitations(uid, onSentInvites)
     }
 
 

@@ -23,6 +23,8 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,6 +75,8 @@ fun NotificationsScreen(
 
     // 2. Lấy danh sách lời mời từ ViewModel
     val invitations by socialViewModel.incomingInvitations.collectAsState()
+    val isRefreshing by socialViewModel.isRefreshing.collectAsState()
+    val pullRefreshState = rememberPullToRefreshState()
 
     LaunchedEffect(Unit) {
         if (!isPreview) isVisible = true
@@ -135,62 +139,68 @@ fun NotificationsScreen(
                 )
             }
         ) { paddingValues ->
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { socialViewModel.refreshNotifications() },
+                state = pullRefreshState,
+                modifier = Modifier.padding(paddingValues)
             ) {
-                // --- PHẦN 1: LỜI MỜI THÁCH ĐẤU (ƯU TIÊN) ---
-                if (invitations.isNotEmpty()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    contentPadding = PaddingValues(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // --- PHẦN 1: LỜI MỜI THÁCH ĐẤU (ƯU TIÊN) ---
+                    if (invitations.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Lời mời thách đấu (${invitations.size})",
+                                style = TextStyle(
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFEF4444) // Màu đỏ nổi bật
+                                ),
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+                        items(invitations) { invite ->
+                            InvitationCard(
+                                invite = invite,
+                                colors = colors,
+                                onAccept = { socialViewModel.acceptInvitation(invite) },
+                                onReject = { socialViewModel.rejectInvitation(invite) }
+                            )
+                        }
+                        item {
+                            Divider(
+                                modifier = Modifier.padding(vertical = 16.dp),
+                                color = colors.glassBorder
+                            )
+                        }
+                    }
+
+                    // --- PHẦN 2: THÔNG BÁO HỆ THỐNG ---
                     item {
                         Text(
-                            text = "Lời mời thách đấu (${invitations.size})",
+                            text = "Gần đây",
                             style = TextStyle(
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color(0xFFEF4444) // Màu đỏ nổi bật
+                                color = colors.textPrimary
                             ),
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                     }
-                    items(invitations) { invite ->
-                        InvitationCard(
-                            invite = invite,
-                            colors = colors,
-                            onAccept = { socialViewModel.acceptInvitation(invite) },
-                            onReject = { socialViewModel.rejectInvitation(invite) }
+
+                    itemsIndexed(notifications) { index, notification ->
+                        NotificationCard(
+                            notification = notification,
+                            visible = isVisible,
+                            index = index,
+                            colors = colors
                         )
                     }
-                    item {
-                        Divider(
-                            modifier = Modifier.padding(vertical = 16.dp),
-                            color = colors.glassBorder
-                        )
-                    }
-                }
-
-                // --- PHẦN 2: THÔNG BÁO HỆ THỐNG ---
-                item {
-                    Text(
-                        text = "Gần đây",
-                        style = TextStyle(
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = colors.textPrimary
-                        ),
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-
-                itemsIndexed(notifications) { index, notification ->
-                    NotificationCard(
-                        notification = notification,
-                        visible = isVisible,
-                        index = index,
-                        colors = colors
-                    )
                 }
             }
         }

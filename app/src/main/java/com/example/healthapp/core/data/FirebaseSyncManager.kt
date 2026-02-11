@@ -68,6 +68,13 @@ class FirebaseSyncManager @Inject constructor(
                 )
 
                 newInviteRef.set(invitation).await()
+                pushNotification(
+                    userId = receiverId, // Gửi vào collection của người nhận
+                    title = "Lời mời thách đấu",
+                    message = "$senderName muốn thách đấu $targetSteps bước với bạn!",
+                    type = "INVITATION",
+                    relatedId = newInviteRef.id
+                )
                 true
             } catch (e: Exception) {
                 Log.e("Sync", "Lỗi gửi lời mời: ${e.message}")
@@ -129,7 +136,7 @@ class FirebaseSyncManager @Inject constructor(
         //LẮNG NGHE LỜI MỜI ĐÃ GỬI (Để biết họ từ chối hay chấp nhận)
         fun startListeningForSentInvitations(
             currentUid: String,
-            onStatusChange: (InvitationEntity) -> Unit
+            onListUpdate: (List<InvitationEntity>) -> Unit // Sửa callback nhận List
         ) {
             sentInvitationListener?.remove()
             sentInvitationListener = firestore.collection("invitations")
@@ -137,16 +144,9 @@ class FirebaseSyncManager @Inject constructor(
                 .addSnapshotListener { snapshots, e ->
                     if (e != null) return@addSnapshotListener
 
-                    // Kiểm tra các thay đổi (chỉ quan tâm MODIFIED)
-                    snapshots?.documentChanges?.forEach { change ->
-                        if (change.type == com.google.firebase.firestore.DocumentChange.Type.MODIFIED) {
-                            val invite = change.document.toObject(InvitationEntity::class.java)
-                            // Chỉ báo callback nếu trạng thái không phải PENDING (tức là đã được rep)
-                            if (invite.status != "PENDING") {
-                                onStatusChange(invite)
-                            }
-                        }
-                    }
+                    // Luôn trả về danh sách đầy đủ mỗi khi có bất kỳ thay đổi nào
+                    val list = snapshots?.toObjects(InvitationEntity::class.java) ?: emptyList()
+                    onListUpdate(list)
                 }
         }
 
