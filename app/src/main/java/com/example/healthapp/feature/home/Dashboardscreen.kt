@@ -694,15 +694,21 @@ fun UserInviteDashboardItem(
     onInvite: () -> Unit,
     socialViewModel: SocialViewModel = hiltViewModel()
 ) {
-    //Lấy danh sách tất cả lời mời mình đã gửi (được cập nhật Realtime từ Firestore)
+    // Lấy danh sách đã mời (để hiện chữ "Đã mời")
     val sentList by socialViewModel.sentInvitations.collectAsState()
 
-    // Logic QUAN TRỌNG: Kiểm tra xem User này có nằm trong danh sách "PENDING" không
+    // Lấy danh sách đang Loading (để hiện vòng quay)
+    val loadingIds by socialViewModel.inviteLoadingIds.collectAsState()
+
+    // Kiểm tra trạng thái
     val isInvited = remember(sentList, user.id) {
         sentList.any { invite ->
             invite.receiverId == user.id && invite.status == "PENDING"
         }
     }
+
+    // Kiểm tra xem user này có đang trong quá trình gửi không
+    val isLoading = loadingIds.contains(user.id)
 
     Row(
         modifier = Modifier
@@ -742,16 +748,31 @@ fun UserInviteDashboardItem(
 
         Button(
             onClick = {
-                onInvite()
+                // Chỉ cho phép click khi không đang load và chưa mời
+                if (!isLoading && !isInvited) {
+                    onInvite()
+                }
             },
-            enabled = !isInvited,
+            // Disable nút nếu: Đang load HOẶC Đã mời
+            enabled = !isLoading && !isInvited,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isInvited) Color.Gray else Color(0xFF10B981)
+                containerColor = if (isInvited) Color.Gray else Color(0xFF10B981),
+                disabledContainerColor = Color.LightGray // Màu khi disable (loading/đã mời)
             ),
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.height(40.dp)
+            // Set chiều rộng cố định để nút không bị co giãn khi đổi từ Text sang Loading
+            modifier = Modifier.height(40.dp).width(110.dp)
         ) {
-            Text(if (isInvited) "Đã mời" else "Thách đấu")
+            if (isLoading) {
+                // Hiển thị vòng quay loading nhỏ màu trắng
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text(if (isInvited) "Đã mời" else "Thách đấu", fontSize = 13.sp)
+            }
         }
     }
 }

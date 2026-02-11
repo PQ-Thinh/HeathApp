@@ -31,6 +31,7 @@ import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.example.healthapp.core.helperEnum.ChartTimeRange
+import com.example.healthapp.core.model.entity.NotificationEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
 import java.time.ZoneId
@@ -834,6 +835,21 @@ class HealthRepository @Inject constructor(
 
         // Nghe lời mời đi (Full danh sách)
         syncManager.startListeningForSentInvitations(uid, onSentInvites)
+    }
+    suspend fun fetchNotifications(): List<NotificationEntity> {
+        val uid = currentUserId ?: return emptyList()
+        return try {
+            val snapshot = firestore.collection("users").document(uid)
+                .collection("notifications")
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .get()
+                .await()
+
+            snapshot.toObjects(NotificationEntity::class.java)
+        } catch (e: Exception) {
+            Log.e("HealthRepo", "Lỗi fetch notification: ${e.message}")
+            emptyList()
+        }
     }
 
 
