@@ -31,6 +31,7 @@ val DarkOnBackground = Color(0xFFFFFFFF) // Màu chữ trên nền tối (Trắn
 // 1. ĐỊNH NGHĨA PALETTE MÀU RIÊNG (Để giữ vẻ đẹp Gradient/Glass)
 data class AestheticColors(
     val background: Color,
+    val surface: Color,
     val gradientOrb1: Color, // Đốm sáng 1
     val gradientOrb2: Color, // Đốm sáng 2
     val glassContainer: Color, // Màu nền của các mục cài đặt
@@ -44,6 +45,7 @@ data class AestheticColors(
 // Màu cho Dark Mode (Giữ nguyên như cũ của bạn)
 val DarkAesthetic = AestheticColors(
     background = Color(0xFF0F172A),
+    surface = DarkSurface,
     gradientOrb1 = Color(0xFF6366F1), // Indigo
     gradientOrb2 = Color(0xFFD946EF), // Fuchsia
     glassContainer = Color.White.copy(0.06f),
@@ -56,7 +58,8 @@ val DarkAesthetic = AestheticColors(
 
 // Màu cho Light Mode (Thanh thoát, sạch sẽ nhưng vẫn có gradient)
 val LightAesthetic = AestheticColors(
-    background = Color(0xFFF1F5F9), // Xám xanh rất nhạt
+    background = Color(0xFFF1F5F9),
+    surface = LightSurface,// Xám xanh rất nhạt
     gradientOrb1 = Color(0xFF60A5FA).copy(0.6f), // Xanh dương nhạt
     gradientOrb2 = Color(0xFFF472B6).copy(0.6f), // Hồng nhạt
     glassContainer = Color.White.copy(0.7f), // Trắng đục cao hơn để nổi trên nền sáng

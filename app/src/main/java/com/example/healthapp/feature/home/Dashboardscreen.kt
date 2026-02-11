@@ -10,20 +10,15 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DirectionsRun
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.MonitorWeight
-import androidx.compose.material.icons.filled.NightsStay
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.DirectionsRun
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -31,10 +26,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -59,6 +57,7 @@ import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HealthDashboardScreen(
     modifier: Modifier = Modifier,
@@ -76,7 +75,6 @@ fun HealthDashboardScreen(
     onToggleService: (Boolean) -> Unit = {},
     isServiceRunning: Boolean = false,
     socialViewModel: SocialViewModel = hiltViewModel()
-   // onRecordClick: (String) -> Unit = {}
 ) {
     val runState by stepViewModel.runState.collectAsState()
     val isRunningBackground = runState == RunState.RUNNING || runState == RunState.PAUSED
@@ -87,7 +85,6 @@ fun HealthDashboardScreen(
     val steps by mainViewModel.realtimeSteps.collectAsState()
     val todayHealth by mainViewModel.todayHealthData.collectAsState()
 
-
     val realtimeBpm by mainViewModel.realtimeHeartRate.collectAsState()
     val displayBpm = if (realtimeBpm > 0) realtimeBpm else (todayHealth?.heartRateAvg ?: 0)
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
@@ -97,7 +94,6 @@ fun HealthDashboardScreen(
 
     // --- STATE UI ---
     var isFabExpanded by remember { mutableStateOf(false) }
-    // Biến này sẽ bật/tắt lớp phủ màn hình chạy
     var isRunModeActive by remember { mutableStateOf(false) }
 
     var showResultScreen by remember { mutableStateOf(false) }
@@ -108,26 +104,22 @@ fun HealthDashboardScreen(
     var showTargetDialog by remember { mutableStateOf(false) }
 
     val isRefreshing by mainViewModel.isRefreshing.collectAsState()
-
-    // Lấy target từ todayHealth, nếu chưa có (null hoặc 0) thì fallback về 10000
     val targetSteps = if ((todayHealth?.targetSteps ?: 0) > 0) todayHealth!!.targetSteps else 10000
 
     val stepHistory by stepViewModel.stepHistory.collectAsState(initial = emptyList())
-    val latestRecord = stepHistory.firstOrNull() // Lấy phần tử đầu tiên (mới nhất)
-    var resultTimestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val latestRecord = stepHistory.firstOrNull()
 
     // --- SOCIAL DATA ---
     val invitations by socialViewModel.incomingInvitations.collectAsState()
-    val allUsers by socialViewModel.users.collectAsState() // Danh sách user để hiển thị
+    val allUsers by socialViewModel.users.collectAsState()
 
-    // Load danh sách user khi vào Dashboard
     LaunchedEffect(Unit) {
         if (!isPreview) {
             isContentVisible = true
             socialViewModel.loadUsers()
         }
     }
-    // Kiểm tra ngay khi vào Dashboard, nếu đang chạy ngầm thì mở lại RunTrackingScreen
+
     LaunchedEffect(Unit) {
         val currentState = stepViewModel.runState.value
         val isRunning = currentState == RunState.RUNNING || currentState == RunState.PAUSED
@@ -142,7 +134,6 @@ fun HealthDashboardScreen(
             val notifGranted = permissions[Manifest.permission.POST_NOTIFICATIONS] ?: false
             val locGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] ?: false
             if (notifGranted || locGranted || (Build.VERSION.SDK_INT < 33)) {
-                // Đủ quyền -> Mở lớp phủ chạy bộ
                 mainViewModel.resetNavigationFlag()
                 isRunModeActive = true
                 onToggleService(true)
@@ -155,19 +146,18 @@ fun HealthDashboardScreen(
         if (Build.VERSION.SDK_INT >= 33 &&
             ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED
-            ) {
+        ) {
             permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
         }
         if (ContextCompat.checkSelfPermission(
                 context, Manifest.permission.ACCESS_FINE_LOCATION) != android.content.pm.PackageManager.PERMISSION_GRANTED
-            ) {
+        ) {
             permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
         }
 
         if (permissionsToRequest.isNotEmpty()) {
             permissionLauncher.launch(permissionsToRequest.toTypedArray())
         } else {
-            // Đủ quyền -> Mở lớp phủ
             mainViewModel.resetNavigationFlag()
             isRunModeActive = true
             onToggleService(true)
@@ -194,6 +184,7 @@ fun HealthDashboardScreen(
             .fillMaxSize()
             .background(colors.background)
     ) {
+        // --- BACKGROUND CANVAS ---
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawCircle(
                 brush = Brush.radialGradient(
@@ -233,17 +224,10 @@ fun HealthDashboardScreen(
                     .padding(paddingValues)
             ) {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize(),
+                    modifier = Modifier.fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(24.dp),
-                    contentPadding = PaddingValues(
-                        top = 24.dp,
-                        start = 24.dp,
-                        end = 24.dp,
-                        bottom = 100.dp
-                    ),
+                    contentPadding = PaddingValues(top = 24.dp, start = 24.dp, end = 24.dp, bottom = 100.dp),
                 ) {
-
                     item {
                         AnimatedVisibility(
                             visible = isContentVisible,
@@ -256,10 +240,7 @@ fun HealthDashboardScreen(
                                         fontSize = 28.sp,
                                         fontWeight = FontWeight.Black,
                                         color = colors.textPrimary,
-                                        shadow = if (isDarkTheme) Shadow(
-                                            Color.Black.copy(0.3f),
-                                            blurRadius = 8f
-                                        ) else null
+                                        shadow = if (isDarkTheme) Shadow(Color.Black.copy(0.3f), blurRadius = 8f) else null
                                     )
                                 )
                                 Text(
@@ -270,13 +251,16 @@ fun HealthDashboardScreen(
                             }
                         }
                     }
+
+                    // --- BANNER VỚI HIỆU ỨNG PULSE ---
                     item {
-                        // Hiển thị Banner nếu có lời mời
-                        if (invitations.isNotEmpty()) {
+                        AnimatedVisibility(
+                            visible = invitations.isNotEmpty(),
+                            enter = expandVertically() + fadeIn()
+                        ) {
                             InvitationAlertBanner(
                                 count = invitations.size,
                                 onClick = onNotificationsClick
-
                             )
                         }
                     }
@@ -304,6 +288,7 @@ fun HealthDashboardScreen(
                             )
                         }
                     }
+
                     item {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -348,7 +333,6 @@ fun HealthDashboardScreen(
                         )
                     }
 
-
                     item {
                         if (latestRecord != null) {
                             LatestActivityCard(
@@ -360,17 +344,14 @@ fun HealthDashboardScreen(
                                 onClick = { _ ->
                                     resultSteps = latestRecord.count
                                     resultCalories = (latestRecord.count * 0.04).toInt()
-                                    resultTime =
-                                        (latestRecord.endTime - latestRecord.startTime) / 1000
-                                    // Lưu thời gian bắt đầu để hiển thị ngày giờ
-                                    resultTimestamp = latestRecord.startTime
-                                    // Bật màn hình chi tiết lên
+                                    resultTime = (latestRecord.endTime - latestRecord.startTime) / 1000
                                     showResultScreen = true
                                 }
                             )
                         } else {
                             HealthStatCard(
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
                                     .clickable { onStepDetailClick() },
                                 title = "Bước Đếm",
                                 value = steps.toString(),
@@ -386,52 +367,85 @@ fun HealthDashboardScreen(
                     }
 
                     item {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Thử thách bạn bè",
-                            style = TextStyle(
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = colors.textPrimary
-                            ),
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                        if (allUsers.isEmpty()) {
-                            Text(
-                                text = "Đang tải danh sách...",
-                                color = colors.textSecondary,
-                                fontSize = 14.sp
+                        AnimatedVisibility(
+                            visible = isContentVisible,
+                            enter = fadeIn(tween(600, delayMillis = 500)) + slideInVertically(
+                                initialOffsetY = { 20 },
+                                animationSpec = tween(600, delayMillis = 500)
                             )
+                        ) {
+                            Column {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "Thử thách bạn bè",
+                                    style = TextStyle(
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = colors.textPrimary
+                                    ),
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                                if (allUsers.isEmpty()) {
+                                    Text(
+                                        text = "Đang tải danh sách...",
+                                        color = colors.textSecondary,
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.padding(top = 4.dp)
+                                    )
+                                }
+                            }
                         }
                     }
 
+                    itemsIndexed(items = allUsers, key = { _, item -> item.id }) { index, userItem ->
+                        val itemDelay = 600 + (index * 100)
 
-                    items(items = allUsers, key = { it.id }) { userItem ->
-                        UserInviteDashboardItem(
-                            user = userItem,
-                            colors = colors,
-                            onInvite = {
-                                val myName = user?.name ?: "Unknown"
-                                socialViewModel.sendInvite(userItem, targetSteps, myName)
-                            }
-                        )
+                        AnimatedVisibility(
+                            visible = isContentVisible,
+                            enter = fadeIn(tween(600, delayMillis = itemDelay)) +
+                                    slideInHorizontally( // Trượt nhẹ từ phải sang cho sinh động
+                                        initialOffsetX = { 50 },
+                                        animationSpec = tween(600, delayMillis = itemDelay)
+                                    )
+                        ) {
+                            UserInviteDashboardItem(
+                                user = userItem,
+                                colors = colors,
+                                onInvite = {
+                                    val myName = user?.name ?: "Unknown"
+                                    socialViewModel.sendInvite(userItem, targetSteps, myName)
+                                }
+                            )
+                        }
                     }
                 }
             }
         }
 
-        if (isFabExpanded) {
+        // --- FAB SCRIM OVERLAY (HIỆU ỨNG MỜ NỀN) ---
+        // Thay vì Box thường, dùng AnimatedVisibility để Fade In/Out
+        AnimatedVisibility(
+            visible = isFabExpanded,
+            enter = fadeIn(animationSpec = tween(300)),
+            exit = fadeOut(animationSpec = tween(300))
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.5f))
-                    .clickable { isFabExpanded = false }
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    // Tắt click propagation để khi ấn ra ngoài sẽ đóng menu
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { isFabExpanded = false }
             )
         }
 
         FabMenu(
             isRunActive = isRunningBackground,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(14.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(24.dp), // Tăng padding một chút cho thoáng
             expanded = isFabExpanded,
             onExpandChange = { isFabExpanded = it },
             onRunClick = {
@@ -444,7 +458,10 @@ fun HealthDashboardScreen(
         // --- LỚP PHỦ RUN TRACKING ---
         AnimatedVisibility(
             visible = isRunModeActive,
-            enter = slideInVertically(initialOffsetY = { it }),
+            enter = slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = spring(stiffness = Spring.StiffnessLow) // Hiệu ứng nảy nhẹ khi lên
+            ),
             exit = slideOutVertically(targetOffsetY = { it })
         ) {
             RunTrackingScreen(
@@ -483,26 +500,34 @@ fun DashboardTopBar(
     onProfileClick: () -> Unit,
     onNotificationsClick: () -> Unit,
     onSettingsClick: () -> Unit,
-    colors: AestheticColors) {
+    colors: AestheticColors
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(
             onClick = onSettingsClick,
-            modifier = Modifier.background(colors.glassContainer, CircleShape)) {
+            modifier = Modifier.background(colors.glassContainer, CircleShape)
+        ) {
             Icon(Icons.Default.Settings, null, tint = colors.textPrimary)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onNotificationsClick) {
-                Icon(Icons.Default.Notifications, null, tint = colors.textPrimary) }
+                Icon(Icons.Default.Notifications, null, tint = colors.textPrimary)
+            }
             Spacer(modifier = Modifier.width(8.dp))
-            Box(modifier = Modifier.size(40.dp)
-                .clip(CircleShape)
-                .background(Brush.linearGradient(listOf(colors.gradientOrb1, colors.gradientOrb2)))
-                .border(1.dp, colors.glassBorder, CircleShape)
-                .clickable { onProfileClick() }, contentAlignment = Alignment.Center) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(colors.gradientOrb1, colors.gradientOrb2)))
+                    .border(1.dp, colors.glassBorder, CircleShape)
+                    .clickable { onProfileClick() }, contentAlignment = Alignment.Center
+            ) {
                 Icon(Icons.Default.Person, null, tint = Color.White, modifier = Modifier.size(24.dp))
             }
         }
@@ -517,37 +542,53 @@ fun HealthStatCard(
     accentColor: Color, colors: AestheticColors,
     visible: Boolean,
     delay: Int,
-    isLarge: Boolean = false) {
+    isLarge: Boolean = false
+) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(800, delay)) + scaleIn(initialScale = 0.9f,
-            animationSpec = tween(800, delay)), modifier = modifier) {
-        Column(modifier = Modifier.clip(RoundedCornerShape(32.dp))
-            .background(colors.glassContainer)
-            .border(1.dp, colors.glassBorder, RoundedCornerShape(32.dp))
-            .padding(24.dp)) {
-            Icon(imageVector = icon,
+        enter = fadeIn(tween(600, delay)) + slideInVertically(
+            animationSpec = tween(600, delay),
+            initialOffsetY = { 50 } // Slide từ dưới lên nhẹ nhàng
+        ),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
+                .clip(RoundedCornerShape(32.dp))
+                .background(colors.glassContainer)
+                .border(1.dp, colors.glassBorder, RoundedCornerShape(32.dp))
+                .padding(24.dp)
+        ) {
+            Icon(
+                imageVector = icon,
                 contentDescription = null,
                 tint = accentColor,
-                modifier = Modifier
-                    .size(if (isLarge) 32.dp else 24.dp))
+                modifier = Modifier.size(if (isLarge) 32.dp else 24.dp)
+            )
             Spacer(modifier = Modifier.height(16.dp))
             Text(title, color = colors.textSecondary, fontSize = 14.sp)
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(text = value,
+                Text(
+                    text = value,
                     color = colors.textPrimary,
                     fontSize = if (isLarge) 42.sp else 28.sp,
-                    fontWeight = FontWeight.Black)
+                    fontWeight = FontWeight.Black
+                )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text(text = unit,
-                    color = accentColor.copy(alpha = 0.8f),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 6.dp))
+                if (unit.isNotEmpty()) {
+                    Text(
+                        text = unit,
+                        color = accentColor.copy(alpha = 0.8f),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                }
             }
         }
     }
 }
+
 @Composable
 fun StepProgressCard(
     modifier: Modifier = Modifier,
@@ -561,7 +602,7 @@ fun StepProgressCard(
 ) {
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(800, delay)) + scaleIn(initialScale = 0.9f, animationSpec = tween(800, delay)),
+        enter = fadeIn(tween(800, delay)) + scaleIn(initialScale = 0.95f, animationSpec = tween(800, delay)),
         modifier = modifier
     ) {
         Box(
@@ -570,7 +611,7 @@ fun StepProgressCard(
                 .clip(RoundedCornerShape(32.dp))
                 .background(colors.glassContainer)
                 .border(1.dp, colors.glassBorder, RoundedCornerShape(32.dp))
-                .clickable { onClick() } // Click toàn card -> xem chi tiết
+                .clickable { onClick() }
                 .padding(24.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -586,7 +627,6 @@ fun StepProgressCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // --- Phần Text bên trái ---
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.DirectionsRun, null, tint = Color(0xFF10B981), modifier = Modifier.size(24.dp))
@@ -603,90 +643,176 @@ fun StepProgressCard(
                         )
                     )
 
-                    // Dòng hiển thị mục tiêu + Nút Edit
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = "/ $targetSteps mục tiêu",
                             style = TextStyle(fontSize = 14.sp, color = colors.textSecondary)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        // Nút Edit nhỏ
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = "Sửa mục tiêu",
-                            tint = colors.textSecondary,
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clickable { onEditTargetClick() } // Click vào bút -> Sửa
-                        )
+                        IconButton(onClick = onEditTargetClick, modifier = Modifier.size(24.dp)) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Sửa mục tiêu",
+                                tint = colors.textSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
 
-                // --- Phần Vòng tròn bên phải ---
+                // Vòng tròn tiến độ
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(120.dp)
-                        .clickable { onEditTargetClick() } // Click vào vòng tròn -> Sửa
+                        .clickable { onEditTargetClick() }
                 ) {
                     Canvas(modifier = Modifier.size(120.dp)) {
-                        val strokeWidth = 12.dp.toPx()
+                        val strokeWidth = 14.dp.toPx()
 
-                        // 1. Vòng tròn Target (Nền mờ - Vòng 1)
+                        // --- CẤU HÌNH MÀU SẮC ---
+                        // Màu cơ bản (0-100%)
+                        val colorBaseBg = Color(0xFF10B981).copy(alpha = 0.2f)
+                        val gradientBase = Brush.verticalGradient(
+                            colors = listOf(Color(0xFF34D399), Color(0xFF10B981))
+                        )
+
+                        // Màu "Vượt ngưỡng" (>100%): Vàng cam rực rỡ
+                        val gradientOver = Brush.verticalGradient(
+                            colors = listOf(Color(0xFFFFD700), Color(0xFFFF8C00)) // Gold -> Dark Orange
+                        )
+
+                        // --- LOGIC VẼ ---
+
+                        // 1. Vẽ đường ray nền (Background Track)
                         drawArc(
-                            color = Color(0xFF10B981).copy(alpha = 0.2f),
+                            color = colorBaseBg,
                             startAngle = 0f,
                             sweepAngle = 360f,
                             useCenter = false,
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
                         )
 
-                        // 2. Vòng tròn Steps (Tiến độ thực tế - Vòng 2)
-                        drawArc(
-                            brush = Brush.sweepGradient(
-                                colors = listOf(Color(0xFF10B981), Color(0xFF34D399), Color(0xFF10B981))
-                            ),
-                            startAngle = -90f,
-                            sweepAngle = 360 * animatedProgress,
-                            useCenter = false,
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-                        )
+                        if (animatedProgress <= 1f) {
+                            // TRƯỜNG HỢP 1: Chưa đạt mục tiêu (0% - 100%)
+                            drawArc(
+                                brush = gradientBase,
+                                startAngle = -90f,
+                                sweepAngle = 360 * animatedProgress,
+                                useCenter = false,
+                                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                            )
+                        } else {
+                            // TRƯỜNG HỢP 2: Đã vượt mục tiêu (> 100%)
+
+                            // Bước A: Vẽ full vòng màu xanh làm nền (vì đã xong 100%)
+                            drawArc(
+                                brush = gradientBase,
+                                startAngle = -90f,
+                                sweepAngle = 360f,
+                                useCenter = false,
+                                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                            )
+
+                            // Bước B: Tính phần dư ra (Ví dụ 1.2 -> dư 0.2)
+                            // Dùng toán tử % 1f để nó quay vòng lại nếu vượt 200%, 300%
+                            val excessProgress = animatedProgress % 1f
+                            // Nếu chia hết cho 1 (vd đúng 200%) thì coi như full vòng
+                            val sweep = if (excessProgress == 0f && animatedProgress > 1f) 360f else 360 * excessProgress
+
+                            // Bước C: Vẽ vòng "Bonus" màu Vàng đè lên trên
+                            drawArc(
+                                brush = gradientOver,
+                                startAngle = -90f,
+                                sweepAngle = sweep,
+                                useCenter = false,
+                                style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                            )
+                        }
                     }
-                    // Số % ở giữa
-                    Text(
-                        text = "${(progress * 100).toInt()}%",
-                        style = TextStyle(
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = colors.textPrimary
+
+                    // TEXT HIỂN THỊ
+                    // Nếu vượt 100% thì đổi màu chữ sang màu cam/vàng cho nổi bật
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "${(progress * 100).toInt()}%",
+                            style = TextStyle(
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Black, // Đậm hơn chút nữa
+                                // Nếu > 100% thì dùng màu Cam, ngược lại dùng màu chính của theme
+                                color = if (progress > 1f) Color(0xFFFF8C00) else colors.textPrimary
+                            )
                         )
-                    )
+                        // Thêm chữ nhỏ "Excellent" nếu vượt
+                        if (progress > 1f) {
+                            Text(
+                                text = "Tuyệt vời!",
+                                style = TextStyle(
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFFFFD700)
+                                )
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
+
 @Composable
 fun InvitationAlertBanner(count: Int, onClick: () -> Unit) {
+    // Hiệu ứng "nhịp đập" nhẹ (Pulse)
+    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 1.02f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "scale"
+    )
+
     Card(
         onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED)), // Cam nhạt
-        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp)
+            .scale(scale) // Áp dụng pulse scale
+            .border(1.dp, Color(0xFFFFCC80), RoundedCornerShape(12.dp)) // Thêm viền nhẹ
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Outlined.DirectionsRun, contentDescription = null, tint = Color(0xFFFF9800))
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                text = "Bạn có $count lời mời thách đấu mới!",
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFE65100)
+            // Icon rung nhẹ
+            Icon(
+                Icons.Outlined.DirectionsRun,
+                contentDescription = null,
+                tint = Color(0xFFFF9800),
+                modifier = Modifier.size(28.dp)
             )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(
+                    text = "Lời mời thách đấu!",
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFFE65100),
+                    fontSize = 16.sp
+                )
+                Text(
+                    text = "Bạn có $count lời mời đang chờ.",
+                    color = Color(0xFFE65100).copy(0.8f),
+                    fontSize = 14.sp
+                )
+            }
         }
     }
 }
+
 @Composable
 fun UserInviteDashboardItem(
     user: UserEntity,
@@ -694,20 +820,12 @@ fun UserInviteDashboardItem(
     onInvite: () -> Unit,
     socialViewModel: SocialViewModel = hiltViewModel()
 ) {
-    // Lấy danh sách đã mời (để hiện chữ "Đã mời")
     val sentList by socialViewModel.sentInvitations.collectAsState()
-
-    // Lấy danh sách đang Loading (để hiện vòng quay)
     val loadingIds by socialViewModel.inviteLoadingIds.collectAsState()
 
-    // Kiểm tra trạng thái
     val isInvited = remember(sentList, user.id) {
-        sentList.any { invite ->
-            invite.receiverId == user.id && invite.status == "PENDING"
-        }
+        sentList.any { invite -> invite.receiverId == user.id && invite.status == "PENDING" }
     }
-
-    // Kiểm tra xem user này có đang trong quá trình gửi không
     val isLoading = loadingIds.contains(user.id)
 
     Row(
@@ -743,35 +861,66 @@ fun UserInviteDashboardItem(
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp
                 )
+                // Thêm trạng thái nhỏ bên dưới tên
+                AnimatedVisibility(visible = isInvited) {
+                    Text(
+                        text = "Đã gửi lời mời",
+                        color = Color(0xFF10B981),
+                        fontSize = 12.sp
+                    )
+                }
             }
         }
 
+        // Button với hiệu ứng AnimatedContent chuyển đổi giữa Text và Loading
         Button(
             onClick = {
-                // Chỉ cho phép click khi không đang load và chưa mời
                 if (!isLoading && !isInvited) {
                     onInvite()
                 }
             },
-            // Disable nút nếu: Đang load HOẶC Đã mời
             enabled = !isLoading && !isInvited,
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isInvited) Color.Gray else Color(0xFF10B981),
-                disabledContainerColor = Color.LightGray // Màu khi disable (loading/đã mời)
+                containerColor = if (isInvited) colors.surface.copy(alpha = 0.5f) else Color(0xFF10B981),
+                disabledContainerColor = if (isInvited) colors.surface.copy(alpha = 0.5f) else Color(0xFF10B981).copy(alpha = 0.5f)
             ),
             shape = RoundedCornerShape(12.dp),
-            // Set chiều rộng cố định để nút không bị co giãn khi đổi từ Text sang Loading
-            modifier = Modifier.height(40.dp).width(110.dp)
+            modifier = Modifier
+                .height(40.dp)
+                .width(110.dp)
         ) {
-            if (isLoading) {
-                // Hiển thị vòng quay loading nhỏ màu trắng
-                CircularProgressIndicator(
-                    modifier = Modifier.size(20.dp),
-                    color = Color.White,
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Text(if (isInvited) "Đã mời" else "Thách đấu", fontSize = 13.sp)
+            AnimatedContent(
+                targetState = when {
+                    isLoading -> "LOADING"
+                    isInvited -> "SENT"
+                    else -> "IDLE"
+                },
+                label = "ButtonState",
+                transitionSpec = {
+                    fadeIn(animationSpec = tween(220, delayMillis = 90)) +
+                            scaleIn(initialScale = 0.92f, animationSpec = tween(220, delayMillis = 90)) togetherWith
+                            fadeOut(animationSpec = tween(90))
+                }
+            ) { state ->
+                when (state) {
+                    "LOADING" -> {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    }
+                    "SENT" -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Đã mời", fontSize = 13.sp)
+                        }
+                    }
+                    else -> {
+                        Text("Thách đấu", fontSize = 13.sp)
+                    }
+                }
             }
         }
     }

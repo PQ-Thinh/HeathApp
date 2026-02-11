@@ -99,7 +99,7 @@ fun SleepHistoryDetailDialog(
                             StageStatItem("Ngủ sâu", session.deepSleepDuration, Color(0xFF4F46E5))
                             StageStatItem("REM", session.remSleepDuration, Color(0xFF8B5CF6))
                         }
-                        Spacer(Modifier.width(24.dp))
+                        Spacer(Modifier.width(14.dp))
                         Column(verticalArrangement = Arrangement.Center) {
                             StageStatItem("Ngủ nông", session.lightSleepDuration, Color(0xFF60A5FA))
                             StageStatItem("Đã thức", session.awakeDuration, Color(0xFFF59E0B))
