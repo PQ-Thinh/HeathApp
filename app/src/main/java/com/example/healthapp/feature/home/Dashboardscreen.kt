@@ -12,6 +12,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -44,6 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.healthapp.core.helperEnum.RunState
+import com.example.healthapp.core.model.entity.UserEntity
 import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.SleepViewModel
 import com.example.healthapp.core.viewmodel.SocialViewModel
@@ -113,8 +115,18 @@ fun HealthDashboardScreen(
     val stepHistory by stepViewModel.stepHistory.collectAsState(initial = emptyList())
     val latestRecord = stepHistory.firstOrNull() // Lấy phần tử đầu tiên (mới nhất)
     var resultTimestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
-    val invitations by socialViewModel.incomingInvitations.collectAsState()
 
+    // --- SOCIAL DATA ---
+    val invitations by socialViewModel.incomingInvitations.collectAsState()
+    val allUsers by socialViewModel.users.collectAsState() // Danh sách user để hiển thị
+
+    // Load danh sách user khi vào Dashboard
+    LaunchedEffect(Unit) {
+        if (!isPreview) {
+            isContentVisible = true
+            socialViewModel.loadUsers()
+        }
+    }
     // Kiểm tra ngay khi vào Dashboard, nếu đang chạy ngầm thì mở lại RunTrackingScreen
     LaunchedEffect(Unit) {
         val currentState = stepViewModel.runState.value
@@ -371,6 +383,37 @@ fun HealthDashboardScreen(
 
                             )
                         }
+                    }
+                    item {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Thử thách bạn bè",
+                            style = TextStyle(
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = colors.textPrimary
+                            ),
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        if (allUsers.isEmpty()) {
+                            Text(
+                                text = "Đang tải danh sách...",
+                                color = colors.textSecondary,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+
+                    // Hiển thị danh sách user dưới dạng các item của LazyColumn
+                    items(items = allUsers, key = { it.id }) { userItem ->
+                        UserInviteDashboardItem(
+                            user = userItem,
+                            colors = colors,
+                            onInvite = {
+                                val myName = user?.name ?: "Unknown"
+                                socialViewModel.sendInvite(userItem, targetSteps, myName)
+                            }
+                        )
                     }
                 }
             }
@@ -640,6 +683,71 @@ fun InvitationAlertBanner(count: Int, onClick: () -> Unit) {
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFFE65100)
             )
+        }
+    }
+}
+@Composable
+fun UserInviteDashboardItem(
+    user: UserEntity,
+    colors: AestheticColors,
+    onInvite: () -> Unit
+) {
+    var isInvited by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp)) // Bo góc giống các card khác
+            .background(colors.glassContainer)
+            .border(1.dp, colors.glassBorder, RoundedCornerShape(24.dp))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(Color(0xFF6366F1), Color(0xFF8B5CF6)))), // Gradient tím
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = user.name?.take(1)?.uppercase() ?: "?",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(
+                    text = user.name ?: "Unknown",
+                    color = colors.textPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp
+                )
+//                Text(
+//                    text = "Mục tiêu: ${user.targetSteps} bước",
+//                    color = colors.textSecondary,
+//                    fontSize = 14.sp
+//                )
+            }
+        }
+
+        Button(
+            onClick = {
+                onInvite()
+                isInvited = true
+            },
+            enabled = !isInvited,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isInvited) Color.Gray else Color(0xFF10B981) // Màu xanh
+            ),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier.height(40.dp)
+        ) {
+            Text(if (isInvited) "Đã mời" else "Thách đấu")
         }
     }
 }

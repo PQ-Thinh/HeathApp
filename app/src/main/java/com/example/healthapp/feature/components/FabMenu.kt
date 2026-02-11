@@ -86,7 +86,7 @@ fun FabMenu(
                         .size(12.dp)
                         .clip(CircleShape)
                         .background(Color.Red)
-                       // .align(Alignment.End)
+                        .align(Alignment.TopStart)
                         .border(2.dp, Color.White, CircleShape)
                 )
             }
