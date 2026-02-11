@@ -54,45 +54,49 @@ fun FabMenu(
                 },
                 delay = 0
             )
-            FabMenuItem(
-                icon = Icons.Default.History,
-                label = "Lịch sử",
-                onClick = { /* Todo: Open history */ },
-                delay = 50
-            )
+//            FabMenuItem(
+//                icon = Icons.Default.History,
+//                label = "Lịch sử",
+//                onClick = { /* Todo: Open history */ },
+//                delay = 50
+//            )
         }
 
 
         // Nút chính (FAB)
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(CircleShape)
-                .background(colors.accent)
-                .clickable { onExpandChange(!expanded) },
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = "Menu",
-                tint = Color.White,
+        Box {
+            // FAB
+            Box(
                 modifier = Modifier
-                    .size(24.dp)
-                    .rotate(rotation)
-            )
-            if (isRunActive) {
-                Box(
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(colors.accent)
+                    .clickable { onExpandChange(!expanded) },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Menu",
+                    tint = Color.White,
                     modifier = Modifier
-                        .size(12.dp)
-                        .clip(CircleShape)
-                        .background(Color.Red)
-                        .align(Alignment.TopStart)
-                        .border(2.dp, Color.White, CircleShape)
-
+                        .size(24.dp)
+                        .rotate(rotation)
                 )
             }
 
+            if (isRunActive) {
+                Box(
+                    modifier = Modifier
+                        .size(15.dp)
+                        .clip(CircleShape)
+                        .background(Color.Red)
+                        .border(1.5.dp, Color.White, CircleShape)
+                        .align(Alignment.TopStart)
+                        .offset(x = (-5).dp, y = 5.dp)
+                )
+            }
         }
+
 
     }
 }

@@ -353,17 +353,17 @@ fun HealthDashboardScreen(
                         if (latestRecord != null) {
                             LatestActivityCard(
                                 modifier = Modifier.fillMaxWidth(),
-                                record = latestRecord!!,
+                                record = latestRecord,
                                 colors = colors,
                                 visible = isContentVisible,
                                 delay = 400,
                                 onClick = { _ ->
-                                    resultSteps = latestRecord!!.count
-                                    resultCalories = (latestRecord!!.count * 0.04).toInt()
+                                    resultSteps = latestRecord.count
+                                    resultCalories = (latestRecord.count * 0.04).toInt()
                                     resultTime =
-                                        (latestRecord!!.endTime - latestRecord!!.startTime) / 1000
+                                        (latestRecord.endTime - latestRecord.startTime) / 1000
                                     // Lưu thời gian bắt đầu để hiển thị ngày giờ
-                                    resultTimestamp = latestRecord!!.startTime
+                                    resultTimestamp = latestRecord.startTime
                                     // Bật màn hình chi tiết lên
                                     showResultScreen = true
                                 }

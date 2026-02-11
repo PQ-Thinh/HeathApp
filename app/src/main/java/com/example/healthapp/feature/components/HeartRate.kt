@@ -1,3 +1,5 @@
+@file:Suppress("COMPOSE_APPLIER_CALL_MISMATCH")
+
 package com.example.healthapp.feature.components
 
 
@@ -24,7 +26,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.example.healthapp.core.viewmodel.MainViewModel
 import com.google.accompanist.permissions.ExperimentalPermissionsApi
 import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
@@ -33,17 +34,15 @@ import net.kibotu.heartrateometer.HeartRateOmeter
 import net.kibotu.kalmanrx.jama.Matrix
 import net.kibotu.kalmanrx.jkalman.JKalman
 
+
 @OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun HeartRateScreen(
     onBackClick: (Int) -> Unit,
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
-
-    // State quản lý quyền Camera
     val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
-    // State hiển thị UI
     var currentBpm by remember { mutableIntStateOf(0) }
     var isFingerDetected by remember { mutableStateOf(false) }
 
@@ -57,19 +56,25 @@ fun HeartRateScreen(
         kalman.error_cov_post = kalman.error_cov_post.identity()
     }
 
+    // Disposable để quản lý subscription
     val subscription = remember { CompositeDisposable() }
 
-    // Tự động dừng đo khi thoát màn hình
+    // Hàm clean up resource
+    fun stopMeasurement() {
+        subscription.clear()
+    }
+
+    // Lifecycle Observer để dừng khi pause
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_PAUSE) {
-                subscription.clear()
+                stopMeasurement()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
-            subscription.dispose()
+            stopMeasurement()
         }
     }
 
@@ -107,31 +112,42 @@ fun HeartRateScreen(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
-                            // Giữ màn hình luôn sáng khi đang đo
                             keepScreenOn = true
 
-                            // Gọi thư viện đo
-                            val bpmUpdates = HeartRateOmeter()
-                                .withAverageAfterSeconds(3)
-                                .setFingerDetectionListener { detected ->
-                                    isFingerDetected = detected
+                            holder.addCallback(object : android.view.SurfaceHolder.Callback {
+                                override fun surfaceCreated(holder: android.view.SurfaceHolder) {
+                                    // Bắt đầu đo tại đây
+                                    try {
+                                        val bpmUpdates = HeartRateOmeter()
+                                            .withAverageAfterSeconds(3)
+                                            .setFingerDetectionListener { detected ->
+                                                isFingerDetected = detected
+                                            }
+                                            .bpmUpdates(this@apply) // Truyền SurfaceView hiện tại
+                                            .subscribe({ bpmData ->
+                                                if (bpmData.value == 0) return@subscribe
+
+                                                m.set(0, 0, bpmData.value.toDouble())
+                                                kalman.Predict()
+                                                val c = kalman.Correct(m)
+                                                val filteredBpm = c.get(0, 0).toInt()
+
+                                                currentBpm = filteredBpm
+                                                Log.d("HeartRate", "BPM: $filteredBpm")
+                                            }, { it.printStackTrace() })
+
+                                        subscription.add(bpmUpdates)
+                                    } catch (e: Exception) {
+                                        Log.e("HeartRateScreen", "Error starting camera", e)
+                                    }
                                 }
-                                .bpmUpdates(this)
-                                .subscribe({ bpmData ->
-                                    if (bpmData.value == 0) return@subscribe
 
-                                    // Lọc nhiễu bằng Kalman
-                                    m.set(0, 0, bpmData.value.toDouble())
-                                    kalman.Predict()
-                                    val c = kalman.Correct(m)
-                                    val filteredBpm = c.get(0, 0).toInt()
+                                override fun surfaceChanged(holder: android.view.SurfaceHolder, format: Int, width: Int, height: Int) {}
 
-                                    // Cập nhật UI & ViewModel
-                                    currentBpm = filteredBpm
-                                    Log.d("HeartRate", "BPM: $filteredBpm")
-                                }, { it.printStackTrace() })
-
-                            subscription.add(bpmUpdates)
+                                override fun surfaceDestroyed(holder: android.view.SurfaceHolder) {
+                                    stopMeasurement()
+                                }
+                            })
                         }
                     },
                     modifier = Modifier.fillMaxSize()
@@ -148,6 +164,7 @@ fun HeartRateScreen(
             }
         }
 
+        // ... Phần code UI bên dưới giữ nguyên
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
@@ -170,7 +187,7 @@ fun HeartRateScreen(
         Spacer(modifier = Modifier.weight(1f))
 
         Button(
-            onClick = {onBackClick(currentBpm)},
+            onClick = { onBackClick(currentBpm) },
             colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
         ) {
             Text("Quay lại", color = Color.White)
