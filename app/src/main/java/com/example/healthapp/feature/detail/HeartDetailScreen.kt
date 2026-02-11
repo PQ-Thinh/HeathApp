@@ -3,7 +3,6 @@ package com.example.healthapp.feature.detail
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,8 +15,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.WatchLater
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,7 +38,6 @@ import com.example.healthapp.core.viewmodel.HeartViewModel
 import com.example.healthapp.feature.chart.HeartChart
 import com.example.healthapp.feature.components.EditHeartDialog
 import com.example.healthapp.feature.components.GenericHistoryDialog
-import com.example.healthapp.feature.components.TopBar
 import com.example.healthapp.feature.detail.history.HeartHistoryDetailDialog
 import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
@@ -59,10 +57,9 @@ fun HeartDetailScreen(
 ) {
     // Collect State từ ViewModel
     val historyList by heartViewModel.heartHistory.collectAsStateWithLifecycle()
-    val latestHeartRate by heartViewModel.latestHeartRate.collectAsState()
     val chartData by heartViewModel.heartRateData.collectAsState()
-    val assessment by heartViewModel.assessment.collectAsState()
     val selectedTimeRange by heartViewModel.selectedTimeRange.collectAsState()
+    val isRefreshing by heartViewModel.isRefreshing.collectAsState()
 
     var showHistoryDialog by remember { mutableStateOf(false) }
     var selectedRecord by remember { mutableStateOf<HeartRateRecordEntity?>(null) }
@@ -207,121 +204,132 @@ fun HeartDetailScreen(
                 }
             }
         ) { paddingValues ->
-            LazyColumn(
-                modifier = Modifier
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { heartViewModel.refresh() },
+                modifier = Modifier.padding(paddingValues)
             ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
 
 
-                // 2. Thanh chọn Thời gian (Ngày/Tuần/Tháng/Năm)
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        ChartTimeRange.values().forEach { range ->
-                            FilterChip(
-                                selected = range == selectedTimeRange,
-                                onClick = { heartViewModel.setTimeRange(range) },
-                                label = {
-                                    Text(
-                                        when (range) {
-                                            ChartTimeRange.DAY -> "Ngày"
-                                            ChartTimeRange.WEEK -> "Tuần"
-                                            ChartTimeRange.MONTH -> "Tháng"
-                                            ChartTimeRange.YEAR -> "Năm"
-                                        }
+                    // 2. Thanh chọn Thời gian (Ngày/Tuần/Tháng/Năm)
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            ChartTimeRange.values().forEach { range ->
+                                FilterChip(
+                                    selected = range == selectedTimeRange,
+                                    onClick = { heartViewModel.setTimeRange(range) },
+                                    label = {
+                                        Text(
+                                            when (range) {
+                                                ChartTimeRange.DAY -> "Ngày"
+                                                ChartTimeRange.WEEK -> "Tuần"
+                                                ChartTimeRange.MONTH -> "Tháng"
+                                                ChartTimeRange.YEAR -> "Năm"
+                                            }
+                                        )
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = heartColor.copy(alpha = 0.2f),
+                                        selectedLabelColor = heartColor
                                     )
-                                },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = heartColor.copy(alpha = 0.2f),
-                                    selectedLabelColor = heartColor
                                 )
-                            )
-                        }
-                    }
-                }
-
-                // 3. Biểu đồ
-                item {
-                    Text(
-                        "Biểu đồ nhịp tim",
-                        color = colors.textSecondary,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(300.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(colors.glassContainer)
-                            .padding(16.dp)
-                    ) {
-                        HeartChart(
-                            data = chartData,
-                            timeRange = selectedTimeRange,
-                        )
-                    }
-                }
-
-                // 4. Lịch sử (Thay thế HistoryListSection cũ bằng giao diện mới)
-                item {
-                    // Header Lịch sử + Nút Xem thêm
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Lịch sử đo gần đây",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = colors.textPrimary
-                        )
-
-                        // Chỉ hiện nút "Xem thêm" nếu list dài hơn 3
-                        if (historyList.size > 3) {
-                            TextButton(onClick = { showHistoryDialog = true }) {
-                                Text("Xem thêm", color = heartColor, fontWeight = FontWeight.Bold)
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    // 3. Biểu đồ
+                    item {
+                        Text(
+                            "Biểu đồ nhịp tim",
+                            color = colors.textSecondary,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                            fontWeight = FontWeight.Bold
+                        )
 
-                    if (historyList.isEmpty()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(20.dp),
-                            contentAlignment = Alignment.Center
+                                .height(300.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(colors.glassContainer)
+                                .padding(16.dp)
                         ) {
-                            Text("Chưa có dữ liệu đo", color = colors.textSecondary)
+                            HeartChart(
+                                data = chartData,
+                                timeRange = selectedTimeRange,
+                            )
                         }
-                    } else {
-                        // CHỈ HIỂN THỊ TỐI ĐA 3 ITEMS MỚI NHẤT
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            historyList.take(3).forEach { item ->
-                                SimpleHeartHistoryRow(
-                                    item = item,
-                                    colors = colors,
-                                    heartColor = heartColor,
-                                    onDelete = { heartViewModel.deleteHeartRecord(item) },
-                                    onEdit = { recordToEdit = item
-                                             },
-                                    modifier = Modifier.clickable { selectedRecord = item }
-                                )
+                    }
+
+                    // 4. Lịch sử (Thay thế HistoryListSection cũ bằng giao diện mới)
+                    item {
+                        // Header Lịch sử + Nút Xem thêm
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Lịch sử đo gần đây",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = colors.textPrimary
+                            )
+
+                            // Chỉ hiện nút "Xem thêm" nếu list dài hơn 3
+                            if (historyList.size > 3) {
+                                TextButton(onClick = { showHistoryDialog = true }) {
+                                    Text(
+                                        "Xem thêm",
+                                        color = heartColor,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        if (historyList.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Chưa có dữ liệu đo", color = colors.textSecondary)
+                            }
+                        } else {
+                            // CHỈ HIỂN THỊ TỐI ĐA 3 ITEMS MỚI NHẤT
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                historyList.take(3).forEach { item ->
+                                    SimpleHeartHistoryRow(
+                                        item = item,
+                                        colors = colors,
+                                        heartColor = heartColor,
+                                        onDelete = { heartViewModel.deleteHeartRecord(item) },
+                                        onEdit = {
+                                            recordToEdit = item
+                                        },
+                                        modifier = Modifier.clickable { selectedRecord = item }
+                                    )
+                                }
                             }
                         }
                     }
-                }
 
-                // Khoảng trống dưới cùng để không bị FAB che
-                item { Spacer(modifier = Modifier.height(80.dp)) }
+                    // Khoảng trống dưới cùng để không bị FAB che
+                    item { Spacer(modifier = Modifier.height(80.dp)) }
+                }
             }
         }
     }

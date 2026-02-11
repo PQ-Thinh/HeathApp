@@ -35,8 +35,8 @@ class SleepViewModel @Inject constructor(
     private val _sleepDuration = MutableStateFlow<Long>(0)
     val sleepDuration = _sleepDuration.asStateFlow()
 
-    private val _sleepAssessment = MutableStateFlow<String>("Chưa có dữ liệu")
-    val sleepAssessment = _sleepAssessment.asStateFlow()
+//    private val _sleepAssessment = MutableStateFlow<String>("Chưa có dữ liệu")
+//    val sleepAssessment = _sleepAssessment.asStateFlow()
 
     private val _chartData = MutableStateFlow<List<SleepBucket>>(emptyList())
     val chartData = _chartData.asStateFlow()
@@ -46,6 +46,9 @@ class SleepViewModel @Inject constructor(
 
     private val _sleepHistory = MutableStateFlow<List<SleepSessionEntity>>(emptyList())
     val sleepHistory = _sleepHistory.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
 
     private var realtimeJob: Job? = null
     private var historyJob: Job? = null
@@ -64,7 +67,7 @@ class SleepViewModel @Inject constructor(
 
     private fun clearData() {
        _sleepDuration.value = 0
-        _sleepAssessment.value = "Chưa có dữ liệu"
+        //_sleepAssessment.value = "Chưa có dữ liệu"
         _chartData.value = emptyList()
         _sleepHistory.value = emptyList()
         realtimeJob?.cancel()
@@ -80,7 +83,7 @@ class SleepViewModel @Inject constructor(
             repository.getDailyHealth(today, uid).collect { data ->
                 if (data != null) {
                     _sleepDuration.value = data.sleepHours
-                    evaluateSleep(data.sleepHours)
+//                    evaluateSleep(data.sleepHours)
 
                 }
             }
@@ -158,16 +161,16 @@ class SleepViewModel @Inject constructor(
     }
 
 
-    private fun evaluateSleep(minutes: Long) {
-        val hours = minutes / 60.0
-        _sleepAssessment.value = when {
-            minutes == 0L -> "Chưa có dữ liệu"
-            hours < 5 -> "Kém (Quá ít)"
-            hours in 5.0..6.5 -> "Khá (Cần ngủ thêm)"
-            hours in 6.5..9.0 -> "Tốt (Lý tưởng)"
-            else -> "Ngủ nhiều (Cần vận động)"
-        }
-    }
+//    private fun evaluateSleep(minutes: Long) {
+//        val hours = minutes / 60.0
+//        _sleepAssessment.value = when {
+//            minutes == 0L -> "Chưa có dữ liệu"
+//            hours < 5 -> "Kém (Quá ít)"
+//            hours in 5.0..6.5 -> "Khá (Cần ngủ thêm)"
+//            hours in 6.5..9.0 -> "Tốt (Lý tưởng)"
+//            else -> "Ngủ nhiều (Cần vận động)"
+//        }
+//    }
     fun evaluateSessionQuality(session: SleepSessionEntity): SleepQualityResult {
         val durationMillis = session.endTime - session.startTime
         val totalMinutes = durationMillis / 60000
@@ -190,7 +193,7 @@ class SleepViewModel @Inject constructor(
             }
         }
 
-        // Fallback về đánh giá theo tổng thời gian (Logic cũ)
+        // Fallback về đánh giá theo tổng thời gian
         return when {
             totalHours < 5 -> SleepQualityResult("Kém (Quá ít)", 0xFFEF4444) // Đỏ
             totalHours in 5.0..6.5 -> SleepQualityResult("Khá (Cần ngủ thêm)", 0xFFF59E0B) // Vàng
@@ -281,6 +284,19 @@ class SleepViewModel @Inject constructor(
         val listener = FirebaseAuth.AuthStateListener { auth -> trySend(auth.currentUser) }
         auth.addAuthStateListener(listener)
         awaitClose { auth.removeAuthStateListener(listener) }
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            val uid = auth.currentUser?.uid
+            if (uid != null) {
+                loadChartData()
+                loadHistory()
+                delay(500)
+            }
+            _isRefreshing.value = false
+        }
     }
 }
 data class SleepQualityResult(val text: String, val colorHex: Long)

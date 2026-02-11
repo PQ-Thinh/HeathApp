@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,6 +100,8 @@ fun HealthDashboardScreen(
     var resultTime by remember { mutableLongStateOf(0L) }
 
     var showTargetDialog by remember { mutableStateOf(false) }
+
+    val isRefreshing by mainViewModel.isRefreshing.collectAsState()
 
     // Lấy target từ todayHealth, nếu chưa có (null hoặc 0) thì fallback về 10000
     val targetSteps = if ((todayHealth?.targetSteps ?: 0) > 0) todayHealth!!.targetSteps else 10000
@@ -205,142 +208,154 @@ fun HealthDashboardScreen(
                 )
             }
         ) { paddingValues ->
-            LazyColumn(
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { mainViewModel.refreshDashboard() },
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(paddingValues),
-                verticalArrangement = Arrangement.spacedBy(24.dp),
-                contentPadding = PaddingValues(
-                    top = 24.dp,
-                    start = 24.dp,
-                    end = 24.dp,
-                    bottom = 100.dp
-                ),
+                    .padding(paddingValues)
             ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(24.dp),
+                    contentPadding = PaddingValues(
+                        top = 24.dp,
+                        start = 24.dp,
+                        end = 24.dp,
+                        bottom = 100.dp
+                    ),
+                ) {
 
-                item {
-                    AnimatedVisibility(
-                        visible = isContentVisible,
-                        enter = fadeIn() + slideInVertically { -20 }
-                    ) {
-                        Column {
-                            Text(
-                                text = "Xin Chào, ${user?.name ?: "User"}!",
-                                style = TextStyle(
-                                    fontSize = 28.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = colors.textPrimary,
-                                    shadow = if (isDarkTheme) Shadow(Color.Black.copy(0.3f), blurRadius = 8f) else null
+                    item {
+                        AnimatedVisibility(
+                            visible = isContentVisible,
+                            enter = fadeIn() + slideInVertically { -20 }
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Xin Chào, ${user?.name ?: "User"}!",
+                                    style = TextStyle(
+                                        fontSize = 28.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = colors.textPrimary,
+                                        shadow = if (isDarkTheme) Shadow(
+                                            Color.Black.copy(0.3f),
+                                            blurRadius = 8f
+                                        ) else null
+                                    )
                                 )
-                            )
-                            Text(
-                                text = "Đây là bản tóm tắt sức khỏe của bạn hôm nay.",
-                                color = colors.textSecondary,
-                                fontSize = 16.sp
+                                Text(
+                                    text = "Đây là bản tóm tắt sức khỏe của bạn hôm nay.",
+                                    color = colors.textSecondary,
+                                    fontSize = 16.sp
+                                )
+                            }
+                        }
+                    }
+
+                    item {
+                        StepProgressCard(
+                            modifier = Modifier.fillMaxWidth(),
+                            currentSteps = steps,
+                            targetSteps = targetSteps,
+                            colors = colors,
+                            visible = isContentVisible,
+                            delay = 400,
+                            onClick = { onStepDetailClick() },
+                            onEditTargetClick = { showTargetDialog = true }
+                        )
+
+                        if (showTargetDialog) {
+                            EditTargetDialog(
+                                initialTarget = targetSteps,
+                                onDismiss = { showTargetDialog = false },
+                                onConfirm = { newTarget ->
+                                    mainViewModel.updateTargetSteps(newTarget)
+                                    showTargetDialog = false
+                                }
                             )
                         }
                     }
-                }
-
-                item {
-                    StepProgressCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        currentSteps = steps,
-                        targetSteps = targetSteps,
-                        colors = colors,
-                        visible = isContentVisible,
-                        delay = 400,
-                        onClick = { onStepDetailClick() },
-                        onEditTargetClick = { showTargetDialog = true }
-                    )
-
-                    if (showTargetDialog) {
-                        EditTargetDialog(
-                            initialTarget = targetSteps,
-                            onDismiss = { showTargetDialog = false },
-                            onConfirm = { newTarget ->
-                                mainViewModel.updateTargetSteps(newTarget)
-                                showTargetDialog = false
-                            }
-                        )
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            HealthStatCard(
+                                modifier = Modifier.weight(1f).clickable { onHeartDetailClick() },
+                                title = "Nhịp Tim",
+                                value = displayBpm.toString(),
+                                unit = "BPM",
+                                icon = Icons.Default.Favorite,
+                                accentColor = Color(0xFFEF4444),
+                                colors = colors,
+                                visible = isContentVisible,
+                                delay = 200
+                            )
+                            HealthStatCard(
+                                modifier = Modifier.weight(1f).clickable { onSleepDetailClick() },
+                                title = "Ngủ",
+                                value = sleepViewModel.formatDuration(duration),
+                                unit = "",
+                                icon = Icons.Default.NightsStay,
+                                accentColor = Color(0xFF8B5CF6),
+                                colors = colors,
+                                visible = isContentVisible,
+                                delay = 300
+                            )
+                        }
                     }
-                }
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
+
+                    item {
                         HealthStatCard(
-                            modifier = Modifier.weight(1f).clickable { onHeartDetailClick() },
-                            title = "Nhịp Tim",
-                            value = displayBpm.toString(),
-                            unit = "BPM",
-                            icon = Icons.Default.Favorite,
-                            accentColor = Color(0xFFEF4444),
-                            colors = colors,
-                            visible = isContentVisible,
-                            delay = 200
-                        )
-                        HealthStatCard(
-                            modifier = Modifier.weight(1f).clickable { onSleepDetailClick() },
-                            title = "Ngủ",
-                            value = sleepViewModel.formatDuration(duration),
-                            unit = "",
-                            icon = Icons.Default.NightsStay,
+                            modifier = Modifier.fillMaxWidth(),
+                            title = "BMI",
+                            value = user?.bmi?.let { String.format("%.2f", it) } ?: "...",
+                            unit = "Kg/m²",
+                            icon = Icons.Default.MonitorWeight,
                             accentColor = Color(0xFF8B5CF6),
                             colors = colors,
                             visible = isContentVisible,
                             delay = 300
                         )
                     }
-                }
-
-                item {
-                    HealthStatCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        title = "BMI",
-                        value = user?.bmi?.let { String.format("%.2f", it) } ?: "...",
-                        unit = "Kg/m²",
-                        icon = Icons.Default.MonitorWeight,
-                        accentColor = Color(0xFF8B5CF6),
-                        colors = colors,
-                        visible = isContentVisible,
-                        delay = 300
-                    )
-                }
 
 
-                item {
-                    if (latestRecord != null) {
-                        LatestActivityCard(
-                            modifier = Modifier.fillMaxWidth(),
-                            record = latestRecord!!,
-                            colors = colors,
-                            visible = isContentVisible,
-                            delay = 400,
-                            onClick = { _ ->
-                                resultSteps = latestRecord!!.count
-                                resultCalories = (latestRecord!!.count * 0.04).toInt()
-                                resultTime = (latestRecord!!.endTime - latestRecord!!.startTime) / 1000
-                                // Lưu thời gian bắt đầu để hiển thị ngày giờ
-                                resultTimestamp = latestRecord!!.startTime
-                                // Bật màn hình chi tiết lên
-                                showResultScreen = true
-                            }
-                        )
-                    } else {
-                        HealthStatCard(
-                            modifier = Modifier.fillMaxWidth().clickable { onStepDetailClick() },
-                            title = "Bước Đếm",
-                            value = steps.toString(),
-                            unit = "bước hôm nay",
-                            icon = Icons.Default.DirectionsRun,
-                            accentColor = Color(0xFF10B981),
-                            colors = colors,
-                            visible = isContentVisible,
-                            delay = 400,
-                            isLarge = true
-                        )
+                    item {
+                        if (latestRecord != null) {
+                            LatestActivityCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                record = latestRecord!!,
+                                colors = colors,
+                                visible = isContentVisible,
+                                delay = 400,
+                                onClick = { _ ->
+                                    resultSteps = latestRecord!!.count
+                                    resultCalories = (latestRecord!!.count * 0.04).toInt()
+                                    resultTime =
+                                        (latestRecord!!.endTime - latestRecord!!.startTime) / 1000
+                                    // Lưu thời gian bắt đầu để hiển thị ngày giờ
+                                    resultTimestamp = latestRecord!!.startTime
+                                    // Bật màn hình chi tiết lên
+                                    showResultScreen = true
+                                }
+                            )
+                        } else {
+                            HealthStatCard(
+                                modifier = Modifier.fillMaxWidth()
+                                    .clickable { onStepDetailClick() },
+                                title = "Bước Đếm",
+                                value = steps.toString(),
+                                unit = "bước hôm nay",
+                                icon = Icons.Default.DirectionsRun,
+                                accentColor = Color(0xFF10B981),
+                                colors = colors,
+                                visible = isContentVisible,
+                                delay = 400,
+                                isLarge = true
+                            )
+                        }
                     }
                 }
             }

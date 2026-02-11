@@ -46,6 +46,9 @@ class HeartViewModel @Inject constructor(
     private val _heartHistory = MutableStateFlow<List<HeartRateRecordEntity>>(emptyList())
     val heartHistory = _heartHistory.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
+
     private var realtimeJob: Job? = null
 
     init {
@@ -106,8 +109,8 @@ class HeartViewModel @Inject constructor(
         }
     }
 
-    fun evaluateHeartRate(bpm: Int) {
-        _assessment.value = when {
+    fun evaluateHeartRate(bpm: Int): String {
+        return when {
             bpm == 0 -> "Chưa có dữ liệu"
             bpm < 60 -> "Nhịp tim chậm"
             bpm in 60..100 -> "Bình thường"
@@ -121,7 +124,6 @@ class HeartViewModel @Inject constructor(
         viewModelScope.launch {
             repository.saveHeartRate(userId, bpm, LocalDateTime.now())
             _latestHeartRate.value = bpm
-            evaluateHeartRate(bpm)
             delay(1000)
             loadChartData()
             loadHistory()
@@ -176,6 +178,20 @@ class HeartViewModel @Inject constructor(
             delay(500)
             loadHistory()
             loadChartData()
+        }
+    }
+
+
+    fun refresh() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            val uid = auth.currentUser?.uid
+            if (uid != null) {
+                loadChartData()
+                loadHistory()
+                delay(500)
+            }
+            _isRefreshing.value = false
         }
     }
 

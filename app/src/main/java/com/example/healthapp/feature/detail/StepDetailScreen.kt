@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.DirectionsRun
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +68,8 @@ fun StepDetailScreen(
     var recordToEdit by remember { mutableStateOf<StepRecordEntity?>(null) }
 
     val currentCalories = stepViewModel.calculateCalories(currentSteps.toLong())
+
+    val isRefreshing by stepViewModel.isRefreshing.collectAsState()
 
     // Theme Setup
     val colors = if (isDarkTheme) DarkAesthetic else LightAesthetic
@@ -217,13 +220,18 @@ fun StepDetailScreen(
                 }
             }
         ) { paddingValues ->
-            LazyColumn(
-                modifier = Modifier
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { stepViewModel.refresh() },
+                modifier = Modifier.padding(paddingValues)
             ) {
-                // 1. Card Tổng quan (Steps + Calories)
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    // 1. Card Tổng quan (Steps + Calories)
 //                item {
 //                    Box(
 //                        modifier = Modifier
@@ -285,95 +293,101 @@ fun StepDetailScreen(
 //                    }
 //                }
 
-                // 2. Biểu đồ
-                item {
-                    Text(
-                        "Thống kê hoạt động",
-                        color = colors.textSecondary,
-                        modifier = Modifier.padding(bottom = 8.dp),
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    TimeRangeSelector(
-                        selectedRange = selectedTimeRange,
-                        onRangeSelected = { stepViewModel.setTimeRange(it) },
-                        activeColor = stepColor,
-                        inactiveColor = colors.textSecondary
-                    )
-
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(300.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(colors.glassContainer)
-                            .padding(16.dp)
-                    ) {
-                        StepChart(
-                            data = chartData,
-                            timeRange = selectedTimeRange,
-                        )
-                    }
-                }
-
-
-
-                // 4. Lịch sử (Giao diện mới)
-                item {
-                    // Header + Nút Xem thêm
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    // 2. Biểu đồ
+                    item {
                         Text(
-                            text = "Lịch sử hoạt động",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = colors.textPrimary
+                            "Thống kê hoạt động",
+                            color = colors.textSecondary,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                            fontWeight = FontWeight.Bold
                         )
 
-                        if (historyList.size > 3) {
-                            TextButton(onClick = { showHistoryDialog = true }) {
-                                Text("Xem thêm", color = stepColor, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
+                        TimeRangeSelector(
+                            selectedRange = selectedTimeRange,
+                            onRangeSelected = { stepViewModel.setTimeRange(it) },
+                            activeColor = stepColor,
+                            inactiveColor = colors.textSecondary
+                        )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
 
-                    if (historyList.isEmpty()) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(24.dp),
-                            contentAlignment = Alignment.Center
+                                .height(300.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(colors.glassContainer)
+                                .padding(16.dp)
                         ) {
-                            Text("Chưa có dữ liệu chạy bộ", color = colors.textSecondary)
+                            StepChart(
+                                data = chartData,
+                                timeRange = selectedTimeRange,
+                            )
                         }
-                    } else {
-                        // Hiển thị 3 item mới nhất
-                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            historyList.take(3).forEach { record ->
-                                SimpleStepHistoryRow(
-                                    record = record,
-                                    colors = colors,
-                                    stepColor = stepColor,
-                                    onDelete = { stepViewModel.deleteStepRecord(record) },
-                                    onEdit = { recordToEdit = record
-                                        selectedRecord = null
-                                        showAddDialog = true },
-                                    modifier = Modifier.clickable { selectedRecord = record }
-                                )
+                    }
+
+
+                    // 4. Lịch sử (Giao diện mới)
+                    item {
+                        // Header + Nút Xem thêm
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Lịch sử hoạt động",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = colors.textPrimary
+                            )
+
+                            if (historyList.size > 3) {
+                                TextButton(onClick = { showHistoryDialog = true }) {
+                                    Text(
+                                        "Xem thêm",
+                                        color = stepColor,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        if (historyList.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Chưa có dữ liệu chạy bộ", color = colors.textSecondary)
+                            }
+                        } else {
+                            // Hiển thị 3 item mới nhất
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                historyList.take(3).forEach { record ->
+                                    SimpleStepHistoryRow(
+                                        record = record,
+                                        colors = colors,
+                                        stepColor = stepColor,
+                                        onDelete = { stepViewModel.deleteStepRecord(record) },
+                                        onEdit = {
+                                            recordToEdit = record
+                                            selectedRecord = null
+                                            showAddDialog = true
+                                        },
+                                        modifier = Modifier.clickable { selectedRecord = record }
+                                    )
+                                }
                             }
                         }
                     }
-                }
 
-                // Padding bottom để tránh FAB che
-                item { Spacer(modifier = Modifier.height(50.dp)) }
+                    // Padding bottom để tránh FAB che
+                    item { Spacer(modifier = Modifier.height(50.dp)) }
+                }
             }
         }
     }

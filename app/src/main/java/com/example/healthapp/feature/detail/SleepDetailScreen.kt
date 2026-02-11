@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,6 +77,7 @@ fun SleepDetailScreen(
     val accentColor = Color(0xFF6366F1) // Màu tím đặc trưng cho giấc ngủ
 
     var recordToEdit by remember { mutableStateOf<SleepSessionEntity?>(null) }
+    val isRefreshing by sleepViewModel.isRefreshing.collectAsState() // THÊM
 
     // Animation nền
     val infiniteTransition = rememberInfiniteTransition(label = "background")
@@ -108,7 +110,7 @@ fun SleepDetailScreen(
                 // Nội dung trong Dialog
                 val start = SimpleDateFormat("HH:mm dd/MM", Locale.getDefault()).format(Date(item.startTime))
                 val end = SimpleDateFormat("HH:mm dd/MM", Locale.getDefault()).format(Date(item.endTime))
-                val totalHours = (item.endTime - item.startTime) / (1000 * 60 * 60f)
+                val totalHours = (item.endTime - item.startTime) / (1000 * 60f)
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
@@ -120,7 +122,7 @@ fun SleepDetailScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = String.format("%.1f giờ", totalHours),
+                            text = sleepViewModel.formatMinToHr(totalHours.toLong()),
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
                             color = textColor
@@ -213,100 +215,110 @@ fun SleepDetailScreen(
                 }
             }
         ) { paddingValues ->
-            LazyColumn(
-                modifier = Modifier
-                    .padding(paddingValues)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { sleepViewModel.refresh() },
+                modifier = Modifier.padding(paddingValues)
             ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
 
 
-                // 2. Thanh chọn Thời gian & Biểu đồ
-                item {
-                    Text(
-                        "Biểu đồ giấc ngủ",
-                        color = colors.textSecondary,
-                        modifier = Modifier.padding(bottom = 4.dp),
-                        fontWeight = FontWeight.Bold
-                    )
-
-                    TimeRangeSelector(
-                        selectedRange = selectedTimeRange,
-                        onRangeSelected = { newRange ->
-                            sleepViewModel.setTimeRange(newRange)
-                        },
-                        activeColor = accentColor,
-                        inactiveColor = colors.textSecondary
-                    )
-                }
-
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(colors.glassContainer)
-                            .padding(16.dp)
-                    ) {
-                        SleepChart(
-                            data = chartData,
-                            timeRange = selectedTimeRange
-                        )
-                    }
-                }
-
-                // 4. Lịch sử (Giao diện mới)
-                item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    // 2. Thanh chọn Thời gian & Biểu đồ
+                    item {
                         Text(
-                            text = "Lịch sử giấc ngủ",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = colors.textPrimary
+                            "Biểu đồ giấc ngủ",
+                            color = colors.textSecondary,
+                            modifier = Modifier.padding(bottom = 4.dp),
+                            fontWeight = FontWeight.Bold
                         )
 
-                        if (historyList.size > 3) {
-                            TextButton(onClick = { showHistoryDialog = true }) {
-                                Text("Xem thêm", color = accentColor, fontWeight = FontWeight.Bold)
-                            }
-                        }
+                        TimeRangeSelector(
+                            selectedRange = selectedTimeRange,
+                            onRangeSelected = { newRange ->
+                                sleepViewModel.setTimeRange(newRange)
+                            },
+                            activeColor = accentColor,
+                            inactiveColor = colors.textSecondary
+                        )
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    if (historyList.isEmpty()) {
+                    item {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(24.dp),
-                            contentAlignment = Alignment.Center
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(colors.glassContainer)
+                                .padding(16.dp)
                         ) {
-                            Text("Chưa có dữ liệu giấc ngủ", color = colors.textSecondary)
+                            SleepChart(
+                                data = chartData,
+                                timeRange = selectedTimeRange
+                            )
                         }
-                    } else {
-                        // HIỂN THỊ TỐI ĐA 3 DÒNG
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            historyList.take(3).forEach { session ->
-                                SimpleSleepHistoryRow(
-                                    session = session,
-                                    colors = colors,
-                                    accentColor = accentColor,
-                                    onDelete = {sleepViewModel.deleteSleepRecord(session)},
-                                    onEdit = {
-                                        recordToEdit = session
-                                    },
-                                    modifier = Modifier.clickable { selectedRecord = session }
-                                )
+                    }
+
+                    // 4. Lịch sử (Giao diện mới)
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Lịch sử giấc ngủ",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = colors.textPrimary
+                            )
+
+                            if (historyList.size > 3) {
+                                TextButton(onClick = { showHistoryDialog = true }) {
+                                    Text(
+                                        "Xem thêm",
+                                        color = accentColor,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        if (historyList.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("Chưa có dữ liệu giấc ngủ", color = colors.textSecondary)
+                            }
+                        } else {
+                            // HIỂN THỊ TỐI ĐA 3 DÒNG
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                historyList.take(3).forEach { session ->
+                                    SimpleSleepHistoryRow(
+                                        session = session,
+                                        colors = colors,
+                                        accentColor = accentColor,
+                                        onDelete = { sleepViewModel.deleteSleepRecord(session) },
+                                        onEdit = {
+                                            recordToEdit = session
+                                        },
+                                        modifier = Modifier.clickable { selectedRecord = session }
+                                    )
+                                }
                             }
                         }
                     }
-                }
 
-                item { Spacer(modifier = Modifier.height(80.dp)) }
+                    item { Spacer(modifier = Modifier.height(80.dp)) }
+                }
             }
         }
     }

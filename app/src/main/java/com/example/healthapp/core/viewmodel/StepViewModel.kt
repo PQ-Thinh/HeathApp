@@ -61,6 +61,9 @@ class StepViewModel @Inject constructor(
 
     private val _isCountdownActive = MutableStateFlow(false)
     val isCountdownActive = _isCountdownActive.asStateFlow()
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
+
 
     // Biến nội bộ
     private var _startSessionSteps = 0
@@ -341,6 +344,19 @@ class StepViewModel @Inject constructor(
 
     fun calculateCalories(steps: Long): Int {
         return (0.04 * steps * userWeight / 70).toInt()
+    }
+
+    fun refresh() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            val uid = auth.currentUser?.uid
+            if (uid != null) {
+                loadChartData()
+                loadHistory()
+                delay(500) // UI Effect
+            }
+            _isRefreshing.value = false
+        }
     }
 
     fun formatDuration(seconds: Long): String {
