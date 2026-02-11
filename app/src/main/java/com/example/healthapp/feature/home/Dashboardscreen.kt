@@ -404,7 +404,7 @@ fun HealthDashboardScreen(
                         }
                     }
 
-                    // Hiển thị danh sách user dưới dạng các item của LazyColumn
+
                     items(items = allUsers, key = { it.id }) { userItem ->
                         UserInviteDashboardItem(
                             user = userItem,
