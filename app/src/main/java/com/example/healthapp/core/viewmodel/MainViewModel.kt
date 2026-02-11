@@ -17,6 +17,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -67,6 +68,8 @@ class MainViewModel @Inject constructor(
     private val _todayHealthData = MutableStateFlow<DailyHealthEntity?>(null)
     val todayHealthData: StateFlow<DailyHealthEntity?> = _todayHealthData.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
 
 
     // Trạng thái Login: null (đang check), true, false
@@ -301,6 +304,21 @@ class MainViewModel @Inject constructor(
             } catch (e: Exception) {
                 Log.e("MainViewModel", "Sync error: ${e.message}")
             }
+        }
+    }
+    fun refreshDashboard() {
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            val uid = auth.currentUser?.uid
+            if (uid != null) {
+                try {
+                    syncData()
+                    delay(1000)
+                } catch (e: Exception) {
+                    Log.e("MainViewModel", "Refresh error: ${e.message}")
+                }
+            }
+            _isRefreshing.value = false
         }
     }
 

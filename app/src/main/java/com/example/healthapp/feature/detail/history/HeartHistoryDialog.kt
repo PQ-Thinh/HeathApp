@@ -39,7 +39,6 @@ fun HeartHistoryDetailDialog(
     val isMyData = record.source == context.packageName
 
     val dateFormat = SimpleDateFormat("HH:mm - dd/MM/yyyy", Locale.getDefault())
-    val assessment by heartViewModel.assessment.collectAsState()
     val latestHeartRate by heartViewModel.latestHeartRate.collectAsState()
 
 
@@ -84,9 +83,9 @@ fun HeartHistoryDetailDialog(
 
                     }
                     Text(
-                        text = assessment,
+                        text = "${heartViewModel.evaluateHeartRate(record.bpm)}",
                         fontSize = 18.sp,
-                        color = if (latestHeartRate in 60..100) Color(0xFF22C55E) else Color(0xFFEAB308)
+                        color = if (record.bpm in 60..100) Color(0xFF22C55E) else Color(0xFFEAB308)
                         ,modifier = Modifier.weight(1f)
                     )                }
                 // BPM To
