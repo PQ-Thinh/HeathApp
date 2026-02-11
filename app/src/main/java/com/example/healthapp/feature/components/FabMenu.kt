@@ -61,16 +61,7 @@ fun FabMenu(
                 delay = 50
             )
         }
-        if (isRunActive) {
-            Box(
-                modifier = Modifier
-                    .size(12.dp)
-                    .clip(CircleShape)
-                    .background(Color.Red)
-                    .align(Alignment.End)
-                    .border(2.dp, Color.White, CircleShape)
-            )
-        }
+
 
         // Nút chính (FAB)
         Box(
@@ -89,6 +80,16 @@ fun FabMenu(
                     .size(24.dp)
                     .rotate(rotation)
             )
+            if (isRunActive) {
+                Box(
+                    modifier = Modifier
+                        .size(12.dp)
+                        .clip(CircleShape)
+                        .background(Color.Red)
+                       // .align(Alignment.End)
+                        .border(2.dp, Color.White, CircleShape)
+                )
+            }
         }
     }
 }

@@ -794,6 +794,8 @@ class HealthRepository @Inject constructor(
         }
     }
 
+
+    // ---- Invitation---
     fun startRealtimeSync(uid: String, onNewInvite: (InvitationEntity) -> Unit) {
         // Gọi xuống Manager và truyền tiếp callback đi
         syncManager.startListeningForInvitations(uid, onNewInvite)
@@ -803,5 +805,36 @@ class HealthRepository @Inject constructor(
     fun stopRealtimeSync() {
         syncManager.stopListening()
     }
+    suspend fun getAllUsers(): List<UserEntity> {
+        val uid = currentUserId ?: return emptyList()
+        return syncManager.getAllUsers(uid)
+    }
+
+    //Gửi lời mời
+    suspend fun sendInvitation(receiverId: String, senderName: String, targetSteps: Int): Boolean {
+        val uid = currentUserId ?: return false
+        return syncManager.sendInvitation(uid, senderName, receiverId, targetSteps)
+    }
+
+    //Chấp nhận/Từ chối lời mời
+    suspend fun respondToInvitation(invite: InvitationEntity, isAccepted: Boolean) {
+        val uid = currentUserId ?: return
+        syncManager.respondToInvitation(invite.id, uid, isAccepted, invite.targetSteps)
+    }
+
+    //Lắng nghe Realtime (Gộp cả nhận và gửi vào 1 hàm init hoặc tách rời tùy ViewModel)
+    fun startSocialListening(
+        onIncomingInvites: (List<InvitationEntity>) -> Unit,
+        onSentInviteStatusChange: (InvitationEntity) -> Unit
+    ) {
+        val uid = currentUserId ?: return
+
+        // Nghe lời mời đến
+        syncManager.startListeningForIncomingInvitations(uid, onIncomingInvites)
+
+        // Nghe trạng thái lời mời đi (để biết họ từ chối/chấp nhận)
+        syncManager.startListeningForSentInvitations(uid, onSentInviteStatusChange)
+    }
+
 
 }

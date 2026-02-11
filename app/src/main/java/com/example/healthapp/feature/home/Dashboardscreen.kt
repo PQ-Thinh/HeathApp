@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.NightsStay
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.DirectionsRun
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -41,9 +42,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.healthapp.core.helperEnum.RunState
 import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.SleepViewModel
+import com.example.healthapp.core.viewmodel.SocialViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.core.viewmodel.UserViewModel
 import com.example.healthapp.feature.components.EditTargetDialog
@@ -70,6 +73,7 @@ fun HealthDashboardScreen(
     stepViewModel: StepViewModel,
     onToggleService: (Boolean) -> Unit = {},
     isServiceRunning: Boolean = false,
+    socialViewModel: SocialViewModel = hiltViewModel()
    // onRecordClick: (String) -> Unit = {}
 ) {
     val runState by stepViewModel.runState.collectAsState()
@@ -109,6 +113,7 @@ fun HealthDashboardScreen(
     val stepHistory by stepViewModel.stepHistory.collectAsState(initial = emptyList())
     val latestRecord = stepHistory.firstOrNull() // Lấy phần tử đầu tiên (mới nhất)
     var resultTimestamp by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    val invitations by socialViewModel.incomingInvitations.collectAsState()
 
     // Kiểm tra ngay khi vào Dashboard, nếu đang chạy ngầm thì mở lại RunTrackingScreen
     LaunchedEffect(Unit) {
@@ -357,6 +362,16 @@ fun HealthDashboardScreen(
                             )
                         }
                     }
+                    item {
+                        // Hiển thị Banner nếu có lời mời
+                        if (invitations.isNotEmpty()) {
+                            InvitationAlertBanner(
+                                count = invitations.size,
+                                onClick = onNotificationsClick
+
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -372,7 +387,7 @@ fun HealthDashboardScreen(
 
         FabMenu(
             isRunActive = isRunningBackground,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(24.dp),
+            modifier = Modifier.align(Alignment.BottomEnd).padding(14.dp),
             expanded = isFabExpanded,
             onExpandChange = { isFabExpanded = it },
             onRunClick = {
@@ -604,6 +619,27 @@ fun StepProgressCard(
                     )
                 }
             }
+        }
+    }
+}
+@Composable
+fun InvitationAlertBanner(count: Int, onClick: () -> Unit) {
+    Card(
+        onClick = onClick,
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF7ED)), // Cam nhạt
+        modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Outlined.DirectionsRun, contentDescription = null, tint = Color(0xFFFF9800))
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "Bạn có $count lời mời thách đấu mới!",
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFFE65100)
+            )
         }
     }
 }
