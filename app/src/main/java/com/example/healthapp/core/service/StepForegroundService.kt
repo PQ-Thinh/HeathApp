@@ -17,6 +17,7 @@ import androidx.datastore.preferences.core.Preferences
 import com.example.healthapp.MainActivity
 import com.example.healthapp.R
 import com.example.healthapp.core.data.HealthSensorManager
+import com.example.healthapp.core.helperEnum.RunState // Đảm bảo import Enum này
 import com.example.healthapp.core.viewmodel.StepViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
@@ -32,18 +33,23 @@ class StepForegroundService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isServiceRunning = false
 
-    // State đồng bộ từ ViewModel
-    private var isRunMode = false
+    // Thay vì Boolean, dùng Enum hoặc String để quản lý 3 trạng thái: RUNNING, PAUSED, STOPPED
+    private var currentRunState = RunState.STOPPED
+
+    // Các biến lưu dữ liệu
     private var runStartSteps = 0
     private var runStartTime = 0L
-
-    // Cache bước hiện tại từ sensor
     private var currentRawSteps = 0
+
+    // Biến đếm thời gian thực tế (để hiển thị khi Pause)
+    private var displayDurationSeconds = 0L
 
     companion object {
         const val CHANNEL_ID = "health_tracker_channel"
         const val NOTIFICATION_ID = 999
         const val ACTION_START = "ACTION_START"
+        const val ACTION_PAUSE = "ACTION_PAUSE" // Thêm lại Action này
+        const val ACTION_RESUME = "ACTION_RESUME" // Thêm lại Action này
         const val ACTION_STOP = "ACTION_STOP"
     }
 
@@ -52,19 +58,17 @@ class StepForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        observeDataStore() // 1. Lắng nghe lệnh Start/Stop
-        observeSensor()    // 2. Lắng nghe bước chân
+        observeDataStore()
+        observeSensor()
     }
 
-    // Lắng nghe DataStore để biết khi nào chuyển chế độ
     private fun observeDataStore() {
         serviceScope.launch {
             dataStore.data.collectLatest { prefs ->
-                isRunMode = prefs[StepViewModel.PREF_IS_RUNNING] ?: false
+                // Lấy các giá trị mốc (Start Steps, Start Time) từ DataStore để tính toán
                 runStartSteps = prefs[StepViewModel.PREF_START_STEPS] ?: 0
                 runStartTime = prefs[StepViewModel.PREF_START_TIME] ?: 0L
-                updateNotification()
-                Log.d("StepDebug", "Service Sync: Mode=$isRunMode, StartSteps=$runStartSteps")
+                Log.d("StepService", "DataStore Sync: StartSteps=$runStartSteps, StartTime=$runStartTime")
             }
         }
     }
@@ -73,76 +77,111 @@ class StepForegroundService : Service() {
         serviceScope.launch {
             sensorManager.stepFlow.collectLatest { totalSteps ->
                 currentRawSteps = totalSteps
-                updateNotification()
+                // Chỉ update Notification nếu đang CHẠY. Nếu Pause thì giữ nguyên số bước cũ.
+                if (currentRunState == RunState.RUNNING) {
+                    updateNotification()
+                }
             }
         }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_START) {
-            if (!isServiceRunning) {
+        when (intent?.action) {
+            ACTION_START -> {
                 isServiceRunning = true
+                currentRunState = RunState.RUNNING // Đồng bộ trạng thái
                 startForegroundCompact()
                 startTimerTicker()
             }
-        } else if (intent?.action == ACTION_STOP) {
-            isServiceRunning = false
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
+            ACTION_PAUSE -> {
+                Log.d("StepService", "Nhận lệnh PAUSE từ ViewModel")
+                currentRunState = RunState.PAUSED // Service chuyển trạng thái
+
+                updateNotification() // Cập nhật Notif thành "Đã tạm dừng"
+            }
+            ACTION_RESUME -> {
+                Log.d("StepService", "Nhận lệnh RESUME từ ViewModel")
+                currentRunState = RunState.RUNNING
+
+                observeSensor()
+
+                updateNotification()
+            }
+            ACTION_STOP -> {
+                isServiceRunning = false
+                currentRunState = RunState.STOPPED
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
         }
         return START_STICKY
     }
-
-    // Cập nhật đồng hồ mỗi giây
     private fun startTimerTicker() {
         serviceScope.launch {
             while (isServiceRunning) {
-                if (isRunMode) updateNotification()
+                // Chỉ cập nhật thời gian và notification khi trạng thái là RUNNING
+                if (currentRunState == RunState.RUNNING) {
+                    // Tính thời gian dựa trên SystemTime để chính xác
+                    if (runStartTime > 0L) {
+                        displayDurationSeconds = (System.currentTimeMillis() - runStartTime) / 1000
+                    }
+                    updateNotification()
+                }
                 delay(1000)
             }
         }
     }
-
     private fun updateNotification() {
         if (!isServiceRunning) return
 
-        val notification = if (isRunMode) {
-            // --- CHẾ ĐỘ RUN TRACKING ---
+        val notification = when (currentRunState) {
+            RunState.RUNNING, RunState.PAUSED -> {
+                // --- CHẾ ĐỘ RUN TRACKING (Kể cả khi Pause) ---
+                val effectiveStartSteps = if (runStartSteps == 0) currentRawSteps else runStartSteps
+                val sessionSteps = (currentRawSteps - effectiveStartSteps).coerceAtLeast(0)
 
-            // Nếu runStartSteps = 0 (do ViewModel chưa kịp lưu), ta tạm lấy currentRawSteps làm mốc
-            val effectiveStartSteps = if (runStartSteps == 0) currentRawSteps else runStartSteps
-
-            val sessionSteps = (currentRawSteps - effectiveStartSteps).coerceAtLeast(0)
-            Log.d("StepDebug", "Service Notif (RUN): Raw($currentRawSteps) - Start($effectiveStartSteps) = Show($sessionSteps)")
-
-            val durationSeconds = if (runStartTime > 0L) {
-                (System.currentTimeMillis() - runStartTime) / 1000
-            } else 0L
-
-            buildRunNotification(sessionSteps, formatDuration(durationSeconds))
-        } else {
-            Log.d("StepDebug", "Service Notif (DAILY): Show($currentRawSteps)")
-            // --- CHẾ ĐỘ DAILY (Mặc định) ---
-            buildDailyNotification(currentRawSteps)
+                buildRunNotification(sessionSteps, formatDuration(displayDurationSeconds), currentRunState == RunState.PAUSED)
+            }
+            else -> {
+                // --- CHẾ ĐỘ DAILY ---
+                buildDailyNotification(currentRawSteps)
+            }
         }
 
-        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
+        try {
+            getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification)
+        } catch (e: SecurityException) {
+            e.printStackTrace()
+        }
     }
 
-    private fun buildRunNotification(steps: Int, timeStr: String): Notification {
-        val intent = Intent(this, MainActivity::class.java)
+    private fun buildRunNotification(steps: Int, timeStr: String, isPaused: Boolean): Notification {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
         val pendingIntent = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
 
+        // Tạo Action Pause/Resume ngay trên Notification (Tùy chọn nâng cao UX)
+        val actionIntent = Intent(this, StepForegroundService::class.java).apply {
+            action = if (isPaused) ACTION_RESUME else ACTION_PAUSE
+        }
+        val actionPendingIntent = PendingIntent.getService(this, 1, actionIntent, PendingIntent.FLAG_IMMUTABLE)
+
+        val actionTitle = if (isPaused) "Tiếp tục" else "Tạm dừng"
+
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Đang chạy: $timeStr")
-            .setContentText("Số bước: $steps | Cố lên! 🔥")
+            .setContentTitle(if (isPaused) "Đã tạm dừng: $timeStr" else "Đang chạy: $timeStr")
+            .setContentText("Số bước: $steps ${if(isPaused) "(Tạm nghỉ)" else "| Cố lên! 🔥"}")
             .setSmallIcon(R.mipmap.logoapp)
             .setContentIntent(pendingIntent)
             .setOnlyAlertOnce(true)
-            .setOngoing(true)
+            .setOngoing(true) // Không cho vuốt tắt
+            .addAction(R.drawable.ic_launcher_foreground, actionTitle, actionPendingIntent) // Thêm nút bấm trên notif
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
+
+    // ... (Giữ nguyên các hàm buildDailyNotification, formatDuration, createNotificationChannel, onDestroy)
 
     private fun buildDailyNotification(totalSteps: Int): Notification {
         val intent = Intent(this, MainActivity::class.java)

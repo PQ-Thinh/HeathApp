@@ -1,6 +1,8 @@
 package com.example.healthapp.core.viewmodel
 
 import android.content.ContentValues.TAG
+import android.content.Context
+import android.content.Intent
 import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
@@ -8,6 +10,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.StepBucket
@@ -16,9 +19,11 @@ import com.example.healthapp.core.helperEnum.ChartTimeRange
 import com.example.healthapp.core.helperEnum.RunState // <--- IMPORT ĐÚNG PACKAGE
 import com.example.healthapp.core.model.entity.StepRecordEntity
 import com.example.healthapp.core.model.entity.UserEntity
+import com.example.healthapp.core.service.StepForegroundService
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
@@ -35,7 +40,8 @@ class StepViewModel @Inject constructor(
     private val repository: HealthRepository,
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore,
-    private val dataStore: DataStore<Preferences>
+    private val dataStore: DataStore<Preferences>,
+    @ApplicationContext private val context: Context,
 ) : ViewModel() {
 
     // --- CHART & HISTORY ---
@@ -78,33 +84,34 @@ class StepViewModel @Inject constructor(
         val PREF_IS_RUNNING = booleanPreferencesKey("session_is_running")
         val PREF_START_STEPS = intPreferencesKey("session_start_steps")
         val PREF_START_TIME = longPreferencesKey("session_start_time")
+        val PREF_RUN_STATE = stringPreferencesKey("session_run_state")
     }
 
     // --- State: Thông tin User ---
-    @OptIn(ExperimentalCoroutinesApi::class)
-    val currentUserInfo: Flow<UserEntity?> = authStateChanges()
-        .flatMapLatest { firebaseUser ->
-            if (firebaseUser == null) {
-                flowOf<UserEntity?>(null)
-            } else {
-                callbackFlow {
-                    val listener = firestore.collection("users").document(firebaseUser.uid)
-                        .addSnapshotListener { snapshot, _ ->
-                            if (snapshot != null && snapshot.exists()) {
-                                val user = snapshot.toObject(UserEntity::class.java)
-                                if (user != null) {
-                                    userWeight = user.weight ?: 70f
-                                    trySend(user)
-                                }
-                            } else {
-                                trySend(null)
-                            }
-                        }
-                    awaitClose { listener.remove() }
-                }
-            }
-        }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+//    @OptIn(ExperimentalCoroutinesApi::class)
+//    val currentUserInfo: Flow<UserEntity?> = authStateChanges()
+//        .flatMapLatest { firebaseUser ->
+//            if (firebaseUser == null) {
+//                flowOf<UserEntity?>(null)
+//            } else {
+//                callbackFlow {
+//                    val listener = firestore.collection("users").document(firebaseUser.uid)
+//                        .addSnapshotListener { snapshot, _ ->
+//                            if (snapshot != null && snapshot.exists()) {
+//                                val user = snapshot.toObject(UserEntity::class.java)
+//                                if (user != null) {
+//                                    userWeight = user.weight ?: 70f
+//                                    trySend(user)
+//                                }
+//                            } else {
+//                                trySend(null)
+//                            }
+//                        }
+//                    awaitClose { listener.remove() }
+//                }
+//            }
+//        }
+//        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     init {
         restoreSession()
@@ -252,12 +259,26 @@ class StepViewModel @Inject constructor(
 
     fun pauseRunSession() {
         _runState.value = RunState.PAUSED
-        pauseTimer()
+        val intent = Intent(context, StepForegroundService::class.java).apply {
+            action = StepForegroundService.ACTION_PAUSE
+        }
+        context.startService(intent)
+
+        viewModelScope.launch {
+            pauseTimer()
+        }
+
     }
 
     fun resumeRunSession() {
         _runState.value = RunState.RUNNING
-        startTimer()
+        val intent = Intent(context, StepForegroundService::class.java).apply {
+            action = StepForegroundService.ACTION_RESUME
+        }
+        context.startService(intent)
+        viewModelScope.launch {
+            startTimer()
+        }
     }
 
     fun finishRunSession(currentTotalSteps: Int) {
