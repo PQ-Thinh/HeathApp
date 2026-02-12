@@ -81,7 +81,7 @@ class StepViewModel @Inject constructor(
 
     // Key lưu trữ DataStore
     companion object {
-        val PREF_IS_RUNNING = booleanPreferencesKey("session_is_running")
+        //val PREF_IS_RUNNING = booleanPreferencesKey("session_is_running")
         val PREF_START_STEPS = intPreferencesKey("session_start_steps")
         val PREF_START_TIME = longPreferencesKey("session_start_time")
         val PREF_RUN_STATE = stringPreferencesKey("session_run_state")
@@ -119,26 +119,6 @@ class StepViewModel @Inject constructor(
         viewModelScope.launch {
             authStateChanges().collectLatest { user ->
                 if (user == null) clearData() else loadData()
-            }
-            dataStore.data.collectLatest { prefs ->
-                val stateName = prefs[PREF_RUN_STATE] ?: RunState.IDLE.name
-                val newState = try { RunState.valueOf(stateName) } catch (e: Exception) { RunState.IDLE }
-
-                // Chỉ cập nhật khi có sự thay đổi
-                if (_runState.value != newState) {
-                    _runState.value = newState
-
-                    // Log để debug xem UI có nhận được không
-                    Log.d("SyncDebug", "ViewModel nhận State mới: $newState")
-
-                    // Xử lý logic phụ thuộc state (Timer)
-                    when (newState) {
-                        RunState.RUNNING -> startTimer()
-                        RunState.PAUSED -> pauseTimer()
-                        RunState.IDLE -> stopTimer()
-                        else -> {}
-                    }
-                }
             }
         }
     }
@@ -195,27 +175,33 @@ class StepViewModel @Inject constructor(
     private fun restoreSession() {
         viewModelScope.launch {
             dataStore.data.collectLatest { prefs ->
-                val isRunningInStore = prefs[PREF_IS_RUNNING] ?: false
+                // Đọc chuỗi trạng thái từ DataStore
+                val stateName = prefs[PREF_RUN_STATE] ?: RunState.IDLE.name
+                val newState = try {
+                    RunState.valueOf(stateName)
+                } catch (e: Exception) {
+                    RunState.IDLE
+                }
+
                 val startSteps = prefs[PREF_START_STEPS] ?: 0
                 val startTime = prefs[PREF_START_TIME] ?: 0L
 
-                Log.d("StepDebug", "VM Restore: Running=$isRunningInStore")
+                // Cập nhật UI State nếu có thay đổi
+                if (_runState.value != newState) {
+                    _runState.value = newState
 
-                // Đồng bộ DataStore (Boolean) -> RunState (Enum)
-                if (isRunningInStore) {
-                    // Nếu Store bảo đang chạy mà State đang IDLE -> Khôi phục
-                    if (_runState.value == RunState.IDLE) {
-                        _runState.value = RunState.RUNNING
+                    // Đồng bộ lại các biến mốc
+                    if (newState != RunState.IDLE) {
                         _startSessionSteps = startSteps
                         _sessionStartTimeMillis = startTime
-                        startTimer()
                     }
-                } else {
-                    // Nếu Store bảo dừng, mà State chưa dừng -> Dừng lại
-                    if (_runState.value != RunState.IDLE) {
-                        // Tạm thời coi như kết thúc hoặc IDLE nếu store bị xóa
-                        // _runState.value = RunState.IDLE
-                        // stopTimer()
+
+                    // Điều khiển Timer theo trạng thái
+                    when (newState) {
+                        RunState.RUNNING -> startTimer()
+                        RunState.PAUSED -> pauseTimer() // Dừng timer ngay
+                        RunState.IDLE -> stopTimer()
+                        else -> {}
                     }
                 }
             }
@@ -250,10 +236,14 @@ class StepViewModel @Inject constructor(
 
             // Lưu DataStore
             dataStore.edit {
-                it[PREF_IS_RUNNING] = true
+                it[PREF_RUN_STATE] = RunState.RUNNING.name
                 it[PREF_START_STEPS] = currentTotalSteps
                 it[PREF_START_TIME] = now
             }
+            val intent = Intent(context, StepForegroundService::class.java).apply {
+                action = StepForegroundService.ACTION_START
+            }
+            context.startService(intent)
         }
     }
 
@@ -261,7 +251,7 @@ class StepViewModel @Inject constructor(
         // Chỉ update khi đang ở trạng thái RUNNING
         if (_runState.value != RunState.RUNNING) return
 
-        // Fix lỗi lệch bước chân (Drift)
+        // lệch bước chân (Drift)
         if (_startSessionSteps > 0 && (currentTotalSteps - _startSessionSteps) > 1000) {
             Log.e(TAG, "AUTO-CORRECT: Fix Start $_startSessionSteps -> $currentTotalSteps")
             _startSessionSteps = currentTotalSteps
@@ -278,26 +268,17 @@ class StepViewModel @Inject constructor(
     }
 
     fun pauseRunSession() {
-        _runState.value = RunState.PAUSED
-        val intent = Intent(context, StepForegroundService::class.java).apply {
-            action = StepForegroundService.ACTION_PAUSE
-        }
-        context.startService(intent)
 
         viewModelScope.launch {
-            pauseTimer()
+            dataStore.edit { it[PREF_RUN_STATE] = RunState.PAUSED.name }
         }
 
     }
 
     fun resumeRunSession() {
-        _runState.value = RunState.RUNNING
-        val intent = Intent(context, StepForegroundService::class.java).apply {
-            action = StepForegroundService.ACTION_RESUME
-        }
-        context.startService(intent)
+
         viewModelScope.launch {
-            startTimer()
+            dataStore.edit { it[PREF_RUN_STATE] = RunState.RUNNING.name }
         }
     }
 
@@ -317,11 +298,14 @@ class StepViewModel @Inject constructor(
 
             // Xóa DataStore
             dataStore.edit {
-                it.remove(PREF_IS_RUNNING)
+                it.remove(PREF_RUN_STATE)
                 it.remove(PREF_START_STEPS)
                 it.remove(PREF_START_TIME)
             }
-
+            val intent = Intent(context, StepForegroundService::class.java).apply {
+                action = StepForegroundService.ACTION_STOP
+            }
+            context.startService(intent)
             // Reset UI
             sessionSteps.value = 0
             sessionDuration.value = 0

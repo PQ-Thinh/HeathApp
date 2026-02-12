@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.edit
 import com.example.healthapp.MainActivity
 import com.example.healthapp.R
 import com.example.healthapp.core.data.HealthSensorManager
@@ -33,8 +34,7 @@ class StepForegroundService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var isServiceRunning = false
 
-    // Thay vì Boolean, dùng Enum hoặc String để quản lý 3 trạng thái: RUNNING, PAUSED, STOPPED
-    private var currentRunState = RunState.STOPPED
+    private var currentRunState = RunState.IDLE
 
     // Các biến lưu dữ liệu
     private var runStartSteps = 0
@@ -65,10 +65,40 @@ class StepForegroundService : Service() {
     private fun observeDataStore() {
         serviceScope.launch {
             dataStore.data.collectLatest { prefs ->
-                // Lấy các giá trị mốc (Start Steps, Start Time) từ DataStore để tính toán
+                // Lấy trạng thái (String -> Enum)
+                val stateName = prefs[StepViewModel.PREF_RUN_STATE] ?: RunState.IDLE.name
+                val newState = try { RunState.valueOf(stateName) } catch (e: Exception) { RunState.IDLE }
+
                 runStartSteps = prefs[StepViewModel.PREF_START_STEPS] ?: 0
                 runStartTime = prefs[StepViewModel.PREF_START_TIME] ?: 0L
-                Log.d("StepService", "DataStore Sync: StartSteps=$runStartSteps, StartTime=$runStartTime")
+
+                // 2. Xử lý logic khi trạng thái thay đổi
+                if (currentRunState != newState) {
+                    currentRunState = newState
+                    when (newState) {
+                        RunState.RUNNING -> {
+                            if (!isServiceRunning) {
+                                isServiceRunning = true
+                                startForegroundCompact()
+
+                            }
+                            startTimerTicker()
+                            updateNotification() // Đổi nút thành PAUSE
+                        }
+                        RunState.PAUSED -> {
+                            //stopTimerTicker()
+                            updateNotification()
+                        }
+                        RunState.IDLE -> {
+                            isServiceRunning = false
+                           // stopTimerTicker()
+                            stopForeground(STOP_FOREGROUND_REMOVE)
+                            stopSelf()
+                            stopSelf() // Tự hủy nếu IDLE
+                        }
+                        else -> {}
+                    }
+                }
             }
         }
     }
@@ -88,29 +118,27 @@ class StepForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_START -> {
-                isServiceRunning = true
-                currentRunState = RunState.RUNNING // Đồng bộ trạng thái
-                startForegroundCompact()
-                startTimerTicker()
+                if (!isServiceRunning) {
+                    isServiceRunning = true
+                    startForegroundCompact()
+                }
             }
             ACTION_PAUSE -> {
-                Log.d("StepService", "Nhận lệnh PAUSE từ ViewModel")
-                currentRunState = RunState.PAUSED // Service chuyển trạng thái
-
-                updateNotification() // Cập nhật Notif thành "Đã tạm dừng"
+                // User bấm Pause trên Notif -> Ghi PAUSED vào DataStore
+                serviceScope.launch {
+                    dataStore.edit { it[StepViewModel.PREF_RUN_STATE] = RunState.PAUSED.name }
+                }
             }
             ACTION_RESUME -> {
-                Log.d("StepService", "Nhận lệnh RESUME từ ViewModel")
-                currentRunState = RunState.RUNNING
-
-                observeSensor()
-
-                updateNotification()
+                // User bấm Resume trên Notif -> Ghi RUNNING vào DataStore
+                serviceScope.launch {
+                    dataStore.edit { it[StepViewModel.PREF_RUN_STATE] = RunState.RUNNING.name }
+                }
             }
             ACTION_STOP -> {
-                isServiceRunning = false
-                currentRunState = RunState.STOPPED
-                stopForeground(STOP_FOREGROUND_REMOVE)
+                serviceScope.launch {
+                    dataStore.edit { it.remove(StepViewModel.PREF_RUN_STATE) }
+                }
                 stopSelf()
             }
         }
