@@ -48,8 +48,8 @@ class StepForegroundService : Service() {
         const val CHANNEL_ID = "health_tracker_channel"
         const val NOTIFICATION_ID = 999
         const val ACTION_START = "ACTION_START"
-        const val ACTION_PAUSE = "ACTION_PAUSE" // Thêm lại Action này
-        const val ACTION_RESUME = "ACTION_RESUME" // Thêm lại Action này
+        const val ACTION_PAUSE = "ACTION_PAUSE"
+        const val ACTION_RESUME = "ACTION_RESUME"
         const val ACTION_STOP = "ACTION_STOP"
     }
 
@@ -208,8 +208,6 @@ class StepForegroundService : Service() {
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
-
-    // ... (Giữ nguyên các hàm buildDailyNotification, formatDuration, createNotificationChannel, onDestroy)
 
     private fun buildDailyNotification(totalSteps: Int): Notification {
         val intent = Intent(this, MainActivity::class.java)

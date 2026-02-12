@@ -267,7 +267,7 @@ fun HeartRateScreen(
             onClick = { onBackClick(currentBpm) },
             colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
         ) {
-            Text("Quay lại", color = Color.White)
+            Text("Lưu và Quay lại", color = Color.White)
         }
     }
 }

@@ -6,7 +6,6 @@ import android.content.Intent
 import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
@@ -16,12 +15,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.StepBucket
 import com.example.healthapp.core.data.responsitory.HealthRepository
 import com.example.healthapp.core.helperEnum.ChartTimeRange
-import com.example.healthapp.core.helperEnum.RunState // <--- IMPORT ĐÚNG PACKAGE
+import com.example.healthapp.core.helperEnum.RunState
 import com.example.healthapp.core.model.entity.StepRecordEntity
-import com.example.healthapp.core.model.entity.UserEntity
 import com.example.healthapp.core.service.StepForegroundService
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.firestore.FirebaseFirestore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -39,7 +36,6 @@ import javax.inject.Inject
 class StepViewModel @Inject constructor(
     private val repository: HealthRepository,
     private val auth: FirebaseAuth,
-    private val firestore: FirebaseFirestore,
     private val dataStore: DataStore<Preferences>,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {

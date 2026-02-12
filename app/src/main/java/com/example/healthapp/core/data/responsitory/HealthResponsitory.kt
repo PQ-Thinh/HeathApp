@@ -48,7 +48,6 @@ class HealthRepository @Inject constructor(
     private val currentUserId: String?
         get() = auth.currentUser?.uid
 
-    //Lấy DailyHealth (Realtime Flow)
     fun getDailyHealth(date: String, userId: String): Flow<DailyHealthEntity?> = callbackFlow {
         val docRef = firestore.collection("users").document(userId)
             .collection("daily_health").document(date)
@@ -77,14 +76,11 @@ class HealthRepository @Inject constructor(
         val startOfDay = now.toLocalDate().atStartOfDay()
         val todayStr = now.toLocalDate().toString()
 
-        // Lấy tổng bước "chuẩn" từ Health Connect
-        // Số này chắc chắn đúng và khớp với HC
         val hcSteps = healthConnectManager.readSteps(startOfDay, now)
         val hcHeartRateAvg = healthConnectManager.readHeartRate(startOfDay, now)
         val hcSleep = healthConnectManager.readSleep(startOfDay, now)
 
         var currentTarget = 10000
-        // Kiểm tra xem hôm nay đã có bản ghi chưa và đã có target chưa
         val todayDocRef = firestore.collection("users").document(userId)
             .collection("daily_health").document(todayStr)
 
