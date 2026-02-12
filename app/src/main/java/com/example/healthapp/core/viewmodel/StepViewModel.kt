@@ -120,6 +120,26 @@ class StepViewModel @Inject constructor(
             authStateChanges().collectLatest { user ->
                 if (user == null) clearData() else loadData()
             }
+            dataStore.data.collectLatest { prefs ->
+                val stateName = prefs[PREF_RUN_STATE] ?: RunState.IDLE.name
+                val newState = try { RunState.valueOf(stateName) } catch (e: Exception) { RunState.IDLE }
+
+                // Chỉ cập nhật khi có sự thay đổi
+                if (_runState.value != newState) {
+                    _runState.value = newState
+
+                    // Log để debug xem UI có nhận được không
+                    Log.d("SyncDebug", "ViewModel nhận State mới: $newState")
+
+                    // Xử lý logic phụ thuộc state (Timer)
+                    when (newState) {
+                        RunState.RUNNING -> startTimer()
+                        RunState.PAUSED -> pauseTimer()
+                        RunState.IDLE -> stopTimer()
+                        else -> {}
+                    }
+                }
+            }
         }
     }
 
