@@ -1,6 +1,7 @@
 package com.example.healthapp.feature.home
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -57,6 +58,7 @@ import com.example.healthapp.ui.theme.AestheticColors
 import com.example.healthapp.ui.theme.DarkAesthetic
 import com.example.healthapp.ui.theme.LightAesthetic
 
+@SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HealthDashboardScreen(
@@ -433,7 +435,6 @@ fun HealthDashboardScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.6f))
-                    // Tắt click propagation để khi ấn ra ngoài sẽ đóng menu
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null
@@ -548,7 +549,7 @@ fun HealthStatCard(
         visible = visible,
         enter = fadeIn(tween(600, delay)) + slideInVertically(
             animationSpec = tween(600, delay),
-            initialOffsetY = { 50 } // Slide từ dưới lên nhẹ nhàng
+            initialOffsetY = { 50 }
         ),
         modifier = modifier
     ) {
@@ -671,13 +672,11 @@ fun StepProgressCard(
                         val strokeWidth = 14.dp.toPx()
 
                         // --- CẤU HÌNH MÀU SẮC ---
-                        // Màu cơ bản (0-100%)
                         val colorBaseBg = Color(0xFF10B981).copy(alpha = 0.2f)
                         val gradientBase = Brush.verticalGradient(
                             colors = listOf(Color(0xFF34D399), Color(0xFF10B981))
                         )
 
-                        // Màu "Vượt ngưỡng" (>100%): Vàng cam rực rỡ
                         val gradientOver = Brush.verticalGradient(
                             colors = listOf(Color(0xFFFFD700), Color(0xFFFF8C00)) // Gold -> Dark Orange
                         )
@@ -738,7 +737,7 @@ fun StepProgressCard(
                             text = "${(progress * 100).toInt()}%",
                             style = TextStyle(
                                 fontSize = 20.sp,
-                                fontWeight = FontWeight.Black, // Đậm hơn chút nữa
+                                fontWeight = FontWeight.Black,
                                 // Nếu > 100% thì dùng màu Cam, ngược lại dùng màu chính của theme
                                 color = if (progress > 1f) Color(0xFFFF8C00) else colors.textPrimary
                             )
@@ -847,7 +846,7 @@ fun UserInviteDashboardItem(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = user.name?.take(1)?.uppercase() ?: "?",
+                    text = user.name.take(1).uppercase() ?: "?",
                     color = Color.White,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp

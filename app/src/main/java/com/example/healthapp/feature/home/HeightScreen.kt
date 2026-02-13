@@ -1,5 +1,6 @@
 package com.example.healthapp.feature.home
 
+import android.annotation.SuppressLint
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -224,6 +225,7 @@ fun HeightPickerScreen(
     }
 }
 
+@SuppressLint("FrequentlyChangingValue")
 @Composable
 private fun RulerYAxis(
     minCm: Int,
