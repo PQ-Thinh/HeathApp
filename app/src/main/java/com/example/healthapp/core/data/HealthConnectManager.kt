@@ -20,6 +20,9 @@ import java.time.Period
 import java.time.ZoneId
 import kotlin.reflect.KClass
 import androidx.health.connect.client.records.Record
+import com.example.healthapp.core.helperEnumAndData.HeartRateBucket
+import com.example.healthapp.core.helperEnumAndData.SleepBucket
+import com.example.healthapp.core.helperEnumAndData.StepBucket
 
 class HealthConnectManager(private val context: Context) {
 
@@ -422,20 +425,3 @@ class HealthConnectManager(private val context: Context) {
 }
 
 // --- DATA CLASSES (Đã chuẩn hóa dùng LocalDateTime) ---
-
-data class HeartRateBucket(
-    val startTime: LocalDateTime,
-    val min: Long,
-    val max: Long,
-    val avg: Long
-)
-
-data class SleepBucket(
-    val startTime: LocalDateTime,
-    val totalMinutes: Long
-)
-data class StepBucket(
-    val startTime: LocalDateTime,
-    val endTime: LocalDateTime,
-    val totalSteps: Long
-)

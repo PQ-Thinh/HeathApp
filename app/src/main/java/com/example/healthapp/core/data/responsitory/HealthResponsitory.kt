@@ -4,9 +4,6 @@ import android.content.Context
 import android.util.Log
 import com.example.healthapp.core.data.FirebaseSyncManager
 import com.example.healthapp.core.data.HealthConnectManager
-import com.example.healthapp.core.data.HeartRateBucket
-import com.example.healthapp.core.data.SleepBucket
-import com.example.healthapp.core.data.StepBucket
 import com.example.healthapp.core.model.entity.DailyHealthEntity
 import com.example.healthapp.core.model.entity.HeartRateRecordEntity
 import com.example.healthapp.core.model.entity.InvitationEntity
@@ -31,6 +28,9 @@ import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.example.healthapp.core.helperEnumAndData.ChartTimeRange
+import com.example.healthapp.core.helperEnumAndData.HeartRateBucket
+import com.example.healthapp.core.helperEnumAndData.SleepBucket
+import com.example.healthapp.core.helperEnumAndData.StepBucket
 import com.example.healthapp.core.model.entity.NotificationEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
