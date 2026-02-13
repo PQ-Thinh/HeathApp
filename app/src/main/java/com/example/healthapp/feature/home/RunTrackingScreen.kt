@@ -171,42 +171,21 @@ fun RunTrackingScreen(
                         // --- NÚT KẾT THÚC (LOGIC ĐÃ SỬA) ---
                         Button(
                             onClick = {
-                                val TAG = "CRASH_FIX"
-
-                                // BƯỚC 1: Tắt Map ngay lập tức
                                 isMapVisible = false
-                                Log.d(TAG, "1. Map ẩn đi")
 
-                                // BƯỚC 2: Snapshot dữ liệu (Lấy số liệu ra khỏi ViewModel trước khi reset)
                                 val finalSteps = sessionSteps
                                 val finalDuration = sessionDuration
                                 val finalCalories = stepViewModel.calculateCalories(finalSteps.toLong())
 
-                                // BƯỚC 3: Dừng Service & Lưu DB
                                 onToggleService(false)
                                 stepViewModel.finishRunSession(rawSensorSteps)
-
-                                // BƯỚC 4: Quy trình thoát an toàn (Chạy trong Coroutine)
                                 scope.launch {
-                                    // Đợi 500ms: Đủ lâu để MapView chết hẳn và RAM được dọn dẹp
-                                    Log.d(TAG, "2. Đợi 500ms dọn dẹp Map...")
                                     delay(500)
-
-                                    // QUAN TRỌNG: Gọi onClose() TRƯỚC
-                                    // Để màn hình RunTracking đóng lại, kích hoạt hiệu ứng slideOut
-                                    Log.d(TAG, "3. Đóng màn hình RunTracking (onClose)")
                                     onClose()
-
-                                    // Đợi thêm 100ms cho hiệu ứng đóng bắt đầu mượt mà
                                     delay(100)
-
-                                    // CUỐI CÙNG: Mới hiện màn hình kết quả
-                                    // Lúc này Map đã mất, màn hình chạy đã đóng, nên Result hiện lên sẽ an toàn
-                                    Log.d(TAG, "4. Hiện màn hình kết quả (onFinishRun)")
                                     try {
                                         onFinishRun(finalSteps, finalCalories, finalDuration)
                                     } catch (e: Exception) {
-                                        Log.e(TAG, "LỖI KHI MỞ MÀN HÌNH KẾT QUẢ: ${e.message}")
                                         e.printStackTrace()
                                     }
                                 }
