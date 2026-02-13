@@ -1,7 +1,6 @@
 package com.example.healthapp.feature.home
 
 import android.preference.PreferenceManager
-import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -27,7 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.example.healthapp.core.helperEnum.RunState
+import com.example.healthapp.core.helperEnumAndData.RunState
 import com.example.healthapp.core.viewmodel.MainViewModel
 import com.example.healthapp.core.viewmodel.StepViewModel
 import com.example.healthapp.ui.theme.AestheticColors

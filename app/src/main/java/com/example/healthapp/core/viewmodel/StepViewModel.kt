@@ -14,8 +14,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.StepBucket
 import com.example.healthapp.core.data.responsitory.HealthRepository
-import com.example.healthapp.core.helperEnum.ChartTimeRange
-import com.example.healthapp.core.helperEnum.RunState
+import com.example.healthapp.core.helperEnumAndData.ChartTimeRange
+import com.example.healthapp.core.helperEnumAndData.RunState
 import com.example.healthapp.core.model.entity.StepRecordEntity
 import com.example.healthapp.core.service.StepForegroundService
 import com.google.firebase.auth.FirebaseAuth

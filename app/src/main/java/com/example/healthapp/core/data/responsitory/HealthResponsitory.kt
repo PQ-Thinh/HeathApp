@@ -30,7 +30,7 @@ import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.time.TimeRangeFilter
-import com.example.healthapp.core.helperEnum.ChartTimeRange
+import com.example.healthapp.core.helperEnumAndData.ChartTimeRange
 import com.example.healthapp.core.model.entity.NotificationEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant

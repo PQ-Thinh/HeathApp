@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.healthapp.core.data.SleepBucket
 import com.example.healthapp.core.data.responsitory.HealthRepository
-import com.example.healthapp.core.helperEnum.ChartTimeRange
+import com.example.healthapp.core.helperEnumAndData.ChartTimeRange
 import com.example.healthapp.core.model.entity.SleepSessionEntity
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -18,12 +18,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
-import java.util.Date
-import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel

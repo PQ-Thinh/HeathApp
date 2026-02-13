@@ -18,7 +18,7 @@ import androidx.datastore.preferences.core.edit
 import com.example.healthapp.MainActivity
 import com.example.healthapp.R
 import com.example.healthapp.core.data.HealthSensorManager
-import com.example.healthapp.core.helperEnum.RunState // Đảm bảo import Enum này
+import com.example.healthapp.core.helperEnumAndData.RunState // Đảm bảo import Enum này
 import com.example.healthapp.core.viewmodel.StepViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*

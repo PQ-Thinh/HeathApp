@@ -13,7 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.healthapp.core.data.HeartRateBucket
-import com.example.healthapp.core.helperEnum.ChartTimeRange
+import com.example.healthapp.core.helperEnumAndData.ChartTimeRange
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.Entry

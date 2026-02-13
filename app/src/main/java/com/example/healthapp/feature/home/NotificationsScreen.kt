@@ -41,6 +41,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.healthapp.core.helperEnumAndData.NotificationItem
 import com.example.healthapp.core.model.entity.InvitationEntity
 import com.example.healthapp.core.viewmodel.SocialViewModel
 import com.example.healthapp.ui.theme.AestheticColors
@@ -50,15 +51,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-// Model cho thông báo hệ thống (Dummy)
-data class NotificationItem(
-    val id: Int,
-    val title: String,
-    val description: String,
-    val time: String,
-    val icon: ImageVector,
-    val color: Color
-)
+
 
 @Composable
 fun NotificationsScreen(
@@ -85,7 +78,14 @@ fun NotificationsScreen(
     // Dummy data cho thông báo thường
     val notifications = remember {
         listOf(
-            NotificationItem(1, "Goal Achieved!", "You've reached your 10,000 steps goal.", "10m ago", Icons.Default.LocalFireDepartment, Color(0xFF10B981)),
+            NotificationItem(
+                1,
+                "Goal Achieved!",
+                "You've reached your 10,000 steps goal.",
+                "10m ago",
+                Icons.Default.LocalFireDepartment,
+                Color(0xFF10B981)
+            ),
             NotificationItem(2, "Heart Rate Alert", "Your heart rate was slightly higher.", "1h ago", Icons.Default.Favorite, Color(0xFFEF4444)),
             NotificationItem(3, "Sleep Analysis", "You had 2 hours of deep sleep last night.", "3h ago", Icons.Default.NightsStay, Color(0xFF8B5CF6)),
             NotificationItem(4, "Hydration", "Time to drink water! 500ml left.", "5h ago", Icons.Default.Info, Color(0xFF3B82F6)),

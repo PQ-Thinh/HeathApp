@@ -32,7 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.example.healthapp.core.helperEnum.ChartTimeRange
+import com.example.healthapp.core.helperEnumAndData.ChartTimeRange
 import com.example.healthapp.core.model.entity.HeartRateRecordEntity
 import com.example.healthapp.core.viewmodel.HeartViewModel
 import com.example.healthapp.feature.chart.HeartChart
