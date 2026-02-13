@@ -32,7 +32,6 @@ import java.time.Period
 @HiltViewModel
 class UserViewModel @Inject constructor(
     private val dataStore: DataStore<Preferences>,
-    //private val repository: HealthRepository,
     private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore
 ) : ViewModel() {
