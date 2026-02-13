@@ -136,7 +136,7 @@ class FirebaseSyncManager @Inject constructor(
         //LẮNG NGHE LỜI MỜI ĐÃ GỬI (Để biết họ từ chối hay chấp nhận)
         fun startListeningForSentInvitations(
             currentUid: String,
-            onListUpdate: (List<InvitationEntity>) -> Unit // Sửa callback nhận List
+            onListUpdate: (List<InvitationEntity>) -> Unit
         ) {
             sentInvitationListener?.remove()
             sentInvitationListener = firestore.collection("invitations")
@@ -156,7 +156,7 @@ class FirebaseSyncManager @Inject constructor(
         }
 
 
-        suspend fun pushNotification(
+    fun pushNotification(
             userId: String,
             title: String,
             message: String,
@@ -191,7 +191,7 @@ class FirebaseSyncManager @Inject constructor(
 
             invitationListener = firestore.collection("invitations")
                 .whereEqualTo("receiverId", currentUid)
-                .whereEqualTo("status", "PENDING") // Chỉ nghe lời mời mới
+                .whereEqualTo("status", "PENDING")
                 .addSnapshotListener { snapshots, e ->
                     if (e != null) return@addSnapshotListener
 

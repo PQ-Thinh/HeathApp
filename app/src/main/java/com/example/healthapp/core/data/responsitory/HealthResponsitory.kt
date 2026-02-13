@@ -738,7 +738,8 @@ class HealthRepository @Inject constructor(
                 avg = list.map { it.bpm }.average().toLong()
             )
         }.sortedBy { it.startTime }
-    }    // --- CÁC HÀM LỊCH SỬ (QUAN TRỌNG) ---
+    }
+    // --- CÁC HÀM LỊCH SỬ (QUAN TRỌNG) ---
 
     suspend fun getStepRecordHistory(): List<StepRecordEntity> {
         val uid = currentUserId ?: return emptyList()
@@ -822,7 +823,7 @@ class HealthRepository @Inject constructor(
     //Lắng nghe Realtime
     fun startSocialListening(
         onIncomingInvites: (List<InvitationEntity>) -> Unit,
-        onSentInvites: (List<InvitationEntity>) -> Unit // Đổi tên và kiểu dữ liệu
+        onSentInvites: (List<InvitationEntity>) -> Unit
     ) {
         val uid = currentUserId ?: return
 
