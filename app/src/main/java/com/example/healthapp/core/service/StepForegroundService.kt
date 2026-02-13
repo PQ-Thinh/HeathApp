@@ -1,5 +1,6 @@
 package com.example.healthapp.core.service
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -9,7 +10,6 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.datastore.core.DataStore
@@ -65,9 +65,8 @@ class StepForegroundService : Service() {
     private fun observeDataStore() {
         serviceScope.launch {
             dataStore.data.collectLatest { prefs ->
-                // Lấy trạng thái (String -> Enum)
                 val stateName = prefs[StepViewModel.PREF_RUN_STATE] ?: RunState.IDLE.name
-                val newState = try { RunState.valueOf(stateName) } catch (e: Exception) { RunState.IDLE }
+                val newState = try { RunState.valueOf(stateName) } catch (_: Exception) { RunState.IDLE }
 
                 runStartSteps = prefs[StepViewModel.PREF_START_STEPS] ?: 0
                 runStartTime = prefs[StepViewModel.PREF_START_TIME] ?: 0L
@@ -230,12 +229,14 @@ class StepForegroundService : Service() {
         )
     }
 
+    @SuppressLint("DefaultLocale")
     private fun formatDuration(seconds: Long): String {
         val m = (seconds % 3600) / 60
         val s = seconds % 60
         return String.format("%02d:%02d", m, s)
     }
 
+    @SuppressLint("ObsoleteSdkInt")
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= 26) {
             val channel = NotificationChannel(CHANNEL_ID, "Health Tracker", NotificationManager.IMPORTANCE_LOW)
